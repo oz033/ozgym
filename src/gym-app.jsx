@@ -1119,13 +1119,6 @@ function LogTab({ data, update }) {
                     </button>
                   ))}
             </div>
-            <button
-              className="ig-chip ig-ex-chip"
-              onClick={() => setShowAdd((s) => !s)}
-              aria-label="Übung hinzufügen"
-            >
-              + Neu
-            </button>
           </div>
 
           {/* Set progress dots */}
@@ -1146,6 +1139,14 @@ function LogTab({ data, update }) {
                 : `${doneCount} / ${TARGET_SETS}`}
             </span>
           </div>
+
+          <button
+            className="ig-chip ig-ex-chip add"
+            onClick={() => setShowAdd((s) => !s)}
+            aria-label="Übung hinzufügen"
+          >
+            + Neu
+          </button>
         </div>
 
         {showAdd && (
@@ -2280,6 +2281,8 @@ function Style() {
       .ig-ex-chip { font-size: 12px; padding: 5px 10px; border-radius: 20px; border: 1.5px solid var(--grid); background: transparent; color: var(--chalk); cursor: pointer; transition: all 0.15s; white-space: nowrap; }
       .ig-ex-chip:hover { border-color: var(--plate-gray); background: var(--surface-2); }
       .ig-ex-chip.active { border-color: var(--plate-green); background: color-mix(in srgb, var(--plate-green) 15%, transparent); color: var(--plate-green); font-weight: 600; }
+      .ig-ex-chip.add { border-style: dashed; color: var(--chalk-dim); font-size: 11px; }
+      .ig-ex-chip.add:hover { border-color: var(--plate-yellow); color: var(--plate-yellow); border-style: dashed; }
       .ig-ex-select { min-width: 0; flex: 1; }
       .ig-set-progress { display: flex; align-items: center; gap: 5px; flex-shrink: 0; padding-top: 2px; }
       .ig-prog-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--surface-2); border: 2px solid var(--grid); transition: all 0.3s; }
