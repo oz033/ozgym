@@ -1121,32 +1121,34 @@ function LogTab({ data, update }) {
             </div>
           </div>
 
-          {/* Set progress dots */}
-          <div className="ig-set-progress">
-            {Array.from({ length: TARGET_SETS }, (_, i) => (
-              <span
-                key={i}
-                className={
-                  "ig-prog-dot" +
-                  (i < doneCount ? " done" : "") +
-                  (i === doneCount ? " next" : "")
-                }
-              />
-            ))}
-            <span className="ig-prog-text">
-              {doneCount >= TARGET_SETS
-                ? "Fertig!"
-                : `${doneCount} / ${TARGET_SETS}`}
-            </span>
-          </div>
+          {/* Set progress dots + add button */}
+          <div className="ig-progress-wrap">
+            <div className="ig-set-progress">
+              {Array.from({ length: TARGET_SETS }, (_, i) => (
+                <span
+                  key={i}
+                  className={
+                    "ig-prog-dot" +
+                    (i < doneCount ? " done" : "") +
+                    (i === doneCount ? " next" : "")
+                  }
+                />
+              ))}
+              <span className="ig-prog-text">
+                {doneCount >= TARGET_SETS
+                  ? "Fertig!"
+                  : `${doneCount} / ${TARGET_SETS}`}
+              </span>
+            </div>
 
-          <button
-            className="ig-chip ig-ex-chip add"
-            onClick={() => setShowAdd((s) => !s)}
-            aria-label="Übung hinzufügen"
-          >
-            + Neu
-          </button>
+            <button
+              className="ig-chip ig-ex-chip add"
+              onClick={() => setShowAdd((s) => !s)}
+              aria-label="Übung hinzufügen"
+            >
+              + Neu
+            </button>
+          </div>
         </div>
 
         {showAdd && (
@@ -2285,6 +2287,7 @@ function Style() {
       .ig-ex-chip.add:hover { border-color: var(--plate-yellow); color: var(--plate-yellow); border-style: dashed; }
       .ig-ex-select { min-width: 0; flex: 1; }
       .ig-set-progress { display: flex; align-items: center; gap: 5px; flex-shrink: 0; padding-top: 2px; }
+      .ig-progress-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; flex-shrink: 0; }
       .ig-prog-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--surface-2); border: 2px solid var(--grid); transition: all 0.3s; }
       .ig-prog-dot.done { background: var(--plate-green); border-color: var(--plate-green); }
       .ig-prog-dot.next { border-color: var(--plate-yellow); box-shadow: 0 0 0 2px rgba(227,178,60,0.3); }
