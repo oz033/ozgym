@@ -1142,10 +1142,6 @@ function LogTab({ data, update }) {
         {EXERCISE_META[exercise] && (
           <div className="ig-ex-meta">
             <span className="ig-badge">Gerät {EXERCISE_META[exercise].nr}</span>
-            <span className="ig-badge">{TARGET_SETS} Sätze</span>
-            <span className="ig-badge">
-              {EXERCISE_META[exercise].reps} Wdh.
-            </span>
             <span className="ig-ex-hint">{EXERCISE_META[exercise].hint}</span>
           </div>
         )}
