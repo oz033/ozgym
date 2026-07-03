@@ -1120,11 +1120,11 @@ function LogTab({ data, update }) {
                   ))}
             </div>
             <button
-              className="ig-icon-btn"
+              className="ig-chip ig-ex-chip"
               onClick={() => setShowAdd((s) => !s)}
               aria-label="Übung hinzufügen"
             >
-              <Plus size={18} />
+              + Neu
             </button>
           </div>
 
