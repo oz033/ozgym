@@ -1228,20 +1228,6 @@ function LogTab({ data, update }) {
             />
             <span>Pause ({data.settings?.restSeconds || 90}s)</span>
           </label>
-          <label className="ig-toggle-row">
-            <input
-              type="checkbox"
-              checked={data.settings?.sound !== false}
-              onChange={(e) => {
-                update((prev) => ({
-                  ...prev,
-                  settings: { ...prev.settings, sound: e.target.checked },
-                }));
-                if (e.target.checked) playSound("tap");
-              }}
-            />
-            <span>Sound</span>
-          </label>
         </div>
 
         {data.settings?.autoRest && (
