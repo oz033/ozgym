@@ -44,80 +44,106 @@ const EXERCISE_META = {
   Shoulderpress: {
     group: "Oberkörper",
     nr: 12,
+    order: 1,
     reps: "8–12",
     hint: "Rechtwinkel der Arme, Griffe auf Schulterhöhe",
+    benefit: "Für breite Schultern & starke Schultermuskulatur",
   },
   Chestpress: {
     group: "Oberkörper",
     nr: 10,
+    order: 2,
     reps: "8–12",
     hint: "Rechtwinkel der Arme, Griffe auf Brusthöhe",
+    benefit: "Baut die Brustmuskulatur auf",
   },
   Pulldown: {
     group: "Oberkörper",
     nr: 13,
+    order: 3,
     reps: "8–12",
     hint: "Brust zum Polster, Ellbogen nach unten zur Körpermitte",
+    benefit: "Trainiert den breiten Rückenmuskel (Lat)",
   },
   "Low Row": {
     group: "Oberkörper",
     nr: 16,
+    order: 4,
     reps: "8–12",
     hint: "Brust zum Polster, Ellbogen nach hinten ziehen",
+    benefit: "Stärkt den mittleren Rücken & hintere Schulter",
   },
   "Lower Back": {
     group: "Oberkörper",
     nr: 23,
+    order: 7,
     reps: "8–12",
     hint: "Hüfte nach hinten, Schultern auf dem oberen Polster",
+    benefit: "Kräftigt den unteren Rücken & Rumpf",
   },
   "Arm Extension": {
     group: "Oberkörper",
     nr: 18,
+    order: 5,
     reps: "8–12",
     hint: "Oberarme am Körper, nur die Unterarme bewegen",
+    benefit: "Formt die Trizeps (Rückseite der Arme)",
   },
   "Arm Curl": {
     group: "Oberkörper",
     nr: 19,
+    order: 6,
     reps: "8–12",
     hint: "Oberarme am Körper, nur die Unterarme bewegen",
+    benefit: "Baut den Bizeps auf (Vorderseite der Arme)",
   },
   "Leg Press": {
     group: "Unterkörper",
     nr: 3,
+    order: 1,
     reps: "6–10",
     hint: "2er- oder 3er-Linie, Fußspitzen leicht nach außen",
+    benefit: "Der ultimative Bein-Boost (Quadrizeps, Po)",
   },
   "Leg Extension": {
     group: "Unterkörper",
     nr: 2,
+    order: 2,
     reps: "8–12",
     hint: "Polster oberhalb vom Knöchel, Fußspitzen nach oben strecken",
+    benefit: "Isoliert den vorderen Oberschenkel",
   },
   "Leg Curl": {
     group: "Unterkörper",
     nr: 7,
+    order: 3,
     reps: "8–12",
     hint: "Polster oberhalb vom Knöchel, Fußspitzen nach oben strecken",
+    benefit: "Trainiert die hintere Oberschenkelmuskulatur",
   },
   Adductor: {
     group: "Unterkörper",
     nr: 8,
+    order: 4,
     reps: "8–12",
     hint: "Selbsterklärend",
+    benefit: "Stärkt die Innenseite der Oberschenkel",
   },
   Abductor: {
     group: "Unterkörper",
     nr: 1,
+    order: 5,
     reps: "8–12",
     hint: "Selbsterklärend",
+    benefit: "Aktiviert die Außenseite der Oberschenkel & Po",
   },
   "Abdominal Crunch": {
     group: "Unterkörper",
     nr: 20,
+    order: 6,
     reps: "8–12",
     hint: "Selbsterklärend",
+    benefit: "Für eine starke Körpermitte",
   },
 };
 
@@ -1056,41 +1082,43 @@ function LogTab({ data, update }) {
       <div className="ig-card ig-ex-card">
         <div className="ig-ex-header">
           <div className="ig-ex-picker-row">
-            <select
-              className="ig-select ig-ex-select"
-              value={exercise}
-              onChange={(e) => setExercise(e.target.value)}
-            >
-              <optgroup label="Oberkörper Einheit">
-                {data.exercises
-                  .filter((ex) => EXERCISE_META[ex]?.group === "Oberkörper")
+            <div className="ig-ex-chips">
+              {data.exercises
+                .filter(
+                  (ex) => !unitGroup || EXERCISE_META[ex]?.group === unitGroup,
+                )
+                .sort(
+                  (a, b) =>
+                    (EXERCISE_META[a]?.order ?? 99) -
+                    (EXERCISE_META[b]?.order ?? 99),
+                )
+                .map((ex) => (
+                  <button
+                    key={ex}
+                    className={
+                      "ig-chip ig-ex-chip" + (exercise === ex ? " active" : "")
+                    }
+                    onClick={() => setExercise(ex)}
+                  >
+                    {ex}
+                  </button>
+                ))}
+              {data.exercises.some((ex) => !EXERCISE_META[ex]) &&
+                data.exercises
+                  .filter((ex) => unitGroup && !EXERCISE_META[ex])
                   .map((ex) => (
-                    <option key={ex} value={ex}>
+                    <button
+                      key={ex}
+                      className={
+                        "ig-chip ig-ex-chip" +
+                        (exercise === ex ? " active" : "")
+                      }
+                      onClick={() => setExercise(ex)}
+                    >
                       {ex}
-                    </option>
+                    </button>
                   ))}
-              </optgroup>
-              <optgroup label="Unterkörper Einheit">
-                {data.exercises
-                  .filter((ex) => EXERCISE_META[ex]?.group === "Unterkörper")
-                  .map((ex) => (
-                    <option key={ex} value={ex}>
-                      {ex}
-                    </option>
-                  ))}
-              </optgroup>
-              {data.exercises.some((ex) => !EXERCISE_META[ex]) && (
-                <optgroup label="Eigene Übungen">
-                  {data.exercises
-                    .filter((ex) => !EXERCISE_META[ex])
-                    .map((ex) => (
-                      <option key={ex} value={ex}>
-                        {ex}
-                      </option>
-                    ))}
-                </optgroup>
-              )}
-            </select>
+            </div>
             <button
               className="ig-icon-btn"
               onClick={() => setShowAdd((s) => !s)}
@@ -1142,6 +1170,9 @@ function LogTab({ data, update }) {
         {EXERCISE_META[exercise] && (
           <div className="ig-ex-meta">
             <span className="ig-badge">Gerät {EXERCISE_META[exercise].nr}</span>
+            <span className="ig-ex-benefit">
+              {EXERCISE_META[exercise].benefit}
+            </span>
             <span className="ig-ex-hint">{EXERCISE_META[exercise].hint}</span>
           </div>
         )}
@@ -2244,7 +2275,11 @@ function Style() {
       /* --- Exercise card --- */
       .ig-ex-card { gap: 12px; }
       .ig-ex-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
-      .ig-ex-picker-row { flex: 1; display: flex; gap: 8px; }
+      .ig-ex-picker-row { flex: 1; display: flex; gap: 8px; align-items: flex-start; }
+      .ig-ex-chips { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; }
+      .ig-ex-chip { font-size: 12px; padding: 5px 10px; border-radius: 20px; border: 1.5px solid var(--grid); background: transparent; color: var(--chalk); cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+      .ig-ex-chip:hover { border-color: var(--plate-gray); background: var(--surface-2); }
+      .ig-ex-chip.active { border-color: var(--plate-green); background: color-mix(in srgb, var(--plate-green) 15%, transparent); color: var(--plate-green); font-weight: 600; }
       .ig-ex-select { min-width: 0; flex: 1; }
       .ig-set-progress { display: flex; align-items: center; gap: 5px; flex-shrink: 0; padding-top: 2px; }
       .ig-prog-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--surface-2); border: 2px solid var(--grid); transition: all 0.3s; }
@@ -2252,7 +2287,8 @@ function Style() {
       .ig-prog-dot.next { border-color: var(--plate-yellow); box-shadow: 0 0 0 2px rgba(227,178,60,0.3); }
       .ig-prog-text { font-size: 11px; font-weight: 600; color: var(--chalk-dim); font-family: 'JetBrains Mono', monospace; margin-left: 2px; }
       .ig-ex-meta { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
-      .ig-ex-hint { font-size: 11px; color: var(--chalk-dim); width: 100%; line-height: 1.4; margin-top: 2px; }
+      .ig-ex-benefit { font-size: 11px; color: var(--plate-green); width: 100%; font-weight: 500; line-height: 1.4; }
+      .ig-ex-hint { font-size: 11px; color: var(--chalk-dim); width: 100%; line-height: 1.4; }
 
       /* --- Logging stepper --- */
       .ig-set-log-row { display: flex; gap: 8px; align-items: stretch; }
