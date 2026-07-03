@@ -843,6 +843,140 @@ function InlineRestTimer({ seconds, onDone, onCancel, soundOn = true }) {
   );
 }
 
+/* ---------------- Streak Calendar ---------------- */
+function StreakCalendar({ logDates, today, onClose }) {
+  const days = 49; // 7 weeks
+  const todayDate = new Date(today + "T00:00:00");
+
+  // Generate last 49 days
+  const cells = Array.from({ length: days }, (_, i) => {
+    const d = new Date(todayDate);
+    d.setDate(d.getDate() - (days - 1 - i));
+    const dateStr = d.toISOString().slice(0, 10);
+    const trained = logDates.has(dateStr);
+    const isToday = dateStr === today;
+    const weekday = (d.getDay() + 6) % 7; // 0=Mon ... 6=Sun
+    return { date: dateStr, trained, isToday, weekday, day: d.getDate() };
+  });
+
+  // Current streak
+  let streak = 0;
+  for (let i = cells.length - 1; i >= 0; i--) {
+    if (cells[i].trained) streak++;
+    else if (!cells[i].isToday) break;
+  }
+
+  // Best streak (from logs sorted by date)
+  const sortedDates = [...logDates].sort();
+  let bestStreak = 0;
+  let cur = 0;
+  for (let i = 0; i < sortedDates.length; i++) {
+    if (i === 0) {
+      cur = 1;
+      continue;
+    }
+    const prev = new Date(sortedDates[i - 1] + "T00:00:00");
+    const curr = new Date(sortedDates[i] + "T00:00:00");
+    const diff = (curr - prev) / 86400000;
+    if (diff === 1) cur++;
+    else {
+      bestStreak = Math.max(bestStreak, cur);
+      cur = 1;
+    }
+  }
+  bestStreak = Math.max(bestStreak, cur);
+
+  // Group by week
+  const weeks = [];
+  let week = [];
+  cells.forEach((c, i) => {
+    week.push(c);
+    if (week.length === 7 || i === cells.length - 1) {
+      weeks.push(week);
+      week = [];
+    }
+  });
+
+  const monthLabels = [
+    "Jan",
+    "Feb",
+    "Mär",
+    "Apr",
+    "Mai",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Okt",
+    "Nov",
+    "Dez",
+  ];
+
+  return (
+    <div className="ig-streak-card">
+      <div className="ig-streak-header">
+        <span className="ig-streak-title">Trainings-Kalender</span>
+        <button
+          className="ig-icon-btn ghost"
+          onClick={onClose}
+          aria-label="Schließen"
+        >
+          <X size={14} />
+        </button>
+      </div>
+      <div className="ig-streak-stats">
+        <div className="ig-streak-stat">
+          <span className="ig-streak-num">{streak}</span>
+          <span className="ig-streak-label">Tage Serie</span>
+        </div>
+        <div className="ig-streak-stat">
+          <span className="ig-streak-num">{bestStreak}</span>
+          <span className="ig-streak-label">Beste Serie</span>
+        </div>
+        <div className="ig-streak-stat">
+          <span className="ig-streak-num">{logDates.size}</span>
+          <span className="ig-streak-label">Tage gesamt</span>
+        </div>
+      </div>
+      <div className="ig-streak-grid-wrap">
+        <div className="ig-streak-days">
+          <span>Mo</span>
+          <span>Mi</span>
+          <span>Fr</span>
+        </div>
+        <div className="ig-streak-grid">
+          {weeks.map((w, wi) => (
+            <div key={wi} className="ig-streak-week">
+              {Array.from({ length: 7 }, (_, di) => {
+                const c = w[di];
+                if (!c)
+                  return <div key={di} className="ig-streak-cell empty" />;
+                return (
+                  <div
+                    key={di}
+                    className={
+                      "ig-streak-cell" +
+                      (c.trained ? " trained" : "") +
+                      (c.isToday ? " today" : "")
+                    }
+                    title={`${c.date}: ${c.trained ? "Trainiert" : "Ruhetag"}`}
+                  />
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="ig-streak-legend">
+        <span>Weniger</span>
+        <div className="ig-streak-cell" />
+        <div className="ig-streak-cell trained" />
+        <span>Mehr</span>
+      </div>
+    </div>
+  );
+}
+
 /* ---------------- Home / Log tab ---------------- */
 function LogTab({ data, update }) {
   const todayUnit = getTodayUnit(data.split);
@@ -866,6 +1000,7 @@ function LogTab({ data, update }) {
   const [newName, setNewName] = useState("");
   const [flash, setFlash] = useState(null);
   const [resting, setResting] = useState(false);
+  const [showStreak, setShowStreak] = useState(false);
 
   const today = todayISO();
 
@@ -923,6 +1058,11 @@ function LogTab({ data, update }) {
     );
     return dates.size;
   }, [data.logs]);
+
+  const logDates = useMemo(
+    () => new Set(data.logs.map((l) => l.date)),
+    [data.logs],
+  );
 
   const todayVolume = useMemo(() => {
     return data.logs
@@ -1018,7 +1158,10 @@ function LogTab({ data, update }) {
   return (
     <div className="ig-tabpane">
       {todayUnit !== "rest" ? (
-        <div className="ig-plan-banner">
+        <button
+          className="ig-plan-banner"
+          onClick={() => setShowStreak((s) => !s)}
+        >
           <CalendarDays size={16} />
           <span>
             Heute laut Plan:{" "}
@@ -1027,12 +1170,23 @@ function LogTab({ data, update }) {
               {todayUnit !== "gk" ? " Einheit" : ""}
             </strong>
           </span>
-        </div>
+        </button>
       ) : (
-        <div className="ig-plan-banner rest">
+        <button
+          className="ig-plan-banner rest"
+          onClick={() => setShowStreak((s) => !s)}
+        >
           <Moon size={16} />
           <span>Heute laut Plan: Ruhetag — Regeneration zählt auch.</span>
-        </div>
+        </button>
+      )}
+
+      {showStreak && (
+        <StreakCalendar
+          logDates={logDates}
+          today={today}
+          onClose={() => setShowStreak(false)}
+        />
       )}
 
       <div className="ig-barbell-row">
@@ -2226,9 +2380,30 @@ function Style() {
       .ig-badge.dim { color: var(--chalk-dim); }
       .ig-plan-text { font-size: 12px; color: var(--chalk-dim); line-height: 1.45; }
 
-      .ig-plan-banner { display: flex; align-items: center; gap: 8px; background: rgba(227,178,60,0.12); border: 1px solid var(--plate-yellow); color: var(--plate-yellow); border-radius: 10px; padding: 9px 12px; font-size: 13px; }
-      .ig-plan-banner strong { font-weight: 600; }
-      .ig-plan-banner.rest { background: rgba(86,95,112,0.18); border-color: var(--steel); color: var(--chalk-dim); }
+      .ig-plan-banner { display: flex; align-items: center; gap: 8px; background: rgba(227,178,60,0.12); border: 1px solid var(--plate-yellow); color: var(--plate-yellow); border-radius: 10px; padding: 9px 12px; font-size: 13px; cursor: pointer; font-family: inherit; text-align: left; width: 100%; }
+            .ig-plan-banner strong { font-weight: 600; }
+            .ig-plan-banner.rest { background: rgba(86,95,112,0.18); border-color: var(--steel); color: var(--chalk-dim); }
+            .ig-plan-banner:hover { filter: brightness(1.15); }
+
+      /* --- Streak Calendar --- */
+      .ig-streak-card { background: var(--surface-2); border: 1px solid var(--grid); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 10px; animation: fadeSlide 0.2s ease; }
+      .ig-streak-header { display: flex; justify-content: space-between; align-items: center; }
+      .ig-streak-title { font-weight: 600; font-size: 13px; color: var(--chalk); }
+      .ig-streak-stats { display: flex; gap: 16px; justify-content: center; }
+      .ig-streak-stat { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+      .ig-streak-num { font-size: 20px; font-weight: 700; font-family: 'JetBrains Mono', monospace; color: var(--plate-green); }
+      .ig-streak-label { font-size: 10px; color: var(--chalk-dim); text-transform: uppercase; letter-spacing: 0.5px; }
+      .ig-streak-grid-wrap { display: flex; gap: 8px; }
+      .ig-streak-days { display: flex; flex-direction: column; justify-content: space-around; font-size: 9px; color: var(--chalk-dim); min-width: 18px; text-align: right; padding-right: 4px; }
+      .ig-streak-grid { display: flex; gap: 3px; }
+      .ig-streak-week { display: flex; flex-direction: column; gap: 3px; }
+      .ig-streak-cell { width: 14px; height: 14px; border-radius: 3px; background: var(--surface-3); }
+      .ig-streak-cell.trained { background: var(--plate-green); opacity: 0.8; }
+      .ig-streak-cell.today { outline: 2px solid var(--plate-yellow); outline-offset: 1px; }
+      .ig-streak-cell.empty { background: transparent; }
+      .ig-streak-legend { display: flex; align-items: center; gap: 4px; font-size: 10px; color: var(--chalk-dim); justify-content: flex-end; }
+      .ig-streak-legend .ig-streak-cell { width: 10px; height: 10px; }
+      @keyframes fadeSlide { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
 
       .ig-preset-list { display: flex; flex-direction: column; gap: 8px; }
       .ig-preset-card { position: relative; text-align: left; background: var(--surface-2); border: 1px solid var(--grid); color: var(--chalk); border-radius: 10px; padding: 10px 12px; font-family: inherit; cursor: pointer; display: flex; flex-direction: column; gap: 2px; }
