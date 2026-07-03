@@ -986,6 +986,9 @@ function LogTab({ data, update }) {
       setExercise(data.exercises.find((e) => e !== name) || "");
   };
 
+  const TARGET_SETS = 3;
+  const doneCount = todayLog?.sets.length || 0;
+
   return (
     <div className="ig-tabpane">
       {todayUnit !== "rest" ? (
@@ -1049,51 +1052,72 @@ function LogTab({ data, update }) {
         />
       )}
 
-      <div className="ig-card">
-        <div className="ig-field-label">Übung</div>
-        <div className="ig-exercise-picker">
-          <select
-            className="ig-select"
-            value={exercise}
-            onChange={(e) => setExercise(e.target.value)}
-          >
-            <optgroup label="Oberkörper Einheit">
-              {data.exercises
-                .filter((ex) => EXERCISE_META[ex]?.group === "Oberkörper")
-                .map((ex) => (
-                  <option key={ex} value={ex}>
-                    {ex}
-                  </option>
-                ))}
-            </optgroup>
-            <optgroup label="Unterkörper Einheit">
-              {data.exercises
-                .filter((ex) => EXERCISE_META[ex]?.group === "Unterkörper")
-                .map((ex) => (
-                  <option key={ex} value={ex}>
-                    {ex}
-                  </option>
-                ))}
-            </optgroup>
-            {data.exercises.some((ex) => !EXERCISE_META[ex]) && (
-              <optgroup label="Eigene Übungen">
+      {/* --- Exercise + Set counter card --- */}
+      <div className="ig-card ig-ex-card">
+        <div className="ig-ex-header">
+          <div className="ig-ex-picker-row">
+            <select
+              className="ig-select ig-ex-select"
+              value={exercise}
+              onChange={(e) => setExercise(e.target.value)}
+            >
+              <optgroup label="Oberkörper Einheit">
                 {data.exercises
-                  .filter((ex) => !EXERCISE_META[ex])
+                  .filter((ex) => EXERCISE_META[ex]?.group === "Oberkörper")
                   .map((ex) => (
                     <option key={ex} value={ex}>
                       {ex}
                     </option>
                   ))}
               </optgroup>
-            )}
-          </select>
-          <button
-            className="ig-icon-btn"
-            onClick={() => setShowAdd((s) => !s)}
-            aria-label="Übung hinzufügen"
-          >
-            <Plus size={18} />
-          </button>
+              <optgroup label="Unterkörper Einheit">
+                {data.exercises
+                  .filter((ex) => EXERCISE_META[ex]?.group === "Unterkörper")
+                  .map((ex) => (
+                    <option key={ex} value={ex}>
+                      {ex}
+                    </option>
+                  ))}
+              </optgroup>
+              {data.exercises.some((ex) => !EXERCISE_META[ex]) && (
+                <optgroup label="Eigene Übungen">
+                  {data.exercises
+                    .filter((ex) => !EXERCISE_META[ex])
+                    .map((ex) => (
+                      <option key={ex} value={ex}>
+                        {ex}
+                      </option>
+                    ))}
+                </optgroup>
+              )}
+            </select>
+            <button
+              className="ig-icon-btn"
+              onClick={() => setShowAdd((s) => !s)}
+              aria-label="Übung hinzufügen"
+            >
+              <Plus size={18} />
+            </button>
+          </div>
+
+          {/* Set progress dots */}
+          <div className="ig-set-progress">
+            {Array.from({ length: TARGET_SETS }, (_, i) => (
+              <span
+                key={i}
+                className={
+                  "ig-prog-dot" +
+                  (i < doneCount ? " done" : "") +
+                  (i === doneCount ? " next" : "")
+                }
+              />
+            ))}
+            <span className="ig-prog-text">
+              {doneCount >= TARGET_SETS
+                ? "Fertig!"
+                : `${doneCount} / ${TARGET_SETS}`}
+            </span>
+          </div>
         </div>
 
         {showAdd && (
@@ -1116,17 +1140,13 @@ function LogTab({ data, update }) {
         )}
 
         {EXERCISE_META[exercise] && (
-          <div className="ig-plan-hint">
-            <span className="ig-plan-badges">
-              <span className="ig-badge">
-                Gerät {EXERCISE_META[exercise].nr}
-              </span>
-              <span className="ig-badge">3 Sätze</span>
-              <span className="ig-badge">
-                {EXERCISE_META[exercise].reps} Wdh.
-              </span>
+          <div className="ig-ex-meta">
+            <span className="ig-badge">Gerät {EXERCISE_META[exercise].nr}</span>
+            <span className="ig-badge">{TARGET_SETS} Sätze</span>
+            <span className="ig-badge">
+              {EXERCISE_META[exercise].reps} Wdh.
             </span>
-            <span className="ig-plan-text">{EXERCISE_META[exercise].hint}</span>
+            <span className="ig-ex-hint">{EXERCISE_META[exercise].hint}</span>
           </div>
         )}
 
@@ -1135,107 +1155,97 @@ function LogTab({ data, update }) {
             className="ig-link-danger"
             onClick={() => removeExercise(exercise)}
           >
-            <Trash2 size={13} /> "{exercise}" entfernen
+            <Trash2 size={13} /> &quot;{exercise}&quot; entfernen
           </button>
         )}
-      </div>
 
-      {lastSession && (
-        <div className="ig-card ig-last-card">
-          <div className="ig-field-label">
-            <History
-              size={12}
-              style={{ verticalAlign: "-2px", marginRight: 4 }}
-            />
-            Letztes Mal · {fmtDate(lastSession.date)}
-          </div>
-          <div className="ig-last-sets">
-            {lastSession.sets.map((s, i) => (
-              <span key={i} className="ig-badge dim mono">
-                {s.reps} × {s.weight} kg
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="ig-card">
-        <div className="ig-field-label">Neuer Satz</div>
-        <div className="ig-stepper-row">
-          <div className="ig-stepper">
-            <span className="ig-stepper-label">Wdh.</span>
-            <div className="ig-stepper-controls">
+        {/* --- Stepper row --- */}
+        <div className="ig-set-log-row">
+          <div className="ig-set-stepper">
+            <span className="ig-steplabel">Wdh.</span>
+            <div className="ig-steplabel-controls">
               <button
-                className="ig-step-btn"
+                className="ig-step-mini"
                 onClick={() => step(setReps, reps, -1, 1)}
-                aria-label="Weniger Wiederholungen"
               >
-                <Minus size={16} />
+                <Minus size={14} />
               </button>
-              <input
-                type="number"
-                inputMode="numeric"
-                min="1"
-                className="ig-input mono center"
-                value={reps}
-                onChange={(e) => setReps(e.target.value)}
-              />
+              <span className="ig-step-val mono">{reps}</span>
               <button
-                className="ig-step-btn"
+                className="ig-step-mini"
                 onClick={() => step(setReps, reps, 1, 1)}
-                aria-label="Mehr Wiederholungen"
               >
-                <Plus size={16} />
+                <Plus size={14} />
               </button>
             </div>
           </div>
-          <div className="ig-stepper">
-            <span className="ig-stepper-label">Gewicht (kg)</span>
-            <div className="ig-stepper-controls">
+          <div className="ig-set-stepper">
+            <span className="ig-steplabel">kg</span>
+            <div className="ig-steplabel-controls">
               <button
-                className="ig-step-btn"
+                className="ig-step-mini"
                 onClick={() => step(setWeight, weight, -2.5, 0)}
-                aria-label="Weniger Gewicht"
               >
-                <Minus size={16} />
+                <Minus size={14} />
               </button>
-              <input
-                type="number"
-                inputMode="decimal"
-                min="0"
-                step="0.5"
-                className="ig-input mono center"
-                value={weight}
-                onChange={(e) => setWeight(e.target.value)}
-              />
+              <span className="ig-step-val mono">{weight}</span>
               <button
-                className="ig-step-btn"
+                className="ig-step-mini"
                 onClick={() => step(setWeight, weight, 2.5, 0)}
-                aria-label="Mehr Gewicht"
               >
-                <Plus size={16} />
+                <Plus size={14} />
               </button>
             </div>
           </div>
+          <button
+            className="ig-btn-log"
+            onClick={addSet}
+            disabled={doneCount >= TARGET_SETS}
+          >
+            <span className="ig-btn-log-icon">
+              {doneCount >= TARGET_SETS ? "\u2713" : "\u26A1"}
+            </span>
+            <span className="ig-btn-log-label">
+              {doneCount >= TARGET_SETS
+                ? "Alle Sätze erledigt"
+                : `Satz ${doneCount + 1} von ${TARGET_SETS}`}
+            </span>
+          </button>
         </div>
-        <button className="ig-btn-primary wide" onClick={addSet}>
-          <Plus size={16} /> Satz loggen
-        </button>
-        <label className="ig-toggle-row">
-          <input
-            type="checkbox"
-            checked={!!data.settings?.autoRest}
-            onChange={(e) =>
-              update((prev) => ({
-                ...prev,
-                settings: { ...prev.settings, autoRest: e.target.checked },
-              }))
-            }
-          />
-          <span>Pausentimer automatisch starten</span>
-        </label>
+
+        {/* --- Toggles --- */}
+        <div className="ig-toggles">
+          <label className="ig-toggle-row">
+            <input
+              type="checkbox"
+              checked={!!data.settings?.autoRest}
+              onChange={(e) =>
+                update((prev) => ({
+                  ...prev,
+                  settings: { ...prev.settings, autoRest: e.target.checked },
+                }))
+              }
+            />
+            <span>Pause ({data.settings?.restSeconds || 90}s)</span>
+          </label>
+          <label className="ig-toggle-row">
+            <input
+              type="checkbox"
+              checked={data.settings?.sound !== false}
+              onChange={(e) => {
+                update((prev) => ({
+                  ...prev,
+                  settings: { ...prev.settings, sound: e.target.checked },
+                }));
+                if (e.target.checked) playSound("tap");
+              }}
+            />
+            <span>Sound</span>
+          </label>
+        </div>
+
         {data.settings?.autoRest && (
-          <div className="ig-preset-row" style={{ marginTop: 8 }}>
+          <div className="ig-preset-row" style={{ marginTop: 0 }}>
             {[30, 60, 90, 120, 180].map((s) => (
               <button
                 key={s}
@@ -1255,47 +1265,78 @@ function LogTab({ data, update }) {
             ))}
           </div>
         )}
-        <label className="ig-toggle-row">
-          <input
-            type="checkbox"
-            checked={data.settings?.sound !== false}
-            onChange={(e) => {
-              update((prev) => ({
-                ...prev,
-                settings: { ...prev.settings, sound: e.target.checked },
-              }));
-              if (e.target.checked) playSound("tap");
-            }}
-          />
-          <span>Sound-Effekte</span>
-        </label>
       </div>
 
+      {/* --- Today's sets card --- */}
       <div className="ig-card">
         <div className="ig-field-label">Heute — {exercise}</div>
         {!todayLog || todayLog.sets.length === 0 ? (
-          <p className="ig-empty">Noch keine Sätze für heute. Leg los.</p>
+          <p className="ig-empty">Noch keine Sätze. Los legst!</p>
         ) : (
-          <ul className="ig-set-list">
-            {todayLog.sets.map((s, i) => (
-              <li key={i} className="ig-set-row">
-                <span className="ig-set-idx">{i + 1}</span>
-                <span className="ig-set-detail mono">
+          <div className="ig-today-sets">
+            {Array.from({ length: TARGET_SETS }, (_, i) => {
+              const set = todayLog.sets[i];
+              const isDone = !!set;
+              return (
+                <div
+                  key={i}
+                  className={
+                    "ig-today-set" +
+                    (isDone ? " done" : "") +
+                    (i === doneCount - 1 ? " last" : "")
+                  }
+                >
+                  <span className="ig-today-idx">{i + 1}</span>
+                  {isDone ? (
+                    <>
+                      <span className="ig-today-detail mono">
+                        {set.reps} × {set.weight} kg
+                      </span>
+                      <span className="ig-today-check">
+                        {i === doneCount - 1 &&
+                        todayLog.sets.length >= TARGET_SETS
+                          ? "\u2B50"
+                          : "\u2713"}
+                      </span>
+                      <button
+                        className="ig-icon-btn ghost"
+                        onClick={() => removeSet(i)}
+                        aria-label="Satz löschen"
+                      >
+                        <X size={12} />
+                      </button>
+                    </>
+                  ) : (
+                    <span className="ig-today-pending mono">
+                      {reps} × {weight} kg
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+            {todayLog.sets.filter(
+              (s) => s.weight > bestBefore && bestBefore > 0,
+            ).length > 0 && (
+              <div className="ig-pr-badge">
+                <Flame size={12} /> Neuer Rekord!
+              </div>
+            )}
+          </div>
+        )}
+
+        {lastSession && (
+          <div className="ig-last-session">
+            <span className="ig-last-label">
+              <History size={11} /> Letztes Mal · {fmtDate(lastSession.date)}
+            </span>
+            <div className="ig-last-sets">
+              {lastSession.sets.map((s, i) => (
+                <span key={i} className="ig-badge dim mono">
                   {s.reps} × {s.weight} kg
                 </span>
-                {s.weight > bestBefore && bestBefore > 0 && (
-                  <Flame size={14} className="ig-flame" />
-                )}
-                <button
-                  className="ig-icon-btn ghost"
-                  onClick={() => removeSet(i)}
-                  aria-label="Satz löschen"
-                >
-                  <X size={14} />
-                </button>
-              </li>
-            ))}
-          </ul>
+              ))}
+            </div>
+          </div>
         )}
       </div>
     </div>
@@ -2217,6 +2258,54 @@ function Style() {
 
       .ig-last-card { gap: 8px; }
       .ig-last-sets { display: flex; gap: 6px; flex-wrap: wrap; }
+
+      /* --- Exercise card --- */
+      .ig-ex-card { gap: 12px; }
+      .ig-ex-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+      .ig-ex-picker-row { flex: 1; display: flex; gap: 8px; }
+      .ig-ex-select { min-width: 0; flex: 1; }
+      .ig-set-progress { display: flex; align-items: center; gap: 5px; flex-shrink: 0; padding-top: 2px; }
+      .ig-prog-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--surface-2); border: 2px solid var(--grid); transition: all 0.3s; }
+      .ig-prog-dot.done { background: var(--plate-green); border-color: var(--plate-green); }
+      .ig-prog-dot.next { border-color: var(--plate-yellow); box-shadow: 0 0 0 2px rgba(227,178,60,0.3); }
+      .ig-prog-text { font-size: 11px; font-weight: 600; color: var(--chalk-dim); font-family: 'JetBrains Mono', monospace; margin-left: 2px; }
+      .ig-ex-meta { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+      .ig-ex-hint { font-size: 11px; color: var(--chalk-dim); width: 100%; line-height: 1.4; margin-top: 2px; }
+
+      /* --- Logging stepper --- */
+      .ig-set-log-row { display: flex; gap: 8px; align-items: stretch; }
+      .ig-set-stepper { flex: 1; display: flex; flex-direction: column; gap: 4px; align-items: center; }
+      .ig-steplabel { font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--chalk-dim); font-weight: 600; }
+      .ig-steplabel-controls { display: flex; align-items: center; gap: 6px; background: var(--surface-2); border-radius: 10px; padding: 2px; width: 100%; justify-content: center; }
+      .ig-step-mini { background: none; border: none; color: var(--chalk-dim); width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 8px; }
+      .ig-step-mini:active { background: var(--grid); }
+      .ig-step-val { font-size: 18px; font-weight: 700; min-width: 36px; text-align: center; color: var(--chalk); }
+
+      /* --- Log button --- */
+      .ig-btn-log { flex: 0 0 auto; background: var(--plate-yellow); border: none; border-radius: 10px; color: #201a08; padding: 0 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; cursor: pointer; min-width: 90px; transition: transform 0.15s, opacity 0.2s; }
+      .ig-btn-log:active { transform: scale(0.96); }
+      .ig-btn-log:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+      .ig-btn-log-icon { font-size: 18px; line-height: 1; }
+      .ig-btn-log-label { font-size: 10px; font-weight: 600; text-align: center; line-height: 1.2; }
+
+      /* --- Toggles row --- */
+      .ig-toggles { display: flex; gap: 16px; }
+
+      /* --- Today's sets --- */
+      .ig-today-sets { display: flex; flex-direction: column; gap: 5px; }
+      .ig-today-set { display: flex; align-items: center; gap: 8px; background: var(--surface-2); border-radius: 8px; padding: 7px 9px; transition: opacity 0.3s; }
+      .ig-today-set.done { opacity: 1; }
+      .ig-today-set.done .ig-today-detail { text-decoration: line-through; text-decoration-color: var(--plate-green); }
+      .ig-today-idx { width: 20px; height: 20px; border-radius: 50%; background: var(--steel); font-size: 10px; font-weight: 600; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--chalk-dim); }
+      .ig-today-set.done .ig-today-idx { background: var(--plate-green); color: #fff; }
+      .ig-today-detail { flex: 1; font-size: 13px; color: var(--chalk-dim); }
+      .ig-today-check { font-size: 13px; flex-shrink: 0; }
+      .ig-today-pending { flex: 1; font-size: 13px; color: var(--chalk-dim); opacity: 0.5; }
+      .ig-pr-badge { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--plate-red); margin-top: 2px; }
+
+      /* --- Last session inline --- */
+      .ig-last-session { display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--grid); padding-top: 10px; margin-top: 4px; }
+      .ig-last-label { font-size: 10px; color: var(--chalk-dim); display: flex; align-items: center; gap: 4px; text-transform: uppercase; letter-spacing: 0.4px; }
 
       .ig-rest-inline { display: flex; align-items: center; gap: 10px; background: var(--surface-1); border: 1px solid var(--plate-yellow); border-radius: 10px; padding: 9px 12px; color: var(--plate-yellow); }
       .ig-rest-track { flex: 1; height: 6px; background: var(--surface-2); border-radius: 3px; overflow: hidden; }
