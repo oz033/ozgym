@@ -1915,6 +1915,34 @@ function WorkoutMode({ data, update, queue, onExit, onFinish }) {
     }
   };
 
+  // Letzten Satz zurücknehmen (Vertipper-Korrektur in der Pause)
+  const undoLastSet = () => {
+    const w = Number(weight);
+    const r = Number(reps);
+    update((prev) => {
+      const logs = prev.logs
+        .map((l) =>
+          l.exercise === exercise && l.date === today
+            ? { ...l, sets: l.sets.slice(0, -1) }
+            : l,
+        )
+        .filter((l) => l.sets.length > 0);
+      return { ...prev, logs };
+    });
+    const s = sessionRef.current;
+    s.sets = Math.max(0, s.sets - 1);
+    s.volume = Math.max(0, s.volume - w * r);
+    const lastRec = s.records[s.records.length - 1];
+    if (lastRec && lastRec.exercise === exercise && lastRec.weight === w) {
+      s.records.pop();
+      s.prs = Math.max(0, s.prs - 1);
+    }
+    setFeedback(null);
+    setPhase("lift");
+    playSound("tap", soundOn);
+    buzz(20, hapticsOn);
+  };
+
   // Swipe (nur beim Heben)
   const onPointerDown = (e) => {
     if (phase !== "lift") return;
@@ -2283,6 +2311,9 @@ function WorkoutMode({ data, update, queue, onExit, onFinish }) {
                   Gleiche Übung — Satz {doneCount + 1} von {WO_TARGET_SETS}
                 </span>
               )}
+              <button className="ig-wo-undo" onClick={undoLastSet}>
+                <RotateCcw size={13} /> Letzten Satz zurücknehmen
+              </button>
             </>
           )}
         </div>
@@ -3484,6 +3515,8 @@ function Style() {
       .ig-wo-restring-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
       .ig-wo-rest-time { font-size: 34px; font-weight: 700; }
       .ig-wo-rest-btns { display: flex; gap: 10px; }
+      .ig-wo-undo { display: flex; align-items: center; gap: 6px; background: none; border: none; color: var(--chalk-dim); font-family: inherit; font-size: 12px; cursor: pointer; padding: 10px; opacity: 0.8; transition: opacity 0.2s; }
+      .ig-wo-undo:active { opacity: 1; }
       .ig-wo-coach { display: flex; flex-direction: column; align-items: center; gap: 7px; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 16px; padding: 16px 22px; animation: ig-fade-up 0.4s var(--ease-out); max-width: 300px; }
       .ig-wo-coach-name { font-family: 'Oswald', sans-serif; font-size: 20px; font-weight: 700; }
       .ig-wo-coach-sub { font-size: 12px; color: var(--plate-yellow); font-weight: 600; }
