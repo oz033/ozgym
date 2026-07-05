@@ -5,6 +5,23 @@ import { motion } from "framer-motion";
 import { REDUCED_MOTION } from "../lib/utils.js";
 import { ZONE_LABEL } from "../lib/constants.js";
 
+/* Skeleton statt leerem/weißem Frame beim ersten Laden eines lazy Tabs.
+   Greift nur beim allerersten Besuch pro Chunk (React.lazy resolved danach
+   synchron), macht diesen kurzen Moment aber sichtbar hochwertig statt blank. */
+export function TabSkeleton() {
+  return (
+    <div className="ig-tabpane" aria-hidden="true">
+      <div className="ig-skel ig-skel-hero" />
+      <div className="ig-skel-row">
+        <div className="ig-skel ig-skel-stat" />
+        <div className="ig-skel ig-skel-stat" />
+      </div>
+      <div className="ig-skel ig-skel-card" />
+      <div className="ig-skel ig-skel-card sm" />
+    </div>
+  );
+}
+
 /* Hochwertiger Leerzustand: Icon, Erklärung, ein primärer und ein optionaler
    sekundärer Weg nach vorn. Kein Screen der App darf einfach leer bleiben. */
 export function EmptyState({ icon, title, description, primaryLabel, onPrimary, secondaryLabel, onSecondary }) {

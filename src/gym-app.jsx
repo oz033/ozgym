@@ -25,17 +25,25 @@ import {
 } from "./lib/utils.js";
 import { hydrate, freshState } from "./lib/migrate.js";
 import { generatePlans } from "./lib/planGenerator.js";
-import { TabBtn } from "./components/ui.jsx";
+import { TabBtn, TabSkeleton } from "./components/ui.jsx";
 import Onboarding from "./components/Onboarding.jsx";
 // Home ist der erste Screen nach dem Laden — sofort verfügbar statt nachgeladen.
 import DashboardTab from "./tabs/DashboardTab.jsx";
 // Alles andere (inkl. recharts in ProgressTab) erst bei Bedarf laden, damit der
-// initiale Bundle klein bleibt.
-const LogTab = lazy(() => import("./tabs/LogTab.jsx"));
-const WorkoutMode = lazy(() => import("./tabs/WorkoutMode.jsx"));
-const PlansTab = lazy(() => import("./tabs/PlansTab.jsx"));
-const ProgressTab = lazy(() => import("./tabs/ProgressTab.jsx"));
-const ProfileTab = lazy(() => import("./tabs/ProfileTab.jsx"));
+// initiale Bundle klein bleibt. Als Funktionen abgelegt, damit sie sich nach
+// dem ersten Idle-Moment zusätzlich vorab aufwärmen lassen (siehe unten).
+const routeImports = {
+  workout: () => import("./tabs/LogTab.jsx"),
+  workoutMode: () => import("./tabs/WorkoutMode.jsx"),
+  plan: () => import("./tabs/PlansTab.jsx"),
+  progress: () => import("./tabs/ProgressTab.jsx"),
+  profile: () => import("./tabs/ProfileTab.jsx"),
+};
+const LogTab = lazy(routeImports.workout);
+const WorkoutMode = lazy(routeImports.workoutMode);
+const PlansTab = lazy(routeImports.plan);
+const ProgressTab = lazy(routeImports.progress);
+const ProfileTab = lazy(routeImports.profile);
 
 /* Akzent aus Theme-Studio: null = Modus-Standard (CSS), "mono" = S/W, sonst Hex */
 function accentVars(accent, theme) {
@@ -80,6 +88,17 @@ export default function App() {
     }
     setLoaded(true);
   }, []);
+
+  // Sobald der Browser Leerlaufzeit hat, alle Tab-Chunks im Hintergrund laden.
+  // Danach zeigt kein Tab-Wechsel mehr das Skeleton — der Chunk ist längst da.
+  useEffect(() => {
+    if (!loaded) return;
+    const warm = () => Object.values(routeImports).forEach((imp) => imp());
+    const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 1200));
+    const cancelIdle = window.cancelIdleCallback || clearTimeout;
+    const id = idle(warm);
+    return () => cancelIdle(id);
+  }, [loaded]);
 
   const persist = useCallback((next) => {
     clearTimeout(saveTimer.current);
@@ -319,7 +338,7 @@ export default function App() {
               exit={reduced ? undefined : { opacity: 0, y: -8 }}
               transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
             >
-              <Suspense fallback={null}>
+              <Suspense fallback={<TabSkeleton />}>
                 {tab === "home" && (
                   <DashboardTab
                     data={data}
@@ -356,7 +375,7 @@ export default function App() {
         </main>
 
         {workoutOpen && (
-          <Suspense fallback={null}>
+          <Suspense fallback={<div className="ig-wo"><TabSkeleton /></div>}>
             <WorkoutMode
               data={data}
               update={update}

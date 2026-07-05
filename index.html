@@ -7,7 +7,7 @@
             name="viewport"
             content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
         />
-        <meta name="theme-color" content="#14161a" />
+        <meta name="theme-color" content="#0c0d12" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta
             name="apple-mobile-web-app-status-bar-style"
@@ -20,6 +20,39 @@
         />
         <link rel="apple-touch-icon" href="/pwa-192x192.png" />
         <title>IronLog – Gym Tracker</title>
+        <!--
+          Kritisches Inline-CSS: greift, BEVOR das Haupt-Stylesheet oder React
+          geladen sind. Ohne das blitzt beim kalten PWA-Start (Home-Screen-Icon)
+          für einen Frame der weiße Browser-Standardhintergrund auf, bevor JS
+          überhaupt ausgeführt wurde — genau der "White Flash", den Apps wie
+          Apple Fitness/Notion nie zeigen. Dunkel ist der Fallback, da das die
+          Standardeinstellung der App ist.
+        -->
+        <style>
+            html, body, #root { background: var(--boot-bg, #0c0d12); }
+            body { margin: 0; overscroll-behavior: none; }
+        </style>
+        <!--
+          Synchrones Boot-Script: liest das gespeicherte Theme NOCH VOR dem
+          ersten Paint aus localStorage. Nutzer mit Light Mode sehen so sofort
+          hell statt kurz dunkel aufzublitzen, bevor React hydriert.
+          --boot-bg wird auf <html> gesetzt, obwohl <body>/#root zu diesem
+          Zeitpunkt noch gar nicht geparst sind — die Custom Property vererbt
+          sich trotzdem an sie, sobald sie entstehen.
+        -->
+        <script>
+            (function () {
+                try {
+                    var raw = localStorage.getItem("ironlog:state");
+                    var theme = raw && JSON.parse(raw).settings && JSON.parse(raw).settings.theme;
+                    if (theme === "light") {
+                        document.documentElement.style.setProperty("--boot-bg", "#f4f5fa");
+                    }
+                } catch (e) {
+                    /* Fallback bleibt dunkel */
+                }
+            })();
+        </script>
     </head>
     <body>
         <div id="root"></div>

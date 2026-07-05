@@ -9,7 +9,14 @@
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
 
 * { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; }
+/* Dunkel ist der harte Standard-Hintergrund auf jeder Ebene (html/body/#root/
+   .ig-app) — nirgendwo darf der weiße Browser-Default durchscheinen, auch
+   nicht kurz während Layout-Wechseln oder bevor .ig-app sein Theme kennt.
+   --boot-bg wird von einem Inline-Script in index.html VOR dem ersten Paint
+   auf den Light-Wert gesetzt, falls das gespeicherte Theme hell ist — beide
+   Stellen müssen dieselbe Variable verwenden, sonst gewinnt diese Regel den
+   Kaskaden-Kampf und zerstört den Light-Mode-Boot-Fix. */
+html, body, #root { margin: 0; padding: 0; background: var(--boot-bg, #0c0d12); min-height: 100%; }
 
 .ig-app {
   /* Radii & Motion */
@@ -668,6 +675,16 @@ button.ig-overview-col { cursor: pointer; }
 .ig-achieve-icon { font-size: 22px; }
 .ig-achieve-name { font-size: 11px; font-weight: 700; }
 .ig-achieve-desc { font-size: 9.5px; color: var(--text-dim); }
+
+/* ============ Skeleton / Shimmer ============ */
+@keyframes ig-shimmer { 0% { background-position: -120% 0; } 100% { background-position: 120% 0; } }
+.ig-skel { border-radius: var(--radius-xl); background: linear-gradient(100deg, var(--surface) 40%, var(--surface-2) 50%, var(--surface) 60%); background-size: 200% 100%; animation: ig-shimmer 1.4s ease-in-out infinite; }
+.ig-skel-hero { height: 132px; }
+.ig-skel-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ig-skel-stat { height: 88px; }
+.ig-skel-card { height: 96px; }
+.ig-skel-card.sm { height: 64px; }
+@media (prefers-reduced-motion: reduce) { .ig-skel { animation: none; } }
 
 /* ============ Empty States ============ */
 .ig-empty-state { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; padding: 48px 22px 20px; }
