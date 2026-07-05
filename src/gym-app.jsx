@@ -247,13 +247,14 @@ const PLAN_ICONS = ["💪", "🏋️", "🦵", "🔥", "⚡", "🎯", "🏃", "�
 const uid = () =>
   Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
-// Heutiger Plan: per Wochentag zugewiesen, sonst aktiver Plan
+// Heutiger Plan: die aktive Auswahl des Nutzers gewinnt,
+// Wochentags-Zuordnung greift nur ohne explizite Auswahl
 function getTodayPlan(data) {
   const plans = data.plans || [];
   const key = todayKey();
   return (
-    plans.find((p) => (p.days || []).includes(key)) ||
     plans.find((p) => p.id === data.activePlanId) ||
+    plans.find((p) => (p.days || []).includes(key)) ||
     plans[0] ||
     null
   );
@@ -1762,6 +1763,22 @@ function LogTab({ data, update, goTo }) {
           today={today}
           onClose={() => setShowStreak(false)}
         />
+      )}
+
+      {(data.plans || []).length > 1 && (
+        <div className="ig-progress-plans">
+          {data.plans.map((p) => (
+            <button
+              key={p.id}
+              className={"ig-chip" + (p.id === plan?.id ? " active" : "")}
+              onClick={() =>
+                update((prev) => ({ ...prev, activePlanId: p.id }))
+              }
+            >
+              {p.icon} {p.name}
+            </button>
+          ))}
+        </div>
       )}
 
       <div className="ig-card">
