@@ -503,7 +503,7 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
               )}
               <div className="ig-wo-card-top">
                 <div className="ig-hero-sil">
-                  <BodySilhouette zone={m?.zone} zone2={m?.zone2} pulseKey={e + active} />
+                  <BodySilhouette zone={m?.zone} zone2={m?.zone2} pulseKey={e + active} size={150} />
                   <span className="ig-hero-mid-label">
                     {[ZONE_LABEL[m?.zone], ZONE_LABEL[m?.zone2]]
                       .filter(Boolean)
