@@ -162,7 +162,7 @@ html, body, #root { margin: 0; padding: 0; background: var(--boot-bg, #0c0d12); 
 
 /* Dichte: kompakt */
 .ig-app[data-density="compact"] .ig-card { padding: 12px; gap: 9px; }
-.ig-app[data-density="compact"] .ig-main { padding: 14px 12px 100px; }
+.ig-app[data-density="compact"] .ig-main { padding: 14px 12px var(--tabbar-stack); }
 .ig-app[data-density="compact"] .ig-tabpane { gap: 10px; }
 .ig-app[data-density="compact"] .ig-btn-primary { height: 42px; }
 .ig-app[data-density="compact"] .ig-btn-primary.xl { height: 50px; }
@@ -348,9 +348,18 @@ html, body, #root { margin: 0; padding: 0; background: var(--boot-bg, #0c0d12); 
   touch-action: manipulation;
 }
 .ig-mute-btn:hover { color: var(--text); }
+
+/* iOS dock metrics — single source for main padding + tabbar + sticky CTA */
+.ig-app {
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  /* tab row ~52px + top pad 8px + bottom pad 8px + home indicator */
+  --tabbar-content: 52px;
+  --tabbar-stack: calc(var(--tabbar-content) + 16px + var(--safe-bottom));
+}
+
 .ig-main {
   flex: 1;
-  padding: 16px 16px calc(108px + env(safe-area-inset-bottom, 0px));
+  padding: 16px 16px var(--tabbar-stack);
   overflow-y: auto;
   overflow-x: hidden;
   scroll-behavior: smooth;
@@ -361,22 +370,31 @@ html, body, #root { margin: 0; padding: 0; background: var(--boot-bg, #0c0d12); 
 .ig-tabpane { display: flex; flex-direction: column; gap: 14px; }
 .ig-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; height: 100vh; color: var(--text-dim); width: 100%; }
 
-/* Minimal bottom nav — hairline bar, accent = color only (no loud filled pill) */
+/*
+ * Bottom tab dock — flush to screen bottom on iPhone.
+ * Safe-area is INSIDE the bar (padding), so no empty black strip under the tabs.
+ */
 .ig-tabbar {
   position: fixed;
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 10px);
+  bottom: 0;
   left: 50%;
   transform: translateX(-50%);
-  width: min(400px, calc(100% - 24px));
+  width: 100%;
+  max-width: 430px;
   display: flex;
-  background: color-mix(in srgb, var(--surface) 88%, transparent);
-  backdrop-filter: blur(20px) saturate(1.4);
-  -webkit-backdrop-filter: blur(20px) saturate(1.4);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 4px;
+  align-items: stretch;
+  gap: 2px;
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  backdrop-filter: blur(22px) saturate(1.5);
+  -webkit-backdrop-filter: blur(22px) saturate(1.5);
+  border: none;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  /* content sits above home indicator; box fills to physical bottom */
+  padding: 8px 10px calc(var(--safe-bottom) + 8px);
   z-index: 40;
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
+  box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.18);
+  box-sizing: border-box;
 }
 .ig-tab {
   position: relative;
@@ -384,6 +402,7 @@ html, body, #root { margin: 0; padding: 0; background: var(--boot-bg, #0c0d12); 
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 3px;
   background: none;
   border: none;
@@ -391,11 +410,14 @@ html, body, #root { margin: 0; padding: 0; background: var(--boot-bg, #0c0d12); 
   font-family: inherit;
   font-size: 9px;
   font-weight: 600;
-  padding: 8px 0 7px;
+  padding: 7px 0 6px;
+  min-height: var(--tabbar-content);
   cursor: pointer;
   letter-spacing: 0.04em;
-  border-radius: 16px;
+  border-radius: 14px;
   transition: color 0.15s var(--ease-out), background 0.15s var(--ease-out);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 .ig-tab:active { opacity: 0.75; }
 .ig-tab.active { color: var(--accent); }
@@ -404,7 +426,7 @@ html, body, #root { margin: 0; padding: 0; background: var(--boot-bg, #0c0d12); 
   position: absolute;
   inset: 2px;
   background: color-mix(in srgb, var(--accent) 12%, transparent);
-  border-radius: 14px;
+  border-radius: 12px;
   box-shadow: none;
 }
 .ig-tab-icon,
@@ -725,10 +747,27 @@ button.ig-overview-col { cursor: pointer; }
 .ig-done-note { flex-direction: row; align-items: center; gap: 12px; font-size: 13.5px; line-height: 1.5; border-color: color-mix(in srgb, var(--success) 35%, transparent); }
 .ig-done-note-icon { font-size: 26px; }
 
-/* Sticky Start-CTA: bleibt bei langen Plaenen per Daumen erreichbar, ohne den Inhalt zu verdecken.
-   Bottom-Wert ist relativ zum Scrollport von .ig-main (nicht zum Viewport) und liegt knapp
-   ueber dessen reserviertem Tabbar-Platz (padding-bottom: 108px). */
-.ig-sticky-cta { position: sticky; bottom: 92px; z-index: 5; display: flex; flex-direction: column; gap: 10px; padding-top: 10px; margin-top: 2px; background: linear-gradient(to bottom, transparent, var(--bg) 30%); }
+/*
+ * Sticky Start-CTA sits at the bottom of .ig-main's scrollport (bottom: 0).
+ * Main already reserves --tabbar-stack, so the button rests just above the dock
+ * instead of floating mid-list (old bottom: 92px bug on iPhone).
+ */
+.ig-sticky-cta {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+  padding: 12px 0 10px;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--bg) 0%, transparent) 0%,
+    var(--bg) 36%,
+    var(--bg) 100%
+  );
+}
 
 /* ============ Workout-Modus ============ */
 .ig-wo {
