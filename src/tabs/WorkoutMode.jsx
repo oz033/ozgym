@@ -49,6 +49,9 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
   const soundOn = data.settings?.sound !== false;
   const hapticsOn = data.settings?.haptics !== false;
   const restSeconds = data.settings?.restSeconds || 90;
+  /** Live-Pause-Overrides (exerciseId → sec), bis Plan-Update durchkommt */
+  const restOverrideRef = useRef({});
+  const [restSavedHint, setRestSavedHint] = useState(null);
   const itemDone = useCallback(
     (it) =>
       data.logs
@@ -346,12 +349,46 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
       setPhase("done");
       playSound("pr", soundOn);
     } else {
-      const r0 = item?.rest ?? restSeconds;
+      const eid = item?.entry?.id;
+      const r0 =
+        (eid && restOverrideRef.current[eid]) ??
+        item?.rest ??
+        restSeconds;
       setRestTotal(r0);
       setRestLeft(r0);
       setPhase("rest");
     }
   };
+
+  /** Pause live ändern und im aktiven Plan speichern (pro Übung) */
+  const applyRestSeconds = useCallback(
+    (seconds, { restartTimer = true } = {}) => {
+      const sec = Math.max(5, Math.round(Number(seconds) || restSeconds));
+      const eid = item?.entry?.id;
+      if (restartTimer) {
+        setRestTotal(sec);
+        setRestLeft(sec);
+      } else {
+        setRestTotal(sec);
+        setRestLeft((l) => Math.min(l, sec));
+      }
+      if (!eid) return;
+      restOverrideRef.current[eid] = sec;
+      update((prev) => ({
+        ...prev,
+        plans: (prev.plans || []).map((p) => ({
+          ...p,
+          exercises: (p.exercises || []).map((e) =>
+            e.exerciseId === eid ? { ...e, rest: sec } : e,
+          ),
+        })),
+      }));
+      setRestSavedHint(`${sec}s für ${item?.name || "Übung"} gespeichert`);
+      window.clearTimeout(applyRestSeconds._t);
+      applyRestSeconds._t = window.setTimeout(() => setRestSavedHint(null), 2200);
+    },
+    [item, restSeconds, update],
+  );
 
   // Letzten Satz zurücknehmen (Vertipper-Korrektur in der Pause)
   const undoLastSet = () => {
@@ -846,11 +883,16 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
               <RestRing left={restLeft} total={restTotal} />
               <p className="ig-wo-rest-label">
                 Pause
-                {item?.rest != null
-                  ? ` · ${item.rest}s für diese Übung`
+                {item?.entry?.id
+                  ? ` · wird für ${item.name} gespeichert`
                   : ` · Standard ${restSeconds}s`}
               </p>
-              {/* Schnell-Presets: Timer neu setzen (bleibt nur für diesen Satz) */}
+              {restSavedHint && (
+                <p className="ig-wo-rest-saved" role="status">
+                  {restSavedHint}
+                </p>
+              )}
+              {/* Presets + ±15 speichern im Plan (nächste Sätze / nächstes Mal) */}
               <div
                 className="ig-wo-rest-presets"
                 role="group"
@@ -864,9 +906,8 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
                       "ig-chip sm" + (restTotal === s ? " active" : "")
                     }
                     onClick={() => {
-                      setRestTotal(s);
-                      setRestLeft(s);
                       playSound("tap", soundOn);
+                      applyRestSeconds(s, { restartTimer: true });
                     }}
                   >
                     {s % 60 === 0 ? `${s / 60} Min` : `${s}s`}
@@ -877,10 +918,10 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
                 <button
                   type="button"
                   className="ig-chip"
-                  disabled={restLeft <= 15}
+                  disabled={restTotal <= 15}
                   onClick={() => {
-                    setRestLeft((l) => Math.max(5, l - 15));
-                    setRestTotal((t) => Math.max(5, t - 15));
+                    playSound("tap", soundOn);
+                    applyRestSeconds(restTotal - 15, { restartTimer: true });
                   }}
                 >
                   −15 Sek
@@ -889,8 +930,8 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
                   type="button"
                   className="ig-chip"
                   onClick={() => {
-                    setRestLeft((l) => l + 15);
-                    setRestTotal((t) => t + 15);
+                    playSound("tap", soundOn);
+                    applyRestSeconds(restTotal + 15, { restartTimer: true });
                   }}
                 >
                   +15 Sek
