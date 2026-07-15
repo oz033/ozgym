@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <title>OZGYM — klar unterscheidbare Varianten</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; }
+    body {
+      background: #0c0d12;
+      color: #f2f3f7;
+      font-family: "Space Grotesk", Inter, system-ui, sans-serif;
+      padding: 32px 16px 80px;
+    }
+    h1 {
+      text-align: center;
+      font-size: 13px;
+      letter-spacing: 0.3em;
+      color: #9aa0ad;
+      margin-bottom: 6px;
+    }
+    .sub {
+      text-align: center;
+      font-size: 13px;
+      color: #6b7280;
+      max-width: 520px;
+      margin: 0 auto 28px;
+      line-height: 1.45;
+    }
+    .grid {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 20px;
+    }
+    .card {
+      background: #16181f;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 20px;
+      padding: 28px 18px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+    .card.rec { border: 2px solid #2E7BFF; }
+    .preview {
+      width: 200px;
+      height: 200px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .preview svg { width: 200px; height: 200px; }
+    .name { font-size: 16px; font-weight: 700; }
+    .diff {
+      font-size: 12px;
+      color: #5B8CFF;
+      text-align: center;
+      line-height: 1.4;
+      font-weight: 600;
+      min-height: 2.8em;
+      padding: 0 8px;
+    }
+    .desc {
+      font-size: 11px;
+      color: #9aa0ad;
+      text-align: center;
+      line-height: 1.4;
+    }
+    .key {
+      font-size: 11px;
+      font-family: ui-monospace, monospace;
+      color: #6b7280;
+      background: #0c0d12;
+      padding: 4px 10px;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+  <h1>OZGYM · VARIANTS (DEUTLICH ANDERS)</h1>
+  <p class="sub">
+    Diesmal absichtlich starke Unterschiede — damit du den Effekt an den
+    Z-Enden (links oben / rechts unten) klar siehst.
+  </p>
+  <div class="grid" id="grid"></div>
+
+  <script>
+    const BLUE = "#2E7BFF";
+    const Z = "M24 24 H40 L24 40 H40";
+
+    function base(id) {
+      return `
+        <defs>
+          <linearGradient id="b${id}" x1="12" y1="4" x2="52" y2="60">
+            <stop offset="0%" stop-color="#5B8CFF" stop-opacity="0.55"/>
+            <stop offset="42%" stop-color="#1A1D28" stop-opacity="0.92"/>
+            <stop offset="100%" stop-color="#0C0E14"/>
+          </linearGradient>
+          <linearGradient id="s${id}" x1="32" y1="6" x2="32" y2="34">
+            <stop offset="0%" stop-color="#fff" stop-opacity="0.42"/>
+            <stop offset="100%" stop-color="#fff" stop-opacity="0"/>
+          </linearGradient>
+          <radialGradient id="g${id}" cx="32" cy="28" r="22" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#2E7BFF" stop-opacity="0.38"/>
+            <stop offset="100%" stop-color="#2E7BFF" stop-opacity="0"/>
+          </radialGradient>
+          <clipPath id="t${id}"><rect x="4" y="4" width="56" height="56" rx="15"/></clipPath>
+        </defs>
+        <rect x="4" y="4" width="56" height="56" rx="15" fill="url(#b${id})"/>
+        <g clip-path="url(#t${id})">
+          <circle cx="32" cy="30" r="20" fill="url(#g${id})"/>
+          <rect x="4" y="4" width="56" height="28" fill="url(#s${id})"/>
+        </g>
+      `;
+    }
+
+    function o() {
+      return `
+        <circle cx="32" cy="32" r="16" stroke="#fff" stroke-width="5.5" fill="none"/>
+        <circle cx="32" cy="32" r="12.2" stroke="#fff" stroke-width="1" stroke-opacity="0.14" fill="none"/>
+      `;
+    }
+
+    const variants = [
+      {
+        key: "1-on-top",
+        name: "1 · Z on top (vorher)",
+        diff: "Z LIEGT AUF dem weißen Ring — Enden sichtbar auf dem O",
+        desc: "Referenz: so war es, als die Ecken stören",
+        draw(id) {
+          return `${base(id)}${o()}
+            <path d="${Z}" stroke="${BLUE}" stroke-width="5" stroke-linecap="square" stroke-linejoin="miter" fill="none"/>`;
+        },
+      },
+      {
+        key: "2-under",
+        name: "2 · Z under O",
+        diff: "Z UNTEN, O DRAUF — Enden verschwinden im weißen Ring",
+        desc: "Gleiche Länge, nur Zeichenreihenfolge",
+        rec: true,
+        draw(id) {
+          return `${base(id)}
+            <path d="${Z}" stroke="${BLUE}" stroke-width="5" stroke-linecap="square" stroke-linejoin="miter" fill="none"/>
+            ${o()}`;
+        },
+      },
+      {
+        key: "3-under-round",
+        name: "3 · Under + round ends",
+        diff: "Wie 2, aber Enden weich gerundet (Apple-style)",
+        desc: "Runde Caps nur an TL/BR, Spitzen bleiben spitz",
+        draw(id) {
+          return `${base(id)}
+            <path d="${Z}" stroke="${BLUE}" stroke-width="5" stroke-linecap="round" stroke-linejoin="miter" fill="none"/>
+            ${o()}`;
+        },
+      },
+      {
+        key: "4-inside-only",
+        name: "4 · Strictly inside",
+        diff: "Z nur im INNEREN Kreis — KEIN Überlappen mit dem O",
+        desc: "Clip am Innenrand des Rings — sehr clean, klar anders",
+        draw(id) {
+          return `${base(id)}
+            <defs><clipPath id="hole${id}"><circle cx="32" cy="32" r="13.2"/></clipPath></defs>
+            <g clip-path="url(#hole${id})">
+              <path d="${Z}" stroke="${BLUE}" stroke-width="5" stroke-linecap="round" stroke-linejoin="miter" fill="none"/>
+            </g>
+            ${o()}`;
+        },
+      },
+      {
+        key: "5-gap",
+        name: "5 · Gap at ring",
+        diff: "Luftspalt: Z endet VOR dem Ring — bewusst freier Rand",
+        desc: "Shorter bars (sichtbar kürzer) + round ends",
+        draw(id) {
+          // intentionally shorter for clear visual difference
+          const zShort = "M26.5 24 H40 L24 40 H37.5";
+          return `${base(id)}
+            <path d="${zShort}" stroke="${BLUE}" stroke-width="5" stroke-linecap="round" stroke-linejoin="miter" fill="none"/>
+            ${o()}`;
+        },
+      },
+      {
+        key: "6-thick-tuck",
+        name: "6 · Thick tuck",
+        diff: "Dickerer weißer Ring über den Enden = starkes „unter dem O“",
+        desc: "Z full size, O extra bold so tuck is obvious",
+        draw(id) {
+          return `${base(id)}
+            <path d="${Z}" stroke="${BLUE}" stroke-width="5" stroke-linecap="round" stroke-linejoin="miter" fill="none"/>
+            <circle cx="32" cy="32" r="16" stroke="#fff" stroke-width="7.5" fill="none"/>
+            <circle cx="32" cy="32" r="11.5" stroke="#fff" stroke-width="1" stroke-opacity="0.14" fill="none"/>`;
+        },
+      },
+    ];
+
+    const grid = document.getElementById("grid");
+    variants.forEach((v) => {
+      const el = document.createElement("div");
+      el.className = "card" + (v.rec ? " rec" : "");
+      el.innerHTML = `
+        <div class="preview">
+          <svg viewBox="0 0 64 64" fill="none">${v.draw(v.key.replace(/[^a-z0-9]/gi, ""))}</svg>
+        </div>
+        <div class="name">${v.name}</div>
+        <div class="diff">${v.diff}</div>
+        <div class="desc">${v.desc}</div>
+        <div class="key">${v.key}</div>
+      `;
+      grid.appendChild(el);
+    });
+  </script>
+</body>
+</html>

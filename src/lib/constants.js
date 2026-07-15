@@ -2,7 +2,10 @@
 
 import { uid } from "./utils.js";
 
-export const STORAGE_KEY = "ironlog:state";
+export const APP_NAME = "OZGYM";
+// Prefer ozgym key; migrate still reads legacy ironlog keys in hydrate boot.
+export const STORAGE_KEY = "ozgym:state:v1";
+export const STORAGE_KEY_LEGACY = ["ironlog:state:v3", "ironlog:state:v2", "ironlog:state"];
 
 export const EXERCISE_META = {
   Shoulderpress: {
@@ -165,52 +168,19 @@ export const META_MUSCLE = {
   "Abdominal Crunch": "core",
 };
 
-export const LIBRARY_DEFAULT = [
-  // Die 13 Geräte-Übungen (Namen = bestehende Trainingshistorie)
-  ...Object.entries(EXERCISE_META).map(([name, m]) => ({
-    id: "lib-" + name.toLowerCase().replace(/\s+/g, "-"),
-    name,
-    muscle: META_MUSCLE[name],
-    zone: m.zone,
-    zone2: m.zone2 || null,
-    equipment: "Maschine",
-    hint: m.hint !== "Selbsterklärend" ? m.hint : "",
-    nr: m.nr,
-  })),
-  // Standard-Bibliothek
-  { id: "lib-bench-press", name: "Bench Press", muscle: "chest", zone: "chest", zone2: "arms", equipment: "Langhantel" },
-  { id: "lib-incline-bench", name: "Incline Bench Press", muscle: "chest", zone: "chest", zone2: "shoulders", equipment: "Langhantel" },
-  { id: "lib-cable-fly", name: "Cable Fly", muscle: "chest", zone: "chest", zone2: null, equipment: "Kabelzug" },
-  { id: "lib-db-press", name: "Dumbbell Press", muscle: "chest", zone: "chest", zone2: "arms", equipment: "Kurzhantel" },
-  { id: "lib-shoulder-press-db", name: "Shoulder Press (Kurzhantel)", muscle: "shoulders", zone: "shoulders", zone2: "arms", equipment: "Kurzhantel" },
-  { id: "lib-lateral-raise", name: "Lateral Raise", muscle: "shoulders", zone: "shoulders", zone2: null, equipment: "Kurzhantel" },
-  { id: "lib-front-raise", name: "Front Raise", muscle: "shoulders", zone: "shoulders", zone2: null, equipment: "Kurzhantel" },
-  { id: "lib-rear-delt-fly", name: "Rear Delt Fly", muscle: "shoulders", zone: "shoulders", zone2: "back", equipment: "Maschine" },
-  { id: "lib-pull-up", name: "Pull Up", muscle: "back", zone: "back", zone2: "arms", equipment: "Körpergewicht" },
-  { id: "lib-seated-row", name: "Seated Row", muscle: "back", zone: "back", zone2: "arms", equipment: "Kabelzug" },
-  { id: "lib-deadlift", name: "Deadlift", muscle: "back", zone: "back", zone2: "legs", equipment: "Langhantel" },
-  { id: "lib-barbell-curl", name: "Barbell Curl", muscle: "biceps", zone: "arms", zone2: null, equipment: "Langhantel" },
-  { id: "lib-db-curl", name: "Dumbbell Curl", muscle: "biceps", zone: "arms", zone2: null, equipment: "Kurzhantel" },
-  { id: "lib-hammer-curl", name: "Hammer Curl", muscle: "biceps", zone: "arms", zone2: null, equipment: "Kurzhantel" },
-  { id: "lib-cable-curl", name: "Cable Curl", muscle: "biceps", zone: "arms", zone2: null, equipment: "Kabelzug" },
-  { id: "lib-pushdown", name: "Triceps Pushdown", muscle: "triceps", zone: "arms", zone2: null, equipment: "Kabelzug" },
-  { id: "lib-overhead-ext", name: "Overhead Extension", muscle: "triceps", zone: "arms", zone2: null, equipment: "Kurzhantel" },
-  { id: "lib-skull-crusher", name: "Skull Crusher", muscle: "triceps", zone: "arms", zone2: null, equipment: "SZ-Stange" },
-  { id: "lib-squat", name: "Squat", muscle: "legs", zone: "legs", zone2: "abs", equipment: "Langhantel" },
-  { id: "lib-rdl", name: "Romanian Deadlift", muscle: "glutes", zone: "legs", zone2: "back", equipment: "Langhantel" },
-  { id: "lib-calf-raise", name: "Calf Raise", muscle: "legs", zone: "legs", zone2: null, equipment: "Maschine" },
-  { id: "lib-lunges", name: "Lunges", muscle: "glutes", zone: "legs", zone2: "abs", equipment: "Kurzhantel" },
-  { id: "lib-hip-thrust", name: "Hip Thrust", muscle: "glutes", zone: "legs", zone2: "abs", equipment: "Langhantel" },
-  { id: "lib-glute-kickback", name: "Glute Kickback", muscle: "glutes", zone: "legs", zone2: null, equipment: "Kabelzug" },
-  { id: "lib-bulgarian-split", name: "Bulgarian Split Squat", muscle: "glutes", zone: "legs", zone2: null, equipment: "Kurzhantel" },
-  { id: "lib-goblet-squat", name: "Goblet Squat", muscle: "legs", zone: "legs", zone2: "abs", equipment: "Kurzhantel" },
-  { id: "lib-crunch", name: "Crunch", muscle: "core", zone: "abs", zone2: null, equipment: "Körpergewicht" },
-  { id: "lib-plank", name: "Plank", muscle: "core", zone: "abs", zone2: "shoulders", equipment: "Körpergewicht" },
-  { id: "lib-leg-raise", name: "Hanging Leg Raise", muscle: "core", zone: "abs", zone2: null, equipment: "Körpergewicht" },
-  { id: "lib-russian-twist", name: "Russian Twist", muscle: "core", zone: "abs", zone2: null, equipment: "Körpergewicht" },
-  { id: "lib-mountain-climber", name: "Mountain Climbers", muscle: "core", zone: "abs", zone2: "legs", equipment: "Körpergewicht" },
-  { id: "lib-burpee", name: "Burpees", muscle: "core", zone: "abs", zone2: "legs", equipment: "Körpergewicht" },
-];
+// Machines only — full 1.3k catalog lives in exerciseCatalog.js (getCatalog).
+// migrateToPlans still uses this as a fallback seed for legacy gym-device names.
+export const LIBRARY_DEFAULT = Object.entries(EXERCISE_META).map(([name, m]) => ({
+  id: "lib-" + name.toLowerCase().replace(/\s+/g, "-"),
+  name,
+  muscle: META_MUSCLE[name],
+  zone: m.zone,
+  zone2: m.zone2 || null,
+  equipment: "Maschine",
+  hint: m.hint !== "Selbsterklärend" ? m.hint : "",
+  nr: m.nr,
+  machine: true,
+}));
 
 export const PLAN_COLORS = ["#e3b23c", "#c8f04a", "#4aa8f0", "#f0654a", "#b06af0", "#4af0c8"];
 export const PLAN_ICONS = ["●", "◆", "▲", "■", "◐", "○", "◇", "✳"];

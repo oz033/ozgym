@@ -1,4 +1,4 @@
-/* Training-Tab: heutiges Workout, Fortschritt, Start */
+/* Train-Tab: Session heute — Sätze, Fortschritt, Start (Ausführung) */
 
 import React, { useState, useEffect, useMemo } from "react";
 import { Play, Moon, ChevronRight, Check, Dumbbell, ListPlus } from "lucide-react";
@@ -125,6 +125,7 @@ export default function LogTab({ data, update, queue, onStart, onCreatePlan, onC
 
   return (
     <div className="ig-tabpane">
+      <h1 className="ig-screen-title">Trainieren</h1>
       {!restDay && plan ? (
         <button
           className="ig-plan-banner"
@@ -133,7 +134,7 @@ export default function LogTab({ data, update, queue, onStart, onCreatePlan, onC
         >
           <span className="ig-banner-icon">{plan.icon}</span>
           <span>
-            Heute: <strong>{plan.name}</strong>
+            Session: <strong>{plan.name}</strong>
           </span>
           <ChevronRight
             size={15}

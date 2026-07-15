@@ -13,44 +13,43 @@
             name="apple-mobile-web-app-status-bar-style"
             content="black-translucent"
         />
-        <meta name="apple-mobile-web-app-title" content="IronLog" />
+        <meta name="apple-mobile-web-app-title" content="OZGYM" />
         <meta
             name="description"
-            content="Dein persönliches Fitness-Tagebuch – Trainingslog, Fortschritt, Timer & BMI"
+            content="OZGYM – dein Gym Tracker: Trainingslog, Pläne, Fortschritt & Timer"
         />
+        <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
         <link rel="apple-touch-icon" href="/pwa-192x192.png" />
-        <title>IronLog – Gym Tracker</title>
-        <!--
-          Kritisches Inline-CSS: greift, BEVOR das Haupt-Stylesheet oder React
-          geladen sind. Ohne das blitzt beim kalten PWA-Start (Home-Screen-Icon)
-          für einen Frame der weiße Browser-Standardhintergrund auf, bevor JS
-          überhaupt ausgeführt wurde — genau der "White Flash", den Apps wie
-          Apple Fitness/Notion nie zeigen. Dunkel ist der Fallback, da das die
-          Standardeinstellung der App ist.
-        -->
+        <title>OZGYM</title>
         <style>
             html, body, #root { background: var(--boot-bg, #0c0d12); }
             body { margin: 0; overscroll-behavior: none; }
         </style>
-        <!--
-          Synchrones Boot-Script: liest das gespeicherte Theme NOCH VOR dem
-          ersten Paint aus localStorage. Nutzer mit Light Mode sehen so sofort
-          hell statt kurz dunkel aufzublitzen, bevor React hydriert.
-          --boot-bg wird auf <html> gesetzt, obwohl <body>/#root zu diesem
-          Zeitpunkt noch gar nicht geparst sind — die Custom Property vererbt
-          sich trotzdem an sie, sobald sie entstehen.
-        -->
         <script>
             (function () {
                 try {
-                    var raw = localStorage.getItem("ironlog:state");
+                    if ("serviceWorker" in navigator) {
+                        navigator.serviceWorker.getRegistrations().then(function (regs) {
+                            regs.forEach(function (r) { r.unregister(); });
+                        });
+                    }
+                    if (typeof caches !== "undefined") {
+                        caches.keys().then(function (keys) {
+                            keys.forEach(function (k) { caches.delete(k); });
+                        });
+                    }
+                } catch (e) { /* ignore */ }
+
+                try {
+                    var raw =
+                        localStorage.getItem("ozgym:state:v1") ||
+                        localStorage.getItem("ironlog:state:v3") ||
+                        localStorage.getItem("ironlog:state");
                     var theme = raw && JSON.parse(raw).settings && JSON.parse(raw).settings.theme;
                     if (theme === "light") {
                         document.documentElement.style.setProperty("--boot-bg", "#f4f5fa");
                     }
-                } catch (e) {
-                    /* Fallback bleibt dunkel */
-                }
+                } catch (e) { /* dark default */ }
             })();
         </script>
     </head>

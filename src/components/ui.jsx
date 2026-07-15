@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { REDUCED_MOTION } from "../lib/utils.js";
-import { ZONE_LABEL } from "../lib/constants.js";
 
 /* Skeleton statt leerem/weißem Frame beim ersten Laden eines lazy Tabs.
    Greift nur beim allerersten Besuch pro Chunk (React.lazy resolved danach
@@ -114,89 +113,6 @@ export function Sparkline({ points, w = 90, h = 32 }) {
           }
         />
       ))}
-    </svg>
-  );
-}
-
-/* Muskel-Silhouette: anatomisch klar getrennte Muskelgruppen (Schulter/Trizeps/
-   Unterarm etc. einzeln sichtbar statt ein Arm-Blob) mit weichem Glanz-Overlay
-   für einen runden, plastischen ("3D") statt flachen Eindruck. */
-let silGradSeq = 0;
-
-export function BodySilhouette({ zone, zone2, pulseKey, size = 132 }) {
-  const gradId = React.useMemo(() => `ig-sil-sheen-${++silGradSeq}`, []);
-  const cls = (z) =>
-    z === zone
-      ? "ig-sil-zone primary"
-      : z === zone2
-        ? "ig-sil-zone secondary"
-        : "ig-sil-zone";
-  return (
-    <svg
-      key={pulseKey}
-      width={size}
-      height={size * 1.5}
-      viewBox="0 0 160 240"
-      role="img"
-      className="ig-sil-svg"
-      aria-label={
-        zone
-          ? `Zielmuskel: ${ZONE_LABEL[zone]}${zone2 ? `, auch ${ZONE_LABEL[zone2]}` : ""}`
-          : "Körperübersicht"
-      }
-    >
-      <defs>
-        <radialGradient id={gradId} cx="38%" cy="18%" r="80%">
-          <stop offset="0%" stopColor="#fff" stopOpacity="0.4" />
-          <stop offset="55%" stopColor="#fff" stopOpacity="0.08" />
-          <stop offset="100%" stopColor="#fff" stopOpacity="0" />
-        </radialGradient>
-      </defs>
-
-      {/* Kopf & Hals */}
-      <circle cx="80" cy="18" r="14" fill="var(--sil-base)" />
-      <rect x="71" y="30" width="18" height="11" rx="4" fill="var(--sil-base)" />
-
-      {/* Trapez (schmal, hinter dem Nacken) */}
-      <path d="M58 40 Q80 33 102 40 L100 51 Q80 45 60 51 Z" className={cls("shoulders")} />
-      {/* Deltamuskeln (Schulterkappen) */}
-      <path d="M26 50 Q17 57 19 69 Q21 78 32 75 Q39 66 36 54 Q32 47 26 50 Z" className={cls("shoulders")} />
-      <path d="M134 50 Q143 57 141 69 Q139 78 128 75 Q121 66 124 54 Q128 47 134 50 Z" className={cls("shoulders")} />
-
-      {/* Brust (Pectoralis, links/rechts getrennt) */}
-      <path d="M40 58 Q60 49 78 56 L76 83 Q58 91 42 81 Z" className={cls("chest")} />
-      <path d="M120 58 Q100 49 82 56 L84 83 Q102 91 118 81 Z" className={cls("chest")} />
-
-      {/* Rücken/Lat, seitlich sichtbar */}
-      <path d="M29 76 Q24 93 29 109 L38 107 Q34 92 36 78 Z" className={cls("back")} />
-      <path d="M131 76 Q136 93 131 109 L122 107 Q126 92 124 78 Z" className={cls("back")} />
-
-      {/* Bizeps */}
-      <path d="M19 70 Q12 85 15 101 L26 100 Q23 86 28 74 Z" className={cls("arms")} />
-      <path d="M141 70 Q148 85 145 101 L134 100 Q137 86 132 74 Z" className={cls("arms")} />
-      {/* Unterarme */}
-      <path d="M14 103 Q8 118 12 134 L23 132 Q20 119 25 104 Z" className={cls("arms")} />
-      <path d="M146 103 Q152 118 148 134 L137 132 Q140 119 135 104 Z" className={cls("arms")} />
-
-      {/* Bauch: 6er-Pack + seitliche Obliques */}
-      <path d="M61 90 Q56 106 61 123 L68 121 Q65 105 68 92 Z" className={cls("abs")} />
-      <path d="M99 90 Q104 106 99 123 L92 121 Q95 105 92 92 Z" className={cls("abs")} />
-      <rect x="68" y="88" width="11" height="13" rx="3" className={cls("abs")} />
-      <rect x="81" y="88" width="11" height="13" rx="3" className={cls("abs")} />
-      <rect x="68" y="103" width="11" height="13" rx="3" className={cls("abs")} />
-      <rect x="81" y="103" width="11" height="13" rx="3" className={cls("abs")} />
-      <rect x="68" y="118" width="11" height="13" rx="3" className={cls("abs")} />
-      <rect x="81" y="118" width="11" height="13" rx="3" className={cls("abs")} />
-
-      {/* Quadrizeps */}
-      <path d="M62 138 Q55 166 60 196 L74 196 Q77 166 74 138 Z" className={cls("legs")} />
-      <path d="M98 138 Q105 166 100 196 L86 196 Q83 166 86 138 Z" className={cls("legs")} />
-      {/* Waden */}
-      <path d="M61 199 Q57 217 61 235 L71 235 Q74 217 71 199 Z" className={cls("legs")} />
-      <path d="M99 199 Q103 217 99 235 L89 235 Q86 217 89 199 Z" className={cls("legs")} />
-
-      {/* Glanz-Overlay für plastischen Eindruck, unabhängig von der Zonenfarbe */}
-      <rect x="0" y="0" width="160" height="240" fill={`url(#${gradId})`} className="ig-sil-sheen" />
     </svg>
   );
 }

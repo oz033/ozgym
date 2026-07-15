@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <title>OZGYM — Z Varianten</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; }
+    body {
+      min-height: 100vh;
+      background: #0c0d12;
+      color: #f2f3f7;
+      font-family: "Space Grotesk", Inter, system-ui, sans-serif;
+      padding: 40px 24px 64px;
+    }
+    h1 {
+      text-align: center;
+      font-size: 13px;
+      letter-spacing: 0.35em;
+      font-weight: 700;
+      color: #9aa0ad;
+      margin-bottom: 8px;
+    }
+    .sub {
+      text-align: center;
+      font-size: 12px;
+      color: #6b7280;
+      margin-bottom: 36px;
+    }
+    .grid {
+      max-width: 960px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 20px;
+    }
+    .card {
+      background: #16181f;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 18px;
+      padding: 28px 20px 22px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      cursor: default;
+      transition: border-color 0.2s;
+    }
+    .card:hover { border-color: #2E7BFF; }
+    .card.active { border-color: #2E7BFF; box-shadow: 0 0 0 1px #2E7BFF; }
+    .badge {
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #2E7BFF;
+      font-weight: 700;
+    }
+    .name {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+    }
+    .desc {
+      font-size: 11px;
+      color: #9aa0ad;
+      text-align: center;
+      line-height: 1.4;
+      min-height: 2.8em;
+    }
+    .id {
+      font-size: 10px;
+      font-family: ui-monospace, monospace;
+      color: #6b7280;
+    }
+    .light-strip {
+      max-width: 960px;
+      margin: 40px auto 0;
+      background: #fff;
+      border-radius: 18px;
+      padding: 28px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 24px;
+      justify-content: center;
+      align-items: center;
+    }
+    .light-strip .mini {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      color: #0a0a0a;
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+  </style>
+</head>
+<body>
+  <h1>OZGYM · Z DESIGNS</h1>
+  <p class="sub">O-Ring weiß · Z in UI-Blau #2E7BFF · wähle eine Variante</p>
+
+  <div class="grid" id="grid"></div>
+
+  <div class="light-strip" id="light"></div>
+
+  <script>
+    const BLUE = "#2E7BFF";
+    const variants = {
+      classic: { path: "M24 24 H40 L24 40 H40", label: "Classic", desc: "Klar, Nike-simple — aktuell aktiv" },
+      soft:    { path: "M25 24.5 H39 L25 39.5 H39", label: "Soft", desc: "Etwas enger, moderner" },
+      bold:    { path: "M22 23 H42 L22 41 H42", label: "Bold", desc: "Schwerer, mehr Präsenz", sw: 5.5 },
+      stroke:  { path: "M26 25 H38 L26 39 H38", label: "Stroke", desc: "Schlanker, athletisch" },
+      sharp:   { path: "M25 23 H41 L23 41 H39", label: "Sharp", desc: "Steile Diagonale, Energie" },
+      minimal: { multi: true, label: "Minimal", desc: "Drei getrennte Striche, ultra clean" },
+      round:   { path: "M25 24.5 H39 Q40 24.5 39.2 26 L25.8 38 Q25 39.5 26 39.5 H40", label: "Round", desc: "Weiche Ecken", cap: "round", join: "round" },
+    };
+
+    function iconSvg(key, size, { tile = true, onLight = false } = {}) {
+      const v = variants[key];
+      const stroke = onLight ? "#0A0A0A" : "#FFFFFF";
+      const sw = v.sw || 5;
+      const cap = v.cap || "square";
+      const join = v.join || "miter";
+      let z = "";
+      if (v.multi) {
+        z = `
+          <path d="M26 25 H38" stroke="${BLUE}" stroke-width="5" stroke-linecap="square"/>
+          <path d="M38 25 L26 39" stroke="${BLUE}" stroke-width="5" stroke-linecap="square"/>
+          <path d="M26 39 H38" stroke="${BLUE}" stroke-width="5" stroke-linecap="square"/>`;
+      } else {
+        z = `<path d="${v.path}" stroke="${BLUE}" stroke-width="${sw}" stroke-linecap="${cap}" stroke-linejoin="${join}" fill="none"/>`;
+      }
+      const bg = tile
+        ? `<rect x="4" y="4" width="56" height="56" rx="14" fill="#0A0A0A"/>`
+        : "";
+      return `<svg width="${size}" height="${size}" viewBox="0 0 64 64" fill="none">${bg}
+        <circle cx="32" cy="32" r="16" stroke="${stroke}" stroke-width="5.5" fill="none"/>
+        ${z}
+      </svg>`;
+    }
+
+    const grid = document.getElementById("grid");
+    const light = document.getElementById("light");
+
+    Object.keys(variants).forEach((key) => {
+      const v = variants[key];
+      const active = key === "classic";
+      const card = document.createElement("div");
+      card.className = "card" + (active ? " active" : "");
+      card.innerHTML = `
+        ${iconSvg(key, 120)}
+        ${active ? '<div class="badge">Aktiv in der App</div>' : '<div class="badge" style="visibility:hidden">·</div>'}
+        <div class="name">${v.label}</div>
+        <div class="desc">${v.desc}</div>
+        <div class="id">zStyle: "${key}"</div>
+      `;
+      grid.appendChild(card);
+
+      const mini = document.createElement("div");
+      mini.className = "mini";
+      mini.innerHTML = `${iconSvg(key, 56, { tile: false, onLight: true })}<span>${v.label}</span>`;
+      light.appendChild(mini);
+    });
+  </script>
+</body>
+</html>

@@ -113,11 +113,11 @@ export default function PlansTab({ data, update, autoOpenPlanId, onAutoOpenHandl
   if (plans.length === 0) {
     return (
       <div className="ig-tabpane">
-        <h1 className="ig-home-title" style={{ padding: "4px 2px 0" }}>Trainingspläne</h1>
+        <h1 className="ig-screen-title">Pläne</h1>
         <EmptyState
-          icon={<ClipboardList size={40} />}
-          title="Erstelle deinen ersten Trainingsplan"
-          description="Ein Plan legt fest, welche Übungen, Sätze und Wiederholungen dein Workout hat. Dauert keine zwei Minuten."
+          icon={<ClipboardList size={36} />}
+          title="Noch kein Plan"
+          description="Lege Übungen, Sätze und Wdh. fest — dann startest du unter Train."
           primaryLabel="Plan erstellen"
           onPrimary={createPlan}
           secondaryLabel={profileReady ? "Vorlage auswählen" : undefined}
@@ -127,9 +127,34 @@ export default function PlansTab({ data, update, autoOpenPlanId, onAutoOpenHandl
     );
   }
 
+  const patchSettings = (fields) =>
+    update((prev) => ({ ...prev, settings: { ...prev.settings, ...fields } }));
+  const weeklyGoal = data.settings?.weeklyGoal || 3;
+
   return (
     <div className="ig-tabpane">
-      <h1 className="ig-home-title" style={{ padding: "4px 2px 0" }}>Trainingspläne</h1>
+      <h1 className="ig-screen-title">Pläne</h1>
+
+      {/* Wochenziel — ruhige Chip-Leiste, kein Extra-Textblock */}
+      <div className="ig-card ig-week-goal">
+        <div className="ig-week-goal-row">
+          <span className="ig-field-label" style={{ margin: 0 }}>
+            Tage / Woche
+          </span>
+          <div className="ig-mode-toggle ig-week-goal-chips">
+            {[2, 3, 4, 5, 6].map((g) => (
+              <button
+                key={g}
+                type="button"
+                className={"ig-chip sm" + (weeklyGoal === g ? " active" : "")}
+                onClick={() => patchSettings({ weeklyGoal: g })}
+              >
+                {g}×
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
 
       {/* Aktiver Plan: klar dominant, sofort erkennbar als "das ist mein Plan" */}
       {activePlan && (
@@ -519,9 +544,12 @@ function PlanEditor({ plan, data, update, onClose }) {
 
 const EMPTY_LIBRARY = [];
 
+const PICKER_PAGE = 60;
+
 function LibraryPicker({ data, update, usedIds, onPick, onClose }) {
   const [query, setQuery] = useState("");
   const [muscle, setMuscle] = useState("");
+  const [limit, setLimit] = useState(PICKER_PAGE);
   const [showCustom, setShowCustom] = useState(false);
   const [customName, setCustomName] = useState("");
   const [customMuscle, setCustomMuscle] = useState("chest");
@@ -562,15 +590,26 @@ function LibraryPicker({ data, update, usedIds, onPick, onClose }) {
         return (
           e.name.toLowerCase().includes(q) ||
           (e.equipment || "").toLowerCase().includes(q) ||
+          (e.equipmentRaw || "").toLowerCase().includes(q) ||
+          (e.target || "").toLowerCase().includes(q) ||
           (MUSCLE_NAME[e.muscle] || "").toLowerCase().includes(q)
         );
       })
       .sort(
         (a, b) =>
           (b.favorite ? 1 : 0) - (a.favorite ? 1 : 0) ||
+          (b.machine ? 1 : 0) - (a.machine ? 1 : 0) ||
           a.name.localeCompare(b.name),
       );
   }, [library, query, muscle]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setLimit(PICKER_PAGE);
+  }, [query, muscle]);
+
+  const visible = results.slice(0, limit);
+  const hasMore = results.length > limit;
 
   return (
     <div className="ig-sheet ig-sheet-over">
@@ -586,7 +625,7 @@ function LibraryPicker({ data, update, usedIds, onPick, onClose }) {
         <Search size={15} className="ig-sheet-search-icon" />
         <input
           className="ig-input"
-          placeholder="Suchen …"
+          placeholder={`Suchen in ${library.length} Übungen …`}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
@@ -608,6 +647,11 @@ function LibraryPicker({ data, update, usedIds, onPick, onClose }) {
             {m.name}
           </button>
         ))}
+      </div>
+
+      <div className="ig-picker-count mono">
+        {results.length} Treffer
+        {results.length !== library.length ? ` · ${library.length} gesamt` : ""}
       </div>
 
       <div className="ig-sheet-body">
@@ -652,11 +696,12 @@ function LibraryPicker({ data, update, usedIds, onPick, onClose }) {
           </div>
         )}
 
-        <ul className="ig-picker-list">
-          {results.map((e) => {
+        <ul className="ig-picker-list media">
+          {visible.map((e) => {
             const used = usedIds.includes(e.id);
+            const thumb = e.image || e.gif;
             return (
-              <li key={e.id} className="ig-picker-row">
+              <li key={e.id} className="ig-picker-row media">
                 <button
                   className="ig-picker-fav"
                   onClick={() => toggleFav(e.id)}
@@ -665,18 +710,30 @@ function LibraryPicker({ data, update, usedIds, onPick, onClose }) {
                   {e.favorite ? "★" : "☆"}
                 </button>
                 <button
-                  className="ig-picker-main"
+                  className="ig-picker-main media"
                   disabled={used}
                   onClick={() => onPick(e)}
                 >
-                  <span className="ig-picker-name">
-                    {e.name}
-                    {e.custom && <span className="ig-pe-muscle">Eigene</span>}
+                  <span className="ig-picker-thumb">
+                    {thumb ? (
+                      <img src={thumb} alt="" loading="lazy" decoding="async" />
+                    ) : (
+                      <span className="ig-picker-thumb-ph">
+                        {(e.name || "?").slice(0, 1)}
+                      </span>
+                    )}
                   </span>
-                  <span className="ig-picker-meta">
-                    {[MUSCLE_NAME[e.muscle], e.equipment]
-                      .filter(Boolean)
-                      .join(" · ")}
+                  <span className="ig-picker-text">
+                    <span className="ig-picker-name">
+                      {e.name}
+                      {e.custom && <span className="ig-pe-muscle">Eigene</span>}
+                      {e.nr && <span className="ig-pe-muscle">Gerät {e.nr}</span>}
+                    </span>
+                    <span className="ig-picker-meta">
+                      {[MUSCLE_NAME[e.muscle], e.equipment, e.target]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </span>
                   </span>
                 </button>
                 {used ? (
@@ -687,6 +744,16 @@ function LibraryPicker({ data, update, usedIds, onPick, onClose }) {
               </li>
             );
           })}
+          {hasMore && (
+            <li className="ig-picker-more">
+              <button
+                className="ig-btn-secondary wide"
+                onClick={() => setLimit((n) => n + PICKER_PAGE)}
+              >
+                Mehr laden ({results.length - limit} weitere)
+              </button>
+            </li>
+          )}
           {results.length === 0 && (
             <p className="ig-empty">Nichts gefunden — erstell sie als eigene Übung.</p>
           )}

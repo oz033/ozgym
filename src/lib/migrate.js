@@ -1,7 +1,13 @@
 /* Migration alter Speicherstände auf das aktuelle Datenmodell */
 
 import { uid } from "./utils.js";
-import { EXERCISE_META, LIBRARY_DEFAULT, PLAN_COLORS } from "./constants.js";
+import { PLAN_COLORS } from "./constants.js";
+import {
+  mergeUserLibrary,
+  slimLibraryForStorage,
+  getCatalog,
+  buildCleverFitPlans,
+} from "./exerciseCatalog.js";
 
 /* Theme-Studio-Voreinstellung: null-Accent = Modus-Standard (m/f/neutral) */
 export const DEFAULT_THEME_CFG = {
@@ -38,13 +44,14 @@ export const DEFAULT_PROFILE = {
   daysPerWeek: 3,
   equipment: [],
   duration: 45,
-  onboarded: false,
+  // Onboarding-Wizard deaktiviert — App startet direkt mit Clever-Fit-Plänen.
+  onboarded: true,
 };
 
-// Altes Split-System -> dynamische Pläne
+// Altes Split-System -> dynamische Pläne (Clever Fit OK/UK + optional custom names)
 export function migrateToPlans(parsed, settings) {
   if (parsed.plans && parsed.library) return parsed;
-  const library = LIBRARY_DEFAULT.map((e) => ({ ...e }));
+  const library = getCatalog().map((e) => ({ ...e }));
   (parsed.exercises || []).forEach((name) => {
     if (!library.some((l) => l.name === name)) {
       library.push({
@@ -59,41 +66,13 @@ export function migrateToPlans(parsed, settings) {
     }
   });
   const rest = settings?.restSeconds || 90;
-  const byGroup = (group) =>
-    Object.entries(EXERCISE_META)
-      .filter(([, m]) => m.group === group)
-      .sort((a, b) => (a[1].order || 99) - (b[1].order || 99))
-      .map(([name, m]) => ({
-        exerciseId: library.find((l) => l.name === name)?.id,
-        sets: 3,
-        reps: m.reps === "6–10" ? 8 : 10,
-        weight: null,
-        rest,
-      }));
-  const okPlan = {
-    id: "plan-" + uid(),
-    name: "Oberkörper",
-    color: PLAN_COLORS[0],
-    icon: "▲",
-    description: "",
-    days: [],
-    exercises: byGroup("Oberkörper"),
-  };
-  const ukPlan = {
-    id: "plan-" + uid(),
-    name: "Unterkörper",
-    color: PLAN_COLORS[2],
-    icon: "▼",
-    description: "",
-    days: [],
-    exercises: byGroup("Unterkörper"),
-  };
+  const [okPlan, ukPlan] = buildCleverFitPlans(rest);
   const split = parsed.split;
   if (split?.mode === "week" && split.days) {
     Object.entries(split.days).forEach(([day, unit]) => {
-      if (unit === "ok") okPlan.days.push(day);
-      else if (unit === "uk") ukPlan.days.push(day);
-      else if (unit === "gk") okPlan.days.push(day);
+      if (unit === "ok" && !okPlan.days.includes(day)) okPlan.days.push(day);
+      else if (unit === "uk" && !ukPlan.days.includes(day)) ukPlan.days.push(day);
+      else if (unit === "gk" && !okPlan.days.includes(day)) okPlan.days.push(day);
     });
   }
   return {
@@ -104,24 +83,48 @@ export function migrateToPlans(parsed, settings) {
   };
 }
 
-// Neue Bibliothekseinträge (z.B. Glute-Übungen) in bestehende Stände mergen
+// Overlay user favorites/customs onto the full static catalog (1.3k+).
 export function mergeLibrary(existing) {
-  const names = new Set((existing || []).map((e) => e.name));
-  const added = LIBRARY_DEFAULT.filter((e) => !names.has(e.name));
-  return added.length ? [...existing, ...added.map((e) => ({ ...e }))] : existing;
+  return mergeUserLibrary(existing);
 }
 
-// Frischer Zustand: volle Bibliothek, aber KEINE vorgefertigten Pläne.
-// Pläne entstehen ausschließlich durch Onboarding oder den Nutzer selbst.
+/** Ensure Clever Fit OK/UK presets exist (idempotent by preset/id). */
+export function ensureCleverFitPlans(plans, restSeconds = 90) {
+  const list = Array.isArray(plans) ? [...plans] : [];
+  const presets = buildCleverFitPlans(restSeconds);
+  for (const p of presets) {
+    const idx = list.findIndex(
+      (x) => x.id === p.id || x.preset === p.preset,
+    );
+    if (idx === -1) {
+      list.push(p);
+    } else {
+      // Refresh preset exercises (e.g. clear duplicate notes) without
+      // wiping user day/color tweaks on the same plan id.
+      list[idx] = {
+        ...list[idx],
+        name: p.name,
+        description: p.description,
+        exercises: p.exercises,
+        preset: p.preset,
+      };
+    }
+  }
+  return list;
+}
+
+// Frischer Zustand: volle Bibliothek + Clever Fit OK/UK als Standardpläne.
 export function freshState() {
+  const settings = { ...DEFAULT_SETTINGS };
+  const plans = buildCleverFitPlans(settings.restSeconds);
   return {
     logs: [],
-    library: LIBRARY_DEFAULT.map((e) => ({ ...e })),
-    plans: [],
-    activePlanId: null,
+    library: getCatalog().map((e) => ({ ...e })),
+    plans,
+    activePlanId: plans[0]?.id || null,
     wellness: {},
     profile: { ...DEFAULT_PROFILE },
-    settings: { ...DEFAULT_SETTINGS },
+    settings,
   };
 }
 
@@ -133,11 +136,31 @@ export function hydrate(parsed) {
     themeCfg: { ...DEFAULT_THEME_CFG, ...(parsed.settings?.themeCfg || {}) },
   };
   const migrated = migrateToPlans(parsed, settings);
+  const plans = ensureCleverFitPlans(migrated.plans, settings.restSeconds);
+  const activePlanId =
+    migrated.activePlanId && plans.some((p) => p.id === migrated.activePlanId)
+      ? migrated.activePlanId
+      : plans[0]?.id || null;
   return {
     ...migrated,
     library: mergeLibrary(migrated.library),
+    plans,
+    activePlanId,
     wellness: migrated.wellness || {},
-    profile: { ...DEFAULT_PROFILE, ...(migrated.profile || {}) },
+    profile: {
+      ...DEFAULT_PROFILE,
+      ...(migrated.profile || {}),
+      // Always skip the onboarding wizard (Clever Fit presets are enough).
+      onboarded: true,
+    },
     settings,
+  };
+}
+
+/** Persist only customs + favorite flags (catalog is rebuilt on load). */
+export function prepareForStorage(state) {
+  return {
+    ...state,
+    library: slimLibraryForStorage(state.library),
   };
 }

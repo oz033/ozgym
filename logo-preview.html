@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <title>OZGYM — Logo v2</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; }
+    body {
+      min-height: 100vh;
+      font-family: "Space Grotesk", system-ui, sans-serif;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+    @media (max-width: 720px) { body { grid-template-columns: 1fr; } }
+    .panel {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 28px; padding: 48px 20px;
+    }
+    .light { background: #fff; color: #0a0a0a; }
+    .dark { background: #0a0a0a; color: #fff; }
+    .word { font-weight: 700; font-size: 36px; letter-spacing: 0.18em; }
+    .meta { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; opacity: 0.45; }
+    .lockup { display: flex; align-items: center; gap: 14px; }
+  </style>
+</head>
+<body>
+  <section class="panel light">
+    <svg width="180" height="180" viewBox="0 0 64 64" fill="none">
+      <circle cx="32" cy="32" r="16" stroke="#0A0A0A" stroke-width="5.5"/>
+      <path d="M24 23.5 H40 V28.2 H31.2 L40 40.5 H24 V35.8 H32.8 L24 23.5 Z" fill="#3B82F6"/>
+    </svg>
+    <div class="lockup">
+      <svg width="44" height="44" viewBox="0 0 64 64" fill="none">
+        <circle cx="32" cy="32" r="16" stroke="#0A0A0A" stroke-width="5.5"/>
+        <path d="M24 23.5 H40 V28.2 H31.2 L40 40.5 H24 V35.8 H32.8 L24 23.5 Z" fill="#3B82F6"/>
+      </svg>
+      <span class="word">OZGYM</span>
+    </div>
+    <p class="meta">Filled Z · #3B82F6 · on white</p>
+  </section>
+  <section class="panel dark">
+    <svg width="180" height="180" viewBox="0 0 64 64" fill="none">
+      <rect x="4" y="4" width="56" height="56" rx="14" fill="#0A0A0A"/>
+      <circle cx="32" cy="32" r="16" stroke="#FFFFFF" stroke-width="5.5"/>
+      <path d="M24 23.5 H40 V28.2 H31.2 L40 40.5 H24 V35.8 H32.8 L24 23.5 Z" fill="#3B82F6"/>
+    </svg>
+    <div class="lockup">
+      <svg width="44" height="44" viewBox="0 0 64 64" fill="none">
+        <rect x="4" y="4" width="56" height="56" rx="14" fill="#0A0A0A"/>
+        <circle cx="32" cy="32" r="16" stroke="#FFFFFF" stroke-width="5.5"/>
+        <path d="M24 23.5 H40 V28.2 H31.2 L40 40.5 H24 V35.8 H32.8 L24 23.5 Z" fill="#3B82F6"/>
+      </svg>
+      <span class="word">OZGYM</span>
+    </div>
+    <p class="meta">App icon · filled monogram Z</p>
+  </section>
+</body>
+</html>

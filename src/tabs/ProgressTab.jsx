@@ -72,7 +72,7 @@ export default function ProgressTab({ data, onStart }) {
   if (stats.totalWorkouts === 0) {
     return (
       <div className="ig-tabpane">
-        <h1 className="ig-home-title" style={{ padding: "4px 2px 0" }}>Verlauf</h1>
+        <h1 className="ig-screen-title">Stats</h1>
         <EmptyState
           icon={<TrendingUp size={40} />}
           title="Noch keine Trainings"
@@ -86,7 +86,7 @@ export default function ProgressTab({ data, onStart }) {
 
   return (
     <div className="ig-tabpane">
-      <h1 className="ig-home-title" style={{ padding: "4px 2px 0" }}>Verlauf</h1>
+      <h1 className="ig-screen-title">Stats</h1>
 
       {/* Overview: die drei Lebenszeit-Zahlen, die hier hingehören (kein Duplikat von Home) */}
       <div className="ig-card ig-overview">

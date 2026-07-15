@@ -75,10 +75,11 @@ export function buzz(pattern, enabled = true) {
 /* ---------------- Statistiken (alles aus Logs abgeleitet) ---------------- */
 
 export function calcStats(logs, weeklyGoal = 3) {
+  const list = Array.isArray(logs) ? logs : [];
   const dayVolumes = {};
   let totalSets = 0;
   let totalVolume = 0;
-  for (const l of logs) {
+  for (const l of list) {
     let v = 0;
     for (const s of l.sets) v += s.reps * s.weight;
     dayVolumes[l.date] = (dayVolumes[l.date] || 0) + v;
@@ -90,7 +91,7 @@ export function calcStats(logs, weeklyGoal = 3) {
   // Rekorde: pro Übung jeder Tag, dessen Top-Gewicht alle vorherigen übertrifft
   let prCount = 0;
   const byExercise = {};
-  for (const l of logs) {
+  for (const l of list) {
     (byExercise[l.exercise] = byExercise[l.exercise] || []).push(l);
   }
   for (const list of Object.values(byExercise)) {

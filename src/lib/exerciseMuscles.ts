@@ -1,0 +1,226 @@
+/**
+ * Muskelbeteiligung für 150+ gängige Kraftübungen, in der 17-Muskel-
+ * Vokabular von components/MuscleMap/bodyData.ts. ExerciseMuscleMap nutzt
+ * das direkt: exerciseMuscles["Bench Press"] -> passende Regionen einfärben.
+ */
+import type { MuscleId } from "../components/MuscleMap/bodyData";
+
+export interface MuscleData {
+  primary: MuscleId[];
+  secondary: MuscleId[];
+}
+
+export const exerciseMuscles: Record<string, MuscleData> = {
+  // ---------- App-eigene Geräte-Übungen (13 feste Maschinen-Namen aus lib/constants.js) ----------
+  Shoulderpress: { primary: ["shoulders"], secondary: ["triceps"] },
+  Chestpress: { primary: ["chest"], secondary: ["shoulders", "triceps"] },
+  Pulldown: { primary: ["lats"], secondary: ["biceps"] },
+  "Low Row": { primary: ["back", "lats"], secondary: ["biceps", "shoulders"] },
+  "Lower Back": { primary: ["back"], secondary: ["glutes"] },
+  "Arm Extension": { primary: ["triceps"], secondary: [] },
+  "Arm Curl": { primary: ["biceps"], secondary: ["forearms"] },
+  Adductor: { primary: ["quadriceps"], secondary: [] },
+  Abductor: { primary: ["glutes"], secondary: [] },
+  "Abdominal Crunch": { primary: ["abs"], secondary: [] },
+
+  // ---------- Brust ----------
+  "Bench Press": { primary: ["chest"], secondary: ["shoulders", "triceps"] },
+  "Incline Bench Press": { primary: ["chest"], secondary: ["shoulders", "triceps"] },
+  "Decline Bench Press": { primary: ["chest"], secondary: ["triceps"] },
+  "Dumbbell Bench Press": { primary: ["chest"], secondary: ["shoulders", "triceps"] },
+  "Incline Dumbbell Press": { primary: ["chest"], secondary: ["shoulders", "triceps"] },
+  "Decline Dumbbell Press": { primary: ["chest"], secondary: ["triceps"] },
+  "Chest Press Machine": { primary: ["chest"], secondary: ["shoulders", "triceps"] },
+  "Pec Deck": { primary: ["chest"], secondary: [] },
+  "Cable Fly": { primary: ["chest"], secondary: [] },
+  "Incline Cable Fly": { primary: ["chest"], secondary: ["shoulders"] },
+  "Decline Cable Fly": { primary: ["chest"], secondary: [] },
+  "Dumbbell Fly": { primary: ["chest"], secondary: [] },
+  "Push Up": { primary: ["chest"], secondary: ["shoulders", "triceps", "abs"] },
+  "Incline Push Up": { primary: ["chest"], secondary: ["shoulders", "triceps"] },
+  "Decline Push Up": { primary: ["chest"], secondary: ["shoulders", "triceps"] },
+  "Diamond Push Up": { primary: ["triceps"], secondary: ["chest"] },
+  Dips: { primary: ["chest"], secondary: ["triceps", "shoulders"] },
+  "Cable Crossover": { primary: ["chest"], secondary: [] },
+  "Svend Press": { primary: ["chest"], secondary: [] },
+  "Landmine Press": { primary: ["shoulders"], secondary: ["chest", "triceps"] },
+  "Guillotine Press": { primary: ["chest"], secondary: ["shoulders"] },
+
+  // ---------- Schultern ----------
+  "Overhead Press": { primary: ["shoulders"], secondary: ["triceps"] },
+  "Seated Dumbbell Press": { primary: ["shoulders"], secondary: ["triceps"] },
+  "Arnold Press": { primary: ["shoulders"], secondary: ["triceps"] },
+  "Military Press": { primary: ["shoulders"], secondary: ["triceps", "abs"] },
+  "Push Press": { primary: ["shoulders"], secondary: ["triceps", "quadriceps"] },
+  "Lateral Raise": { primary: ["shoulders"], secondary: [] },
+  "Cable Lateral Raise": { primary: ["shoulders"], secondary: [] },
+  "Front Raise": { primary: ["shoulders"], secondary: ["chest"] },
+  "Rear Delt Fly": { primary: ["shoulders"], secondary: ["back"] },
+  "Reverse Pec Deck": { primary: ["shoulders"], secondary: ["back"] },
+  "Face Pull": { primary: ["shoulders"], secondary: ["traps", "back"] },
+  "Upright Row": { primary: ["shoulders"], secondary: ["traps"] },
+  Shrugs: { primary: ["traps"], secondary: ["forearms"] },
+  "Dumbbell Shrugs": { primary: ["traps"], secondary: ["forearms"] },
+  "Cable Shrugs": { primary: ["traps"], secondary: [] },
+  "Cuban Press": { primary: ["shoulders"], secondary: [] },
+  "Handstand Push Up": { primary: ["shoulders"], secondary: ["triceps", "chest"] },
+  "Bradford Press": { primary: ["shoulders"], secondary: ["triceps"] },
+  "Plate Front Raise": { primary: ["shoulders"], secondary: [] },
+  "Y-Raise": { primary: ["shoulders"], secondary: ["traps"] },
+
+  // ---------- Rücken ----------
+  Deadlift: { primary: ["hamstrings", "back"], secondary: ["glutes", "traps", "forearms"] },
+  "Romanian Deadlift": { primary: ["hamstrings", "glutes"], secondary: ["back"] },
+  "Sumo Deadlift": { primary: ["glutes", "quadriceps"], secondary: ["hamstrings", "back"] },
+  "Stiff Leg Deadlift": { primary: ["hamstrings"], secondary: ["back", "glutes"] },
+  "Rack Pull": { primary: ["back", "traps"], secondary: ["hamstrings", "forearms"] },
+  "Pull Up": { primary: ["lats"], secondary: ["biceps", "forearms", "back"] },
+  "Chin Up": { primary: ["lats"], secondary: ["biceps", "forearms"] },
+  "Wide Grip Pull Up": { primary: ["lats"], secondary: ["back"] },
+  "Neutral Grip Pull Up": { primary: ["lats"], secondary: ["biceps"] },
+  "Lat Pulldown": { primary: ["lats"], secondary: ["biceps"] },
+  "Close Grip Pulldown": { primary: ["lats"], secondary: ["biceps"] },
+  "Wide Grip Pulldown": { primary: ["lats"], secondary: ["back"] },
+  "Straight Arm Pulldown": { primary: ["lats"], secondary: [] },
+  "Seated Cable Row": { primary: ["back"], secondary: ["lats", "biceps"] },
+  "Barbell Row": { primary: ["back"], secondary: ["lats", "biceps"] },
+  "Pendlay Row": { primary: ["back"], secondary: ["lats"] },
+  "T-Bar Row": { primary: ["back"], secondary: ["lats", "biceps"] },
+  "One Arm Dumbbell Row": { primary: ["lats"], secondary: ["back", "biceps"] },
+  "Chest Supported Row": { primary: ["back"], secondary: ["lats"] },
+  "Meadows Row": { primary: ["lats"], secondary: ["back", "biceps"] },
+  "Inverted Row": { primary: ["back"], secondary: ["lats", "biceps"] },
+  Hyperextension: { primary: ["back"], secondary: ["glutes", "hamstrings"] },
+  "Good Morning": { primary: ["back"], secondary: ["hamstrings", "glutes"] },
+  Superman: { primary: ["back"], secondary: ["glutes"] },
+  "Cable Pullover": { primary: ["lats"], secondary: ["chest"] },
+
+  // ---------- Bizeps ----------
+  "Barbell Curl": { primary: ["biceps"], secondary: ["forearms"] },
+  "EZ Bar Curl": { primary: ["biceps"], secondary: ["forearms"] },
+  "Dumbbell Curl": { primary: ["biceps"], secondary: ["forearms"] },
+  "Hammer Curl": { primary: ["biceps"], secondary: ["forearms"] },
+  "Incline Dumbbell Curl": { primary: ["biceps"], secondary: [] },
+  "Preacher Curl": { primary: ["biceps"], secondary: [] },
+  "Concentration Curl": { primary: ["biceps"], secondary: [] },
+  "Cable Curl": { primary: ["biceps"], secondary: ["forearms"] },
+  "Spider Curl": { primary: ["biceps"], secondary: [] },
+  "Zottman Curl": { primary: ["biceps"], secondary: ["forearms"] },
+  "Reverse Curl": { primary: ["forearms"], secondary: ["biceps"] },
+  "21s Bicep Curl": { primary: ["biceps"], secondary: ["forearms"] },
+  "Drag Curl": { primary: ["biceps"], secondary: [] },
+  "Cross Body Hammer Curl": { primary: ["biceps"], secondary: ["forearms"] },
+
+  // ---------- Trizeps ----------
+  "Triceps Pushdown": { primary: ["triceps"], secondary: [] },
+  "Rope Pushdown": { primary: ["triceps"], secondary: [] },
+  "Overhead Triceps Extension": { primary: ["triceps"], secondary: [] },
+  "Skull Crusher": { primary: ["triceps"], secondary: [] },
+  "Close Grip Bench Press": { primary: ["triceps"], secondary: ["chest", "shoulders"] },
+  "Triceps Kickback": { primary: ["triceps"], secondary: [] },
+  "JM Press": { primary: ["triceps"], secondary: ["chest"] },
+  "Single Arm Overhead Extension": { primary: ["triceps"], secondary: [] },
+  "Bench Dip": { primary: ["triceps"], secondary: ["chest"] },
+  "Tate Press": { primary: ["triceps"], secondary: [] },
+
+  // ---------- Unterarme ----------
+  "Wrist Curl": { primary: ["forearms"], secondary: [] },
+  "Reverse Wrist Curl": { primary: ["forearms"], secondary: [] },
+  "Farmers Carry": { primary: ["forearms"], secondary: ["traps"] },
+  "Plate Pinch": { primary: ["forearms"], secondary: [] },
+  "Wrist Roller": { primary: ["forearms"], secondary: [] },
+  "Dead Hang": { primary: ["forearms"], secondary: ["lats"] },
+
+  // ---------- Beine (Quadrizeps-fokussiert) ----------
+  Squat: { primary: ["quadriceps", "glutes"], secondary: ["hamstrings", "abs"] },
+  "Front Squat": { primary: ["quadriceps"], secondary: ["glutes", "abs"] },
+  "Back Squat": { primary: ["quadriceps", "glutes"], secondary: ["hamstrings"] },
+  "Hack Squat": { primary: ["quadriceps"], secondary: ["glutes"] },
+  "Leg Press": { primary: ["quadriceps"], secondary: ["glutes", "hamstrings"] },
+  "Leg Extension": { primary: ["quadriceps"], secondary: [] },
+  "Bulgarian Split Squat": { primary: ["quadriceps", "glutes"], secondary: ["hamstrings"] },
+  Lunges: { primary: ["quadriceps", "glutes"], secondary: ["hamstrings"] },
+  "Walking Lunges": { primary: ["quadriceps", "glutes"], secondary: ["hamstrings"] },
+  "Reverse Lunges": { primary: ["quadriceps", "glutes"], secondary: ["hamstrings"] },
+  "Goblet Squat": { primary: ["quadriceps", "glutes"], secondary: ["abs"] },
+  "Sissy Squat": { primary: ["quadriceps"], secondary: [] },
+  "Step Up": { primary: ["quadriceps", "glutes"], secondary: ["hamstrings"] },
+  "Box Squat": { primary: ["quadriceps", "glutes"], secondary: ["hamstrings"] },
+  "Zercher Squat": { primary: ["quadriceps"], secondary: ["glutes", "abs"] },
+  "Pistol Squat": { primary: ["quadriceps", "glutes"], secondary: ["hamstrings"] },
+  "Leg Press Calf Raise": { primary: ["calves"], secondary: [] },
+
+  // ---------- Beine (Beinbeuger/Gesäß-fokussiert) ----------
+  "Leg Curl": { primary: ["hamstrings"], secondary: [] },
+  "Lying Leg Curl": { primary: ["hamstrings"], secondary: [] },
+  "Seated Leg Curl": { primary: ["hamstrings"], secondary: [] },
+  "Glute Bridge": { primary: ["glutes"], secondary: ["hamstrings"] },
+  "Hip Thrust": { primary: ["glutes"], secondary: ["hamstrings"] },
+  "Single Leg Hip Thrust": { primary: ["glutes"], secondary: ["hamstrings"] },
+  "Nordic Curl": { primary: ["hamstrings"], secondary: [] },
+  "Cable Pull Through": { primary: ["glutes"], secondary: ["hamstrings"] },
+  "Glute Kickback": { primary: ["glutes"], secondary: [] },
+  "Cable Glute Kickback": { primary: ["glutes"], secondary: [] },
+  "Sumo Squat": { primary: ["glutes", "quadriceps"], secondary: ["hamstrings"] },
+  "Frog Pump": { primary: ["glutes"], secondary: [] },
+  "Hip Abduction Machine": { primary: ["glutes"], secondary: [] },
+  "Hip Adduction Machine": { primary: ["quadriceps"], secondary: [] },
+  "Curtsy Lunge": { primary: ["glutes"], secondary: ["quadriceps"] },
+  "Donkey Kicks": { primary: ["glutes"], secondary: [] },
+
+  // ---------- Waden ----------
+  "Standing Calf Raise": { primary: ["calves"], secondary: [] },
+  "Seated Calf Raise": { primary: ["calves"], secondary: [] },
+  "Calf Press": { primary: ["calves"], secondary: [] },
+  "Donkey Calf Raise": { primary: ["calves"], secondary: [] },
+  "Single Leg Calf Raise": { primary: ["calves"], secondary: [] },
+  "Tibia Raise": { primary: ["calves"], secondary: [] },
+
+  // ---------- Bauch ----------
+  Crunch: { primary: ["abs"], secondary: [] },
+  "Sit Up": { primary: ["abs"], secondary: [] },
+  Plank: { primary: ["abs"], secondary: ["obliques", "shoulders"] },
+  "Side Plank": { primary: ["obliques"], secondary: ["abs"] },
+  "Hanging Leg Raise": { primary: ["abs"], secondary: ["obliques"] },
+  "Hanging Knee Raise": { primary: ["abs"], secondary: [] },
+  "Cable Crunch": { primary: ["abs"], secondary: [] },
+  "Ab Wheel Rollout": { primary: ["abs"], secondary: ["lats"] },
+  "Russian Twist": { primary: ["obliques"], secondary: ["abs"] },
+  "Leg Raise": { primary: ["abs"], secondary: [] },
+  "Lying Leg Raise": { primary: ["abs"], secondary: [] },
+  "Mountain Climbers": { primary: ["abs"], secondary: ["quadriceps", "shoulders"] },
+  "Bicycle Crunch": { primary: ["abs"], secondary: ["obliques"] },
+  "V-Up": { primary: ["abs"], secondary: [] },
+  "Toe Touch": { primary: ["abs"], secondary: [] },
+  "Reverse Crunch": { primary: ["abs"], secondary: [] },
+  "Dragon Flag": { primary: ["abs"], secondary: ["lats"] },
+  Woodchopper: { primary: ["obliques"], secondary: ["abs"] },
+  "Cable Woodchopper": { primary: ["obliques"], secondary: ["abs"] },
+  "Flutter Kicks": { primary: ["abs"], secondary: [] },
+  "Sit Up Twist": { primary: ["obliques"], secondary: ["abs"] },
+  "Decline Sit Up": { primary: ["abs"], secondary: [] },
+  "Dead Bug": { primary: ["abs"], secondary: [] },
+  "Hollow Body Hold": { primary: ["abs"], secondary: [] },
+
+  // ---------- Ganzkörper / Compound ----------
+  Clean: { primary: ["hamstrings", "traps"], secondary: ["glutes", "shoulders", "quadriceps"] },
+  "Clean and Jerk": { primary: ["quadriceps", "shoulders"], secondary: ["glutes", "traps", "triceps"] },
+  Snatch: { primary: ["hamstrings", "shoulders"], secondary: ["glutes", "traps", "quadriceps"] },
+  Thruster: { primary: ["quadriceps", "shoulders"], secondary: ["glutes", "triceps"] },
+  Burpees: { primary: ["abs", "quadriceps"], secondary: ["chest", "shoulders"] },
+  "Kettlebell Swing": { primary: ["glutes", "hamstrings"], secondary: ["back", "shoulders"] },
+  "Turkish Get Up": { primary: ["shoulders", "abs"], secondary: ["glutes", "quadriceps"] },
+  "Man Maker": { primary: ["chest", "quadriceps"], secondary: ["shoulders", "abs"] },
+  "Wall Ball": { primary: ["quadriceps", "shoulders"], secondary: ["glutes"] },
+  "Farmers Walk": { primary: ["forearms", "traps"], secondary: ["quadriceps"] },
+  "Sled Push": { primary: ["quadriceps", "glutes"], secondary: ["calves"] },
+  "Battle Ropes": { primary: ["shoulders"], secondary: ["abs", "forearms"] },
+  "Renegade Row": { primary: ["back"], secondary: ["abs", "chest"] },
+};
+
+/** Baut das {exercise, primary, secondary}-Objekt für ExerciseMuscleMap. */
+export function muscleDataFor(exerciseName: string): MuscleData | null {
+  return exerciseMuscles[exerciseName] ?? null;
+}
+
+export const EXERCISE_COUNT = Object.keys(exerciseMuscles).length;

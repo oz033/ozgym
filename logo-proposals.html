@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <title>OZGYM — Z Vorschläge</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; }
+    body {
+      background: #0c0d12;
+      color: #f2f3f7;
+      font-family: "Space Grotesk", Inter, system-ui, sans-serif;
+      padding: 36px 20px 80px;
+    }
+    h1 {
+      text-align: center;
+      font-size: 12px;
+      letter-spacing: 0.4em;
+      color: #9aa0ad;
+      margin-bottom: 6px;
+    }
+    .intro {
+      text-align: center;
+      font-size: 13px;
+      color: #6b7280;
+      max-width: 520px;
+      margin: 0 auto 32px;
+      line-height: 1.5;
+    }
+    section { max-width: 1100px; margin: 0 auto 40px; }
+    h2 {
+      font-size: 11px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: #9aa0ad;
+      margin-bottom: 14px;
+      padding-left: 4px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 14px;
+    }
+    .card {
+      background: #16181f;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 24px 16px 18px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+    .card.fav {
+      border-color: #2e7bff;
+      box-shadow: 0 0 0 1px rgba(46,123,255,0.35);
+    }
+    .tag {
+      font-size: 9px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #2e7bff;
+      font-weight: 700;
+      min-height: 1em;
+    }
+    .name { font-size: 14px; font-weight: 700; }
+    .desc { font-size: 11px; color: #9aa0ad; text-align: center; line-height: 1.4; min-height: 2.6em; }
+    .swatch {
+      display: flex; gap: 6px; align-items: center;
+      font-size: 10px; color: #6b7280; font-family: ui-monospace, monospace;
+    }
+    .dot { width: 10px; height: 10px; border-radius: 50%; }
+    .lockup-row {
+      display: flex; align-items: center; gap: 10px;
+      margin-top: 4px;
+    }
+    .lockup-row span {
+      font-weight: 700; font-size: 15px; letter-spacing: 0.16em;
+    }
+    .light-band {
+      background: #fff;
+      border-radius: 16px;
+      padding: 28px 20px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 20px;
+    }
+    .light-item {
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+      color: #0a0a0a;
+    }
+    .light-item .n { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; }
+    .light-item .d { font-size: 10px; color: #6b7280; text-align: center; }
+  </style>
+</head>
+<body>
+  <h1>OZGYM · Z PROPOSALS</h1>
+  <p class="intro">
+    O-Ring wie in deinem Favoriten. Z dezent blitz- / klingenartig —
+    scharf, aber nicht comic. Farben aus der App-UI.
+  </p>
+
+  <section>
+    <h2>1 · Z-Formen (dunkles App-Icon · Blau #2E7BFF)</h2>
+    <div class="grid" id="shapes"></div>
+  </section>
+
+  <section>
+    <h2>2 · Farben auf Form „Bolt Soft“ (passt zur UI)</h2>
+    <div class="grid" id="colors"></div>
+  </section>
+
+  <section>
+    <h2>3 · Auf Weiß (Marketing)</h2>
+    <div class="light-band" id="light"></div>
+  </section>
+
+  <script>
+    // —— Z path styles (subtle lightning / blade, not cartoon) ——
+    const SHAPES = {
+      // Your favorite: clean geometric Z
+      classic: {
+        name: "Classic Z",
+        desc: "Dein Favorit — klar, Nike-simple",
+        type: "stroke",
+        d: "M24 24 H40 L24 40 H40",
+        sw: 5,
+      },
+      // Mild lightning: longer top, steep diagonal, short bottom
+      boltSoft: {
+        name: "Bolt Soft",
+        desc: "Leichter Blitz — steile Diagonale, nicht wild",
+        type: "stroke",
+        d: "M26 22.5 H41 L23.5 36 H38.5 L25 45",
+        sw: 4.6,
+        cap: "square",
+        join: "miter",
+      },
+      // Even subtler bolt as single continuous energy line
+      boltLine: {
+        name: "Bolt Line",
+        desc: "Ein Strich wie Energiefluss — sehr clean",
+        type: "stroke",
+        d: "M28 21 L39 21 L25 34 L36 34 L27 46",
+        sw: 4.8,
+        cap: "square",
+        join: "miter",
+      },
+      // Samurai / blade: thin sharp diagonal with short guards
+      blade: {
+        name: "Blade",
+        desc: "Scharf wie Klinge — schlanke Diagonale + Enden",
+        type: "stroke",
+        d: "M38 22 H26 M38 22 L26 42 M26 42 H38",
+        sw: 4.2,
+        cap: "square",
+        join: "miter",
+      },
+      // Katana lean: almost one slash with tiny top/bottom ticks
+      slash: {
+        name: "Slash",
+        desc: "Samurai-Slash — Diagonale dominant, minimal",
+        type: "stroke",
+        d: "M37 21 L27 43 M30 21 H40 M24 43 H34",
+        sw: 4.4,
+        cap: "square",
+      },
+      // Filled sharp Z (block monogram, angled)
+      filledSharp: {
+        name: "Filled Sharp",
+        desc: "Gefülltes Z, spitze Ecken — monogram-stark",
+        type: "fill",
+        d: "M23 22 H41 V27.2 H31.4 L41 42 H23 V36.8 H32.6 L23 22 Z",
+      },
+      // Filled bolt-like Z (subtle zigzag body)
+      filledBolt: {
+        name: "Filled Bolt",
+        desc: "Gefüllter Mini-Blitz — noch logo-tauglich",
+        type: "fill",
+        d: "M27 21 H40 L30 30.5 H37.5 L24 45 H26.5 L36.5 33.5 H29 L40 21 H27 Z",
+      },
+    };
+
+    // UI-aligned palette
+    const COLORS = {
+      accentBlue: { hex: "#2E7BFF", label: "Accent Blue", note: "Mode m · Haupt-Akzent" },
+      softBlue:   { hex: "#5B8CFF", label: "Soft Blue", note: "Chips / hellere UI" },
+      sky:        { hex: "#38BDF8", label: "Sky", note: "Neutral accent-2" },
+      indigo:     { hex: "#6366F1", label: "Indigo", note: "Neutral mode accent" },
+      violet:     { hex: "#8B5CF6", label: "Violet", note: "Mode f accent" },
+      teal:       { hex: "#00D4C8", label: "Electric Teal", note: "Dein früherer Favorit" },
+      info:       { hex: "#3F8FD4", label: "Info Blue", note: "Status / calm" },
+    };
+
+    function drawIcon(shapeKey, color, size, { tile = true, light = false } = {}) {
+      const s = SHAPES[shapeKey];
+      const ring = light ? "#0A0A0A" : "#FFFFFF";
+      const bg = tile && !light
+        ? `<rect x="4" y="4" width="56" height="56" rx="14" fill="#0A0A0A"/>`
+        : "";
+      let z = "";
+      if (s.type === "fill") {
+        z = `<path d="${s.d}" fill="${color}"/>`;
+      } else {
+        const cap = s.cap || "square";
+        const join = s.join || "miter";
+        z = `<path d="${s.d}" stroke="${color}" stroke-width="${s.sw || 5}" stroke-linecap="${cap}" stroke-linejoin="${join}" fill="none"/>`;
+      }
+      return `<svg width="${size}" height="${size}" viewBox="0 0 64 64" fill="none">${bg}
+        <circle cx="32" cy="32" r="16" stroke="${ring}" stroke-width="5.5" fill="none"/>
+        ${z}
+      </svg>`;
+    }
+
+    const shapesEl = document.getElementById("shapes");
+    Object.entries(SHAPES).forEach(([key, s], i) => {
+      const fav = key === "boltSoft";
+      const el = document.createElement("div");
+      el.className = "card" + (fav ? " fav" : "");
+      el.innerHTML = `
+        ${drawIcon(key, "#2E7BFF", 112)}
+        <div class="tag">${fav ? "Empfehlung" : " "}</div>
+        <div class="name">${s.name}</div>
+        <div class="desc">${s.desc}</div>
+        <div class="lockup-row">
+          ${drawIcon(key, "#2E7BFF", 28)}
+          <span>OZGYM</span>
+        </div>
+        <div class="swatch"><span class="id" style="font-size:10px;color:#6b7280">${key}</span></div>
+      `;
+      shapesEl.appendChild(el);
+    });
+
+    const colorsEl = document.getElementById("colors");
+    Object.entries(COLORS).forEach(([key, c]) => {
+      const el = document.createElement("div");
+      el.className = "card";
+      el.innerHTML = `
+        ${drawIcon("boltSoft", c.hex, 112)}
+        <div class="name">${c.label}</div>
+        <div class="desc">${c.note}</div>
+        <div class="swatch"><div class="dot" style="background:${c.hex}"></div>${c.hex}</div>
+        <div class="lockup-row">
+          ${drawIcon("boltSoft", c.hex, 26)}
+          <span>OZGYM</span>
+        </div>
+      `;
+      colorsEl.appendChild(el);
+    });
+
+    const lightEl = document.getElementById("light");
+    ["classic", "boltSoft", "boltLine", "blade", "slash", "filledSharp"].forEach((key) => {
+      const el = document.createElement("div");
+      el.className = "light-item";
+      el.innerHTML = `
+        ${drawIcon(key, "#2E7BFF", 72, { light: true, tile: false })}
+        <div class="n">${SHAPES[key].name}</div>
+        <div class="d">${key}</div>
+      `;
+      lightEl.appendChild(el);
+    });
+  </script>
+</body>
+</html>

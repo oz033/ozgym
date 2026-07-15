@@ -3,19 +3,19 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback, Suspense, lazy } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  Home as HomeIcon,
+  House,
   Dumbbell,
-  CalendarDays,
-  TrendingUp,
-  User,
+  List,
+  ChartColumn,
+  UserRound,
   Volume2,
   VolumeX,
   Sun,
   Moon,
 } from "lucide-react";
-import { EclipseMark, SplashScreen } from "./components/brand.jsx";
+import { OzGymMark, SplashScreen } from "./components/brand.jsx";
 
-import { STORAGE_KEY, blankPlan } from "./lib/constants.js";
+import { STORAGE_KEY, STORAGE_KEY_LEGACY, blankPlan } from "./lib/constants.js";
 import {
   playSound,
   buzz,
@@ -23,10 +23,9 @@ import {
   getTodayPlan,
   workoutReadiness,
 } from "./lib/utils.js";
-import { hydrate, freshState } from "./lib/migrate.js";
+import { hydrate, freshState, prepareForStorage } from "./lib/migrate.js";
 import { generatePlans } from "./lib/planGenerator.js";
 import { TabBtn, TabSkeleton } from "./components/ui.jsx";
-import Onboarding from "./components/Onboarding.jsx";
 // Home ist der erste Screen nach dem Laden — sofort verfügbar statt nachgeladen.
 import DashboardTab from "./tabs/DashboardTab.jsx";
 // Alles andere (inkl. recharts in ProgressTab) erst bei Bedarf laden, damit der
@@ -78,7 +77,13 @@ export default function App() {
 
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
+      let raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) {
+        for (const k of STORAGE_KEY_LEGACY || []) {
+          raw = localStorage.getItem(k);
+          if (raw) break;
+        }
+      }
       if (raw) {
         const hydrated = hydrate(JSON.parse(raw));
         setData((prev) => ({ ...prev, ...hydrated }));
@@ -104,7 +109,8 @@ export default function App() {
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+        // Full catalog is static — only store customs + favorites.
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(prepareForStorage(next)));
       } catch (e) {
         console.error("Speichern fehlgeschlagen", e);
       }
@@ -180,49 +186,6 @@ export default function App() {
     );
   }
 
-  if (!data.profile.onboarded) {
-    return (
-      <div className="ig-app" {...themeAttrs} style={accentStyle}>
-        <Onboarding
-          profile={data.profile}
-          onFinish={(profilePatch) => {
-            playSound("pr", data.settings?.sound !== false);
-            update((prev) => {
-              const today = todayISO();
-              const w = Number(profilePatch.weightKg);
-              const rest = (prev.profile.weightLog || []).filter(
-                (e) => e.date !== today,
-              );
-              const weightLog =
-                w > 0
-                  ? [...rest, { date: today, kg: w }].sort((a, b) =>
-                      a.date.localeCompare(b.date),
-                    )
-                  : prev.profile.weightLog || [];
-              const profile = {
-                ...prev.profile,
-                ...profilePatch,
-                weightLog,
-                onboarded: true,
-              };
-              const generated = generatePlans(profile, prev.library || []);
-              return {
-                ...prev,
-                profile,
-                plans: generated.length ? generated : prev.plans,
-                activePlanId: generated[0]?.id || prev.activePlanId,
-                settings: {
-                  ...prev.settings,
-                  weeklyGoal: Math.min(5, profilePatch.daysPerWeek || 3),
-                },
-              };
-            });
-          }}
-        />
-      </div>
-    );
-  }
-
   const soundOn = data.settings?.sound !== false;
   const goTo = (t) => {
     setTab(t);
@@ -288,8 +251,10 @@ export default function App() {
       <div className="ig-phone">
         <header className="ig-header">
           <div className="ig-brand">
-            <EclipseMark size={22} title="IronLog" />
-            <span>IRONLOG</span>
+            <span className="ig-brand-mark">
+              <OzGymMark size={32} variant="glass" title="OZGYM" />
+            </span>
+            <span style={{ letterSpacing: "0.18em", fontWeight: 700 }}>OZGYM</span>
           </div>
           <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
             <button
@@ -389,35 +354,35 @@ export default function App() {
           </Suspense>
         )}
 
-        <nav className="ig-tabbar">
+        <nav className="ig-tabbar" aria-label="Hauptnavigation">
           <TabBtn
             active={tab === "home"}
             onClick={() => goTo("home")}
-            icon={<HomeIcon size={20} />}
-            label="Home"
+            icon={<House size={20} strokeWidth={1.75} />}
+            label="Heute"
           />
           <TabBtn
             active={tab === "workout"}
             onClick={() => goTo("workout")}
-            icon={<Dumbbell size={20} />}
-            label="Training"
+            icon={<Dumbbell size={20} strokeWidth={1.75} />}
+            label="Train"
           />
           <TabBtn
             active={tab === "plan"}
             onClick={() => goTo("plan")}
-            icon={<CalendarDays size={20} />}
-            label="Plan"
+            icon={<List size={20} strokeWidth={1.75} />}
+            label="Pläne"
           />
           <TabBtn
             active={tab === "progress"}
             onClick={() => goTo("progress")}
-            icon={<TrendingUp size={20} />}
-            label="Verlauf"
+            icon={<ChartColumn size={20} strokeWidth={1.75} />}
+            label="Stats"
           />
           <TabBtn
             active={tab === "profile"}
             onClick={() => goTo("profile")}
-            icon={<User size={20} />}
+            icon={<UserRound size={20} strokeWidth={1.75} />}
             label="Profil"
           />
         </nav>

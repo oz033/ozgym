@@ -180,12 +180,19 @@ export function smartSuggest(logs, exerciseName, targetReps, fallback) {
     return { weight: fallback?.weight ?? 20, reps: fallback?.reps ?? targetReps ?? 10, bump: false };
 
   const last = sessions[0];
-  const lastTop = last.sets.reduce((m, s) => Math.max(m, s.weight), 0);
-  const lastReps = last.sets[last.sets.length - 1]?.reps ?? targetReps ?? 10;
+  const lastSets = last.sets || [];
+  if (!lastSets.length)
+    return { weight: fallback?.weight ?? 20, reps: fallback?.reps ?? targetReps ?? 10, bump: false };
+  const lastTop = lastSets.reduce((m, s) => Math.max(m, s.weight || 0), 0);
+  const lastReps = lastSets[lastSets.length - 1]?.reps ?? targetReps ?? 10;
 
-  const hitAll = (sess, w) =>
-    sess.sets.length >= 2 &&
-    sess.sets.every((s) => s.reps >= (targetReps || 8) && s.weight >= w);
+  const hitAll = (sess, w) => {
+    const sets = sess.sets || [];
+    return (
+      sets.length >= 2 &&
+      sets.every((s) => s.reps >= (targetReps || 8) && s.weight >= w)
+    );
+  };
 
   const prev = sessions[1];
   const ready =

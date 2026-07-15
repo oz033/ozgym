@@ -1,9 +1,7 @@
-/* Profil: Identitäts-Karte oben, Bearbeitung darunter — keine Einstellungsliste */
+/* Profil: Identität + Körper + App-Settings (ohne Ziele/Onboarding) */
 
 import React, { useState, useEffect, useRef } from "react";
 import {
-  Droplets,
-  Apple,
   Palette,
   ChevronRight,
   Zap,
@@ -12,22 +10,27 @@ import {
   Upload,
 } from "lucide-react";
 import ThemeStudio from "../components/ThemeStudio.jsx";
-import { EclipseMark } from "../components/brand.jsx";
+import { OzGymMark } from "../components/brand.jsx";
 import { ToggleRow } from "../components/ui.jsx";
 import { todayISO, round1, playSound, buzz, calcStats } from "../lib/utils.js";
-import { GOALS, LEVELS, GOAL_NAME, BADGE_DEFS } from "../lib/constants.js";
+import { BADGE_DEFS } from "../lib/constants.js";
 
 export default function ProfileTab({ data, update, goTo }) {
-  const [height, setHeight] = useState(data.profile.heightCm || "");
-  const [weight, setWeight] = useState(data.profile.weightKg || "");
+  const profile = data?.profile || {};
+  const settings = data?.settings || {};
+  const logs = Array.isArray(data?.logs) ? data.logs : [];
+
+  const [height, setHeight] = useState(profile.heightCm || "");
+  const [weight, setWeight] = useState(profile.weightKg || "");
   const [showStudio, setShowStudio] = useState(false);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
     const t = setTimeout(() => {
       update((prev) => {
+        const prevProfile = prev?.profile || {};
         const w = Number(weight);
-        let weightLog = prev.profile.weightLog || [];
+        let weightLog = prevProfile.weightLog || [];
         if (w > 0) {
           const today = todayISO();
           const rest = weightLog.filter((e) => e.date !== today);
@@ -37,7 +40,7 @@ export default function ProfileTab({ data, update, goTo }) {
         }
         return {
           ...prev,
-          profile: { ...prev.profile, heightCm: height, weightKg: weight, weightLog },
+          profile: { ...prevProfile, heightCm: height, weightKg: weight, weightLog },
         };
       });
     }, 500);
@@ -45,21 +48,28 @@ export default function ProfileTab({ data, update, goTo }) {
   }, [height, weight]); // eslint-disable-line
 
   const patchProfile = (fields) =>
-    update((prev) => ({ ...prev, profile: { ...prev.profile, ...fields } }));
+    update((prev) => ({
+      ...prev,
+      profile: { ...(prev?.profile || {}), ...fields },
+    }));
   const patchSettings = (fields) =>
-    update((prev) => ({ ...prev, settings: { ...prev.settings, ...fields } }));
+    update((prev) => ({
+      ...prev,
+      settings: { ...(prev?.settings || {}), ...fields },
+    }));
 
-  const gender = data.profile.gender;
-  const goals = GOALS[gender] || GOALS.m;
-  const levelName = LEVELS.find((l) => l.id === data.profile.level)?.name;
+  const gender = profile.gender;
   const h = Number(height) / 100;
   const w = Number(weight);
   const bmi = h > 0 && w > 0 ? w / (h * h) : null;
-  const stats = calcStats(data.logs, data.settings?.weeklyGoal || 3);
-  const earnedBadges = BADGE_DEFS.filter((b) => b.check(stats)).length;
-  const hasPlan = (data.plans || []).length > 0;
-  const hasWorkout = stats.totalWorkouts > 0;
-  const hasRecord = stats.prCount > 0;
+  const stats = calcStats(logs, settings.weeklyGoal || 3);
+  const earnedBadges = BADGE_DEFS.filter((b) => {
+    try {
+      return b.check(stats);
+    } catch {
+      return false;
+    }
+  }).length;
 
   let category = null,
     color = null;
@@ -91,7 +101,7 @@ export default function ProfileTab({ data, update, goTo }) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `ironlog-backup-${todayISO()}.json`;
+    a.download = `ozgym-backup-${todayISO()}.json`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -106,7 +116,7 @@ export default function ProfileTab({ data, update, goTo }) {
           update(() => parsed);
         }
       } catch {
-        window.alert("Diese Datei ist kein gültiges IronLog-Backup.");
+        window.alert("Diese Datei ist kein gültiges OZGYM-Backup.");
       }
     };
     reader.readAsText(file);
@@ -114,20 +124,18 @@ export default function ProfileTab({ data, update, goTo }) {
 
   return (
     <div className="ig-tabpane">
-      {/* Identität: wer trainiert hier, für was, auf welchem Level — auf einen Blick */}
+      {/* Identität: Glas-Logo + OZGYM (kein Trainingsziel-Text) */}
       <div className="ig-identity-card">
         <div className="ig-identity-head">
-          <span className="ig-identity-avatar">
-            <EclipseMark size={26} />
+          <span className="ig-identity-avatar ig-brand-mark">
+            <OzGymMark size={44} variant="glass" title="OZGYM" />
           </span>
           <div className="ig-identity-text">
             <span className="ig-identity-tag">
               {gender === "f" ? "Frauen-Modus" : gender === "m" ? "Männer-Modus" : "Profil"}
             </span>
-            <h2>{GOAL_NAME[data.profile.goal] || "Kein Ziel gewählt"}</h2>
-            <span className="ig-identity-sub">
-              {[levelName, `${data.settings?.weeklyGoal || 3}× / Woche`].filter(Boolean).join(" · ")}
-            </span>
+            <h2>OZGYM</h2>
+            <span className="ig-identity-sub">by OZ</span>
           </div>
         </div>
         <div className="ig-identity-level">
@@ -144,26 +152,6 @@ export default function ProfileTab({ data, update, goTo }) {
           <ChevronRight size={15} />
         </button>
       </div>
-
-      {/* Erste-Schritte-Checkliste: motiviert neue Nutzer statt leere Statistiken
-          zu zeigen. Verschwindet von selbst, sobald alle drei erreicht sind. */}
-      {(!hasPlan || !hasWorkout || !hasRecord) && (
-        <div className="ig-card ig-onboard-checklist">
-          <div className="ig-field-label">Erste Schritte</div>
-          <button className="ig-check-row" onClick={() => goTo && goTo("plan")} disabled={hasPlan}>
-            <span className={"ig-check-dot" + (hasPlan ? " done" : "")}>{hasPlan ? "✓" : ""}</span>
-            <span>Trainingsplan erstellen</span>
-          </button>
-          <button className="ig-check-row" onClick={() => goTo && goTo("workout")} disabled={hasWorkout}>
-            <span className={"ig-check-dot" + (hasWorkout ? " done" : "")}>{hasWorkout ? "✓" : ""}</span>
-            <span>Erstes Workout absolvieren</span>
-          </button>
-          <button className="ig-check-row" onClick={() => goTo && goTo("progress")} disabled={hasRecord}>
-            <span className={"ig-check-dot" + (hasRecord ? " done" : "")}>{hasRecord ? "✓" : ""}</span>
-            <span>Ersten Rekord erreichen</span>
-          </button>
-        </div>
-      )}
 
       {/* Persönliches: Modus + Alter */}
       <div className="ig-card">
@@ -192,43 +180,12 @@ export default function ProfileTab({ data, update, goTo }) {
               type="number"
               inputMode="numeric"
               className="ig-input mono"
-              value={data.profile.age || ""}
+              value={profile.age || ""}
               onChange={(e) => patchProfile({ age: e.target.value })}
               placeholder="25"
             />
           </label>
         </div>
-      </div>
-
-      {/* Ziel & Level: fließt in den Smart-Plan ein */}
-      <div className="ig-card">
-        <div className="ig-field-label">Trainingsziel</div>
-        <div className="ig-picker-chips wrap">
-          {goals.map((g) => (
-            <button
-              key={g.id}
-              className={"ig-chip sm" + (data.profile.goal === g.id ? " active" : "")}
-              onClick={() => patchProfile({ goal: g.id })}
-            >
-              {g.icon} {g.name}
-            </button>
-          ))}
-        </div>
-        <div className="ig-field-label" style={{ marginTop: 4 }}>Level</div>
-        <div className="ig-picker-chips wrap">
-          {LEVELS.map((l) => (
-            <button
-              key={l.id}
-              className={"ig-chip sm" + (data.profile.level === l.id ? " active" : "")}
-              onClick={() => patchProfile({ level: l.id })}
-            >
-              {l.name}
-            </button>
-          ))}
-        </div>
-        <p className="ig-plan-text">
-          Ziel & Level fließen in den Smart-Plan ein — neu erstellen kannst du ihn im Plan-Tab.
-        </p>
       </div>
 
       {/* Darstellung */}
@@ -248,11 +205,11 @@ export default function ProfileTab({ data, update, goTo }) {
         </button>
       </div>
 
-      {/* Einstellungen */}
+      {/* Einstellungen (ohne Wochen-/Tagesziele) */}
       <div className="ig-card">
         <div className="ig-field-label">Einstellungen</div>
         <ToggleRow
-          checked={data.settings?.sound !== false}
+          checked={settings.sound !== false}
           onChange={(v) => {
             patchSettings({ sound: v });
             if (v) playSound("tap");
@@ -261,7 +218,7 @@ export default function ProfileTab({ data, update, goTo }) {
           Sound-Effekte
         </ToggleRow>
         <ToggleRow
-          checked={data.settings?.haptics !== false}
+          checked={settings.haptics !== false}
           onChange={(v) => {
             patchSettings({ haptics: v });
             if (v) buzz(30);
@@ -269,60 +226,9 @@ export default function ProfileTab({ data, update, goTo }) {
         >
           Haptisches Feedback (Vibration)
         </ToggleRow>
-        <div className="ig-num-field">
-          <span>Wochenziel (Trainingstage)</span>
-          <div className="ig-mode-toggle">
-            {[2, 3, 4, 5].map((g) => (
-              <button
-                key={g}
-                className={"ig-chip" + ((data.settings?.weeklyGoal || 3) === g ? " active" : "")}
-                onClick={() => patchSettings({ weeklyGoal: g })}
-              >
-                {g}×
-              </button>
-            ))}
-          </div>
-        </div>
       </div>
 
-      {/* Wellness-Ziele */}
-      <div className="ig-card">
-        <div className="ig-field-label">Tagesziele (Dashboard)</div>
-        <div className="ig-num-field">
-          <span>
-            <Droplets size={12} style={{ verticalAlign: "-2px" }} /> Wasserziel
-          </span>
-          <div className="ig-mode-toggle">
-            {[0, 1500, 2000, 2500, 3000].map((ml) => (
-              <button
-                key={ml}
-                className={"ig-chip sm" + ((data.settings?.waterGoal || 0) === ml ? " active" : "")}
-                onClick={() => patchSettings({ waterGoal: ml })}
-              >
-                {ml === 0 ? "Aus" : `${ml / 1000} l`}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="ig-num-field">
-          <span>
-            <Apple size={12} style={{ verticalAlign: "-2px" }} /> Kalorienziel
-          </span>
-          <div className="ig-mode-toggle">
-            {[0, 1800, 2200, 2600, 3000].map((kcal) => (
-              <button
-                key={kcal}
-                className={"ig-chip sm" + ((data.settings?.kcalGoal || 0) === kcal ? " active" : "")}
-                onClick={() => patchSettings({ kcalGoal: kcal })}
-              >
-                {kcal === 0 ? "Aus" : kcal}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Körper: Eingabe + BMI + WHO-Referenz in einer Karte statt drei */}
+      {/* Körper: Eingabe + BMI + WHO-Referenz */}
       <div className="ig-card">
         <div className="ig-field-label">Körperdaten</div>
         <div className="ig-set-inputs two">
@@ -388,7 +294,7 @@ export default function ProfileTab({ data, update, goTo }) {
       <div className="ig-card">
         <div className="ig-field-label">Daten</div>
         <p className="ig-plan-text">
-          IronLog speichert alles nur auf diesem Gerät. Exportiere regelmäßig ein Backup,
+          OZGYM speichert alles nur auf diesem Gerät. Exportiere regelmäßig ein Backup,
           um beim Gerätewechsel nichts zu verlieren.
         </p>
         <div className="ig-plan-add-row">
@@ -412,7 +318,7 @@ export default function ProfileTab({ data, update, goTo }) {
         />
       </div>
 
-      {showStudio && (
+      {showStudio && data && (
         <ThemeStudio data={data} update={update} onClose={() => setShowStudio(false)} />
       )}
     </div>

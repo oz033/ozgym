@@ -1,6 +1,13 @@
 /* Fullscreen Workout-Modus mit Pausen-Timer, Coach-Feedback & Abschluss-Konfetti */
 
-import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import React, {
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useCallback,
+} from "react";
 import {
   X,
   Check,
@@ -14,8 +21,9 @@ import {
   Trophy,
   TrendingUp,
 } from "lucide-react";
-import { CountUp, BodySilhouette, RestRing, Confetti } from "../components/ui.jsx";
+import { CountUp, RestRing, Confetti } from "../components/ui.jsx";
 import { EclipseMark } from "../components/brand.jsx";
+import ExerciseDemo from "../components/ExerciseDemo.jsx";
 import {
   todayISO,
   calcStats,
@@ -25,6 +33,16 @@ import {
 } from "../lib/utils.js";
 import { ZONE_LABEL, MOTIVATION_POOL } from "../lib/constants.js";
 import { smartSuggest } from "../lib/planGenerator.js";
+
+/** Kurz-Tipp: max. ~1 Zeile, kein Absatz-Wälzer auf dem Lift-Screen. */
+function shortTip(text, max = 72) {
+  const t = String(text || "").replace(/\s+/g, " ").trim();
+  if (!t) return "";
+  if (t.length <= max) return t;
+  const cut = t.slice(0, max - 1);
+  const at = cut.lastIndexOf(" ");
+  return (at > 40 ? cut.slice(0, at) : cut).trimEnd() + "…";
+}
 
 export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
   const today = todayISO();
@@ -54,19 +72,21 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
   const [restTotal, setRestTotal] = useState(restSeconds);
   const [dragX, setDragX] = useState(0);
   const dragRef = useRef(null);
+  const trackWrapRef = useRef(null);
+  const [trackW, setTrackW] = useState(0);
   const [weight, setWeight] = useState(20);
   const [reps, setReps] = useState(10);
   const [suggestion, setSuggestion] = useState(null);
 
   const [showSwipeHint, setShowSwipeHint] = useState(
-    () => !localStorage.getItem("ironlog:swipehint") && queue.length > 1,
+    () => !localStorage.getItem("ozgym:swipehint") && queue.length > 1,
   );
   useEffect(() => {
     if (!showSwipeHint) return;
     const t = setTimeout(() => {
       setShowSwipeHint(false);
       try {
-        localStorage.setItem("ironlog:swipehint", "1");
+        localStorage.setItem("ozgym:swipehint", "1");
       } catch (e) {
         /* egal */
       }
@@ -83,6 +103,22 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
     );
     return () => clearInterval(iv);
   }, []);
+
+  // Kartenbreite in px messen — %-translateX am Track ist unzuverlässig
+  useLayoutEffect(() => {
+    if (phase === "done") return;
+    const el = trackWrapRef.current;
+    if (!el) return;
+    const measure = () => setTrackW(el.clientWidth || 0);
+    measure();
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null;
+    ro?.observe(el);
+    window.addEventListener("resize", measure);
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [phase, queue?.length]);
 
   const sessionRef = useRef({ sets: 0, volume: 0, prs: 0, records: [], zones: new Set() });
 
@@ -109,7 +145,7 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
     logsForExercise
       .filter((l) => l.date !== today)
       .forEach((l) =>
-        l.sets.forEach((s) => {
+        (l.sets || []).forEach((s) => {
           if (s.weight > best) best = s.weight;
         }),
       );
@@ -128,18 +164,22 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
     setSuggestion(s.bump ? s : null);
   }, [exercise]); // eslint-disable-line
 
-  // Nur Infos, die nirgendwo sonst auf dem Screen stehen: Fortschrittspunkte
-  // zeigen bereits "Sätze übrig", Mini-Stats zeigen bereits den PR — beides
-  // hier nochmal zu behaupten wäre Redundanz statt Mehrwert.
+  // Kompakter Chip: Smart-Coach-Steigerung oder nächster runder Meilenstein.
+  // Keine Redundanz zu Satz-Dots / PR in den Mini-Stats.
   const milestone = useMemo(() => {
     if (suggestion?.bump) {
-      return `Smart Coach: Zeit für ${suggestion.weight} kg — du hast das Gewicht 2× gemeistert!`;
+      return { label: `Empfehlung ${suggestion.weight} kg`, smart: true };
     }
     const current = Number(weight) || 0;
     if (current > 0) {
       const stepKg = current < 100 ? 10 : 25;
       const next = Math.ceil((current + 0.01) / stepKg) * stepKg;
-      if (next !== bestBefore) return `Noch ${round1(next - current)} kg bis ${next} kg`;
+      if (next !== bestBefore) {
+        return {
+          label: `Noch ${round1(next - current)} kg → ${next}`,
+          smart: false,
+        };
+      }
     }
     return null;
   }, [bestBefore, weight, suggestion]);
@@ -281,26 +321,41 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
     buzz(20, hapticsOn);
   };
 
-  // Swipe (nur beim Heben)
+  // Swipe (nur beim Heben) — Delta im Ref (State bei pointerup oft stale)
   const onPointerDown = (e) => {
     if (phase !== "lift") return;
-    dragRef.current = { x: e.clientX, active: true };
+    if (e.target?.closest?.("button, input, a, [data-no-swipe]")) return;
+    try {
+      e.currentTarget.setPointerCapture?.(e.pointerId);
+    } catch {
+      /* ignore */
+    }
+    dragRef.current = { x: e.clientX, active: true, dx: 0 };
+    setDragX(0);
   };
   const onPointerMove = (e) => {
     if (!dragRef.current?.active) return;
-    setDragX(e.clientX - dragRef.current.x);
+    const dx = e.clientX - dragRef.current.x;
+    dragRef.current.dx = dx;
+    setDragX(dx);
   };
-  const onPointerUp = () => {
+  const finishDrag = (e) => {
     if (!dragRef.current?.active) return;
-    const dx = dragX;
+    const dx = dragRef.current.dx || 0;
     dragRef.current.active = false;
     setDragX(0);
-    if (dx < -60 && idx < queue.length - 1) {
-      setIdx(idx + 1);
+    try {
+      e?.currentTarget?.releasePointerCapture?.(e.pointerId);
+    } catch {
+      /* ignore */
+    }
+    // Nach links wischen = nächste, nach rechts = vorherige (Karte folgt dem Finger)
+    if (dx < -50 && idx < queue.length - 1) {
+      setIdx((i) => Math.min(i + 1, queue.length - 1));
       playSound("tap", soundOn);
       setShowSwipeHint(false);
-    } else if (dx > 60 && idx > 0) {
-      setIdx(idx - 1);
+    } else if (dx > 50 && idx > 0) {
+      setIdx((i) => Math.max(i - 1, 0));
       playSound("tap", soundOn);
       setShowSwipeHint(false);
     }
@@ -424,6 +479,28 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
     );
   }
 
+  /* ---- Leere Queue (Plan ohne auflösbare Übungen) ---- */
+  if (!queue?.length) {
+    return (
+      <div className="ig-wo">
+        <header className="ig-wo-head">
+          <button className="ig-icon-btn ghost" onClick={onExit} aria-label="Workout verlassen">
+            <X size={20} />
+          </button>
+          <div className="ig-wo-head-mid">
+            <span className="ig-wo-head-title">Kein Workout</span>
+          </div>
+        </header>
+        <div className="ig-wo-empty">
+          <p>Keine Übungen in der heutigen Queue.</p>
+          <button className="ig-btn-primary wide" onClick={onExit}>
+            Zurück
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   /* ---- Aktiver Modus ---- */
   return (
     <div className="ig-wo">
@@ -452,7 +529,7 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
 
       {showSwipeHint && (
         <div className="ig-wo-swipe-hint" aria-hidden="true">
-          ← Wischen zum Übungswechsel →
+          ← wischen: nächste Übung
         </div>
       )}
 
@@ -475,14 +552,21 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
       </div>
 
       <div
-        className="ig-wo-track"
+        ref={trackWrapRef}
+        className="ig-wo-track-wrap"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
+        onPointerUp={finishDrag}
+        onPointerCancel={finishDrag}
+      >
+      <div
+        className="ig-wo-track"
         style={{
-          transform: `translateX(calc(${-idx * 100}% + ${dragX}px))`,
-          transition: dragRef.current?.active ? "none" : "transform 0.35s var(--ease-out)",
+          width: trackW > 0 ? `${Math.max(queue.length, 1) * trackW}px` : "100%",
+          transform: `translate3d(${-idx * (trackW || 0) + dragX}px, 0, 0)`,
+          transition: dragRef.current?.active
+            ? "none"
+            : "transform 0.28s var(--ease-out)",
         }}
       >
         {queue.map((it, i) => {
@@ -491,25 +575,18 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
           const active = i === idx;
           return (
             <div
-              key={e}
+              key={`${e}-${i}`}
               className={
                 "ig-wo-card" +
                 (active ? " active" : "") +
                 (active && isLast ? " final" : "")
               }
+              style={trackW > 0 ? { width: trackW, minWidth: trackW, maxWidth: trackW } : undefined}
             >
               {active && isLast && (
                 <div className="ig-wo-final-banner">Letzte Übung — jetzt alles geben!</div>
               )}
               <div className="ig-wo-card-top">
-                <div className="ig-hero-sil">
-                  <BodySilhouette zone={m?.zone} zone2={m?.zone2} pulseKey={e + active} size={150} />
-                  <span className="ig-hero-mid-label">
-                    {[ZONE_LABEL[m?.zone], ZONE_LABEL[m?.zone2]]
-                      .filter(Boolean)
-                      .join(" + ") || "Eigene Übung"}
-                  </span>
-                </div>
                 <div className="ig-wo-card-info">
                   <h3 className="ig-wo-ex-name">{e}</h3>
                   <div className="ig-plan-badges">
@@ -521,10 +598,10 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
                   </div>
                   {active && (
                     <div className="ig-wo-mini-stats mono">
-                      {lastSession && (
+                      {lastSession?.sets?.length > 0 && (
                         <span>
                           Zuletzt:{" "}
-                          {lastSession.sets[lastSession.sets.length - 1].weight}{" "}
+                          {lastSession.sets[lastSession.sets.length - 1]?.weight ?? "–"}{" "}
                           kg
                         </span>
                       )}
@@ -533,22 +610,26 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
                   )}
                 </div>
               </div>
-              {active && m?.hint && <p className="ig-wo-hint">{m.hint}</p>}
-              {active && it.note && (
-                <p className="ig-wo-hint note">{it.note}</p>
+              {active && (
+                <ExerciseDemo
+                  exerciseName={e}
+                  gif={m?.gif}
+                  image={m?.image}
+                />
               )}
-              {active && milestone && (
-                <span
-                  className={"ig-wo-milestone" + (suggestion?.bump ? " smart" : "")}
-                  key={milestone}
-                >
-                  {suggestion?.bump && <TrendingUp size={13} style={{ verticalAlign: "-2px", marginRight: 4 }} />}
-                  {milestone}
-                </span>
+              {active && m?.hint && (
+                <p className="ig-wo-hint">{shortTip(m.hint)}</p>
               )}
+              {active &&
+                it.note &&
+                it.note.trim() &&
+                it.note.trim() !== String(m?.hint || "").trim() && (
+                  <p className="ig-wo-hint note">{shortTip(it.note)}</p>
+                )}
             </div>
           );
         })}
+      </div>
       </div>
 
       <div className="ig-wo-bottom">
@@ -560,6 +641,15 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
             />
           ))}
         </div>
+        {milestone && (
+          <span
+            className={"ig-wo-milestone" + (milestone.smart ? " smart" : "")}
+            key={milestone.label}
+          >
+            {milestone.smart && <TrendingUp size={13} aria-hidden="true" />}
+            {milestone.label}
+          </span>
+        )}
         <div className="ig-set-inputs two">
           <div className="ig-num-field">
             <span className="ig-steplabel">Gewicht (kg)</span>
@@ -587,14 +677,12 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
           </div>
         </div>
         <button
-          className="ig-btn-primary wide xl"
+          className="ig-btn-primary wide xl ig-wo-cta"
           disabled={doneCount >= targetSets}
           onClick={completeSet}
         >
           <Check size={20} />
-          {doneCount >= targetSets
-            ? "Übung fertig"
-            : `Satz ${doneCount + 1} von ${targetSets} abschließen`}
+          {doneCount >= targetSets ? "Übung fertig" : "Satz abschließen"}
         </button>
       </div>
 
