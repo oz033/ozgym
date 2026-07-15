@@ -1218,6 +1218,14 @@ button.ig-overview-col { cursor: pointer; }
   -webkit-appearance: none;
   appearance: none;
   touch-action: manipulation;
+  /* Avoid iOS auto-scroll fighting fixed shell */
+  position: relative;
+  z-index: 2;
+}
+/* While typing: hide heavy steppers so note + keyboard stay calm */
+.ig-wo-bottom.note-focus .ig-wo-steppers,
+.ig-wo-bottom.note-focus .ig-wo-cta {
+  display: none;
 }
 .ig-wo-note-input::placeholder {
   color: var(--text-dim);

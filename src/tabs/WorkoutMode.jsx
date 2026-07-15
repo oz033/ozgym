@@ -307,9 +307,17 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
     persistExerciseNote(noteDraft);
   };
 
-  // iOS: Safari handles keyboard; do NOT translate the sheet (double-lift bug)
+  // iOS: no transform lift; shell height freezes while input focused (index.html)
   const onNoteFocus = () => {
     setNoteFocused(true);
+    // Prevent iOS from scrolling the fixed shell into a broken offset
+    try {
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    } catch {
+      /* ignore */
+    }
   };
 
   useEffect(

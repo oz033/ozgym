@@ -77,14 +77,36 @@
         </style>
         <script>
             (function () {
-                /* Keep --app-height in sync with iOS visualViewport (Safari + PWA, all phones) */
-                function setAppHeight() {
+                /*
+                 * Stable shell height for iOS PWA.
+                 * Do NOT bind --app-height to visualViewport.height: when the
+                 * keyboard opens, VV shrinks and the whole UI collapses into
+                 * the top strip (note field / steppers jump to the top).
+                 * Use layout height only; freeze while an input is focused.
+                 */
+                var lastH = 0;
+                function readingInput() {
+                    var ae = document.activeElement;
+                    if (!ae) return false;
+                    var t = ae.tagName;
+                    return (
+                        t === "INPUT" ||
+                        t === "TEXTAREA" ||
+                        t === "SELECT" ||
+                        ae.isContentEditable
+                    );
+                }
+                function setAppHeight(force) {
                     try {
+                        if (!force && readingInput()) return;
                         var h =
-                            (window.visualViewport && window.visualViewport.height) ||
                             window.innerHeight ||
-                            document.documentElement.clientHeight;
-                        if (h && h > 0) {
+                            document.documentElement.clientHeight ||
+                            0;
+                        // Ignore tiny shrinks that are still keyboard (some WebViews)
+                        if (!force && lastH > 0 && h < lastH * 0.8) return;
+                        if (h > 0 && Math.abs(h - lastH) > 1) {
+                            lastH = h;
                             document.documentElement.style.setProperty(
                                 "--app-height",
                                 h + "px",
@@ -92,20 +114,27 @@
                         }
                     } catch (e) { /* ignore */ }
                 }
-                setAppHeight();
-                window.addEventListener("resize", setAppHeight, { passive: true });
-                window.addEventListener("orientationchange", function () {
-                    setTimeout(setAppHeight, 50);
-                    setTimeout(setAppHeight, 300);
-                }, { passive: true });
-                if (window.visualViewport) {
-                    window.visualViewport.addEventListener("resize", setAppHeight, {
-                        passive: true,
-                    });
-                    window.visualViewport.addEventListener("scroll", setAppHeight, {
-                        passive: true,
-                    });
-                }
+                setAppHeight(true);
+                window.addEventListener(
+                    "resize",
+                    function () {
+                        setAppHeight(false);
+                    },
+                    { passive: true },
+                );
+                window.addEventListener(
+                    "orientationchange",
+                    function () {
+                        setTimeout(function () {
+                            setAppHeight(true);
+                        }, 50);
+                        setTimeout(function () {
+                            setAppHeight(true);
+                        }, 350);
+                    },
+                    { passive: true },
+                );
+                // Do NOT listen to visualViewport resize/scroll for shell height.
 
                 try {
                     if ("serviceWorker" in navigator) {
