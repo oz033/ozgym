@@ -758,9 +758,6 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
         </div>
       )}
       <header className="ig-wo-head">
-        <button className="ig-icon-btn ghost" onClick={onExit} aria-label="Workout verlassen">
-          <X size={20} />
-        </button>
         <div className="ig-wo-head-mid">
           <span className="ig-wo-head-title">
             Übung {idx + 1} von {queue.length}
@@ -864,15 +861,30 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
       </div>
       </div>
 
-      {/* Ein-Hand-Zone: alles Wichtige im Daumenbereich */}
+      {/* Ein-Hand-Zone: Exit X + Steppers + CTA im Daumenbereich */}
       <div className="ig-wo-bottom ig-wo-onehand">
-        <div className="ig-wo-sets">
-          {Array.from({ length: targetSets }, (_, i) => (
-            <span
-              key={i}
-              className={"ig-prog-dot" + (i < doneCount ? " done" : i === doneCount ? " next" : "")}
-            />
-          ))}
+        {/* Leiste: X (beenden) · Satz-Dots · Platzhalter für Balance */}
+        <div className="ig-wo-bottom-top">
+          <button
+            type="button"
+            className="ig-wo-exit"
+            onClick={onExit}
+            aria-label="Workout beenden"
+          >
+            <X size={20} strokeWidth={2.25} />
+          </button>
+          <div className="ig-wo-sets">
+            {Array.from({ length: targetSets }, (_, i) => (
+              <span
+                key={i}
+                className={
+                  "ig-prog-dot" +
+                  (i < doneCount ? " done" : i === doneCount ? " next" : "")
+                }
+              />
+            ))}
+          </div>
+          <span className="ig-wo-exit-spacer" aria-hidden="true" />
         </div>
         {milestone && (
           <span
