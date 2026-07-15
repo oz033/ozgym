@@ -40,6 +40,8 @@ html, body, #root { margin: 0; padding: 0; background: var(--boot-bg, #0c0d12); 
   color: var(--text);
   background: var(--bg);
   min-height: 100vh;
+  min-height: 100dvh;
+  height: 100%;
   display: flex;
   justify-content: center;
   -webkit-tap-highlight-color: transparent;
@@ -47,6 +49,8 @@ html, body, #root { margin: 0; padding: 0; background: var(--boot-bg, #0c0d12); 
   -webkit-user-select: none;
   overscroll-behavior: none;
   transition: background 0.35s ease, color 0.35s ease;
+  /* iOS: stop double-tap zoom + pull-to-refresh fights */
+  touch-action: manipulation;
 }
 .ig-app input, .ig-app select, .ig-app textarea { user-select: text; -webkit-user-select: text; }
 
@@ -265,14 +269,95 @@ html, body, #root { margin: 0; padding: 0; background: var(--boot-bg, #0c0d12); 
 }
 
 /* ============ Shell & Navigation ============ */
-.ig-phone { width: 100%; max-width: 430px; display: flex; flex-direction: column; min-height: 100vh; position: relative; }
-.ig-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 22px 14px; position: sticky; top: 0; z-index: 10; backdrop-filter: blur(18px) saturate(1.4); -webkit-backdrop-filter: blur(18px) saturate(1.4); background: color-mix(in srgb, var(--bg) 72%, transparent); border-bottom: 1px solid var(--border); }
-.ig-brand { display: flex; align-items: center; gap: 10px; font-family: var(--font-display); font-weight: 700; font-size: 15px; letter-spacing: 3px; }
-.ig-brand svg { color: var(--text); display: block; }
-.ig-date { font-size: 12px; color: var(--text-dim); text-transform: capitalize; font-weight: 500; }
-.ig-mute-btn { background: none; border: none; color: var(--text-dim); padding: 4px; cursor: pointer; display: flex; align-items: center; transition: color 0.2s; }
+.ig-phone {
+  width: 100%;
+  max-width: 430px;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+}
+/* iOS PWA: black-translucent status bar — title must sit below notch / Dynamic Island */
+.ig-header {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  padding:
+    calc(env(safe-area-inset-top, 0px) + 12px)
+    max(16px, env(safe-area-inset-right, 0px))
+    12px
+    max(16px, env(safe-area-inset-left, 0px));
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  backdrop-filter: blur(18px) saturate(1.4);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  background: color-mix(in srgb, var(--bg) 78%, transparent);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.ig-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.14em;
+  color: var(--text);
+  line-height: 1;
+}
+.ig-brand-name {
+  white-space: nowrap;
+  overflow: visible;
+  letter-spacing: 0.16em;
+  font-weight: 700;
+}
+.ig-brand svg { color: var(--text); display: block; flex-shrink: 0; }
+.ig-header-actions {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+  flex-shrink: 0;
+}
+.ig-date {
+  font-size: 12px;
+  color: var(--text-dim);
+  font-weight: 500;
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+  flex-shrink: 0;
+  line-height: 1;
+  /* no text-transform — de-DE dates look broken with capitalize */
+}
+.ig-mute-btn {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  padding: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: color 0.2s;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
 .ig-mute-btn:hover { color: var(--text); }
-.ig-main { flex: 1; padding: 20px 16px 108px; overflow-y: auto; scroll-behavior: smooth; }
+.ig-main {
+  flex: 1;
+  padding: 16px 16px calc(108px + env(safe-area-inset-bottom, 0px));
+  overflow-y: auto;
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  min-height: 0;
+}
 .ig-tabpane { display: flex; flex-direction: column; gap: 14px; }
 .ig-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; height: 100vh; color: var(--text-dim); width: 100%; }
 
@@ -658,6 +743,14 @@ button.ig-overview-col { cursor: pointer; }
   flex-direction: column;
   animation: ig-slide-up 0.3s var(--ease-out);
   overflow: hidden;
+  /* Full viewport incl. notch on iOS standalone */
+  height: 100%;
+  height: 100dvh;
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
 }
 .ig-wo-head { display: flex; align-items: center; gap: 12px; padding: calc(env(safe-area-inset-top, 0px) + 10px) 16px 6px; flex-shrink: 0; }
 .ig-wo-head-mid { flex: 1; display: flex; flex-direction: column; gap: 4px; }
@@ -675,9 +768,16 @@ button.ig-overview-col { cursor: pointer; }
   width: 100%;
   overflow: hidden;
   position: relative;
-  touch-action: pan-y;
+  /* Horizontal swipe owns the gesture — no browser scroll fight on iOS */
+  touch-action: pan-y pinch-zoom;
   cursor: grab;
   background: var(--bg, #0c0d12);
+  -webkit-user-select: none;
+  user-select: none;
+}
+.ig-wo-track-wrap.is-dragging {
+  cursor: grabbing;
+  touch-action: none;
 }
 .ig-wo-track {
   display: flex;
@@ -686,7 +786,9 @@ button.ig-overview-col { cursor: pointer; }
   width: 100%;
   height: 100%;
   will-change: transform;
-  touch-action: pan-y;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
 .ig-wo-card {
   box-sizing: border-box;

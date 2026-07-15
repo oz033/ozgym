@@ -321,43 +321,123 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
     buzz(20, hapticsOn);
   };
 
-  // Swipe (nur beim Heben) — Delta im Ref (State bei pointerup oft stale)
+  // Swipe (nur beim Heben) — pointer + velocity, rAF for 60fps on iOS
+  const dragRaf = useRef(0);
+  const [dragging, setDragging] = useState(false);
+
   const onPointerDown = (e) => {
     if (phase !== "lift") return;
     if (e.target?.closest?.("button, input, a, [data-no-swipe]")) return;
+    // Ignore multi-touch / secondary pointers
+    if (e.isPrimary === false) return;
     try {
       e.currentTarget.setPointerCapture?.(e.pointerId);
     } catch {
       /* ignore */
     }
-    dragRef.current = { x: e.clientX, active: true, dx: 0 };
+    const now = performance.now();
+    dragRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      active: true,
+      locked: false, // true once horizontal intent is clear
+      dx: 0,
+      t0: now,
+      lastX: e.clientX,
+      lastT: now,
+      vx: 0,
+      pointerId: e.pointerId,
+    };
     setDragX(0);
+    setDragging(true);
   };
+
   const onPointerMove = (e) => {
-    if (!dragRef.current?.active) return;
-    const dx = e.clientX - dragRef.current.x;
-    dragRef.current.dx = dx;
-    setDragX(dx);
+    const d = dragRef.current;
+    if (!d?.active) return;
+    if (d.pointerId != null && e.pointerId !== d.pointerId) return;
+
+    const dx = e.clientX - d.x;
+    const dy = e.clientY - d.y;
+    const now = performance.now();
+    const dt = Math.max(1, now - d.lastT);
+    // Instant velocity (px/ms) smoothed lightly
+    const instVx = (e.clientX - d.lastX) / dt;
+    d.vx = d.vx * 0.65 + instVx * 0.35;
+    d.lastX = e.clientX;
+    d.lastT = now;
+
+    // Axis lock: only claim horizontal once clearly intentional
+    if (!d.locked) {
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+      if (Math.abs(dy) > Math.abs(dx) * 1.15) {
+        // Vertical scroll intent — abort swipe
+        d.active = false;
+        setDragging(false);
+        setDragX(0);
+        try {
+          e.currentTarget.releasePointerCapture?.(e.pointerId);
+        } catch {
+          /* ignore */
+        }
+        return;
+      }
+      d.locked = true;
+    }
+
+    // Rubber-band at ends
+    let next = dx;
+    if ((idx === 0 && next > 0) || (idx >= queue.length - 1 && next < 0)) {
+      next = next * 0.28;
+    }
+    d.dx = next;
+
+    if (dragRaf.current) cancelAnimationFrame(dragRaf.current);
+    dragRaf.current = requestAnimationFrame(() => {
+      setDragX(d.dx);
+    });
   };
+
   const finishDrag = (e) => {
-    if (!dragRef.current?.active) return;
-    const dx = dragRef.current.dx || 0;
-    dragRef.current.active = false;
+    const d = dragRef.current;
+    if (!d?.active && !d?.locked) {
+      setDragging(false);
+      return;
+    }
+    if (d.pointerId != null && e?.pointerId != null && e.pointerId !== d.pointerId) {
+      return;
+    }
+    const dx = d?.dx || 0;
+    const vx = d?.vx || 0; // px/ms
+    if (d) d.active = false;
+    setDragging(false);
+    if (dragRaf.current) {
+      cancelAnimationFrame(dragRaf.current);
+      dragRaf.current = 0;
+    }
     setDragX(0);
     try {
       e?.currentTarget?.releasePointerCapture?.(e.pointerId);
     } catch {
       /* ignore */
     }
-    // Nach links wischen = nächste, nach rechts = vorherige (Karte folgt dem Finger)
-    if (dx < -50 && idx < queue.length - 1) {
+
+    // Distance OR fling velocity (iOS feels snappy with velocity)
+    const distOk = Math.abs(dx) > 48;
+    const flingOk = Math.abs(vx) > 0.45; // ~450 px/s
+    const goNext = (dx < 0 && distOk) || (vx < -0.45 && flingOk);
+    const goPrev = (dx > 0 && distOk) || (vx > 0.45 && flingOk);
+
+    if (goNext && idx < queue.length - 1) {
       setIdx((i) => Math.min(i + 1, queue.length - 1));
       playSound("tap", soundOn);
       setShowSwipeHint(false);
-    } else if (dx > 50 && idx > 0) {
+      if (hapticsOn) buzz(12, true);
+    } else if (goPrev && idx > 0) {
       setIdx((i) => Math.max(i - 1, 0));
       playSound("tap", soundOn);
       setShowSwipeHint(false);
+      if (hapticsOn) buzz(12, true);
     }
   };
 
@@ -553,20 +633,24 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
 
       <div
         ref={trackWrapRef}
-        className="ig-wo-track-wrap"
+        className={"ig-wo-track-wrap" + (dragging ? " is-dragging" : "")}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={finishDrag}
         onPointerCancel={finishDrag}
+        onPointerLeave={(e) => {
+          // iOS Safari sometimes drops pointerup outside the element
+          if (dragRef.current?.active) finishDrag(e);
+        }}
       >
       <div
         className="ig-wo-track"
         style={{
           width: trackW > 0 ? `${Math.max(queue.length, 1) * trackW}px` : "100%",
           transform: `translate3d(${-idx * (trackW || 0) + dragX}px, 0, 0)`,
-          transition: dragRef.current?.active
+          transition: dragging
             ? "none"
-            : "transform 0.28s var(--ease-out)",
+            : "transform 0.22s cubic-bezier(0.22, 1, 0.36, 1)",
         }}
       >
         {queue.map((it, i) => {

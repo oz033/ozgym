@@ -38,6 +38,26 @@ const routeImports = {
   progress: () => import("./tabs/ProgressTab.jsx"),
   profile: () => import("./tabs/ProfileTab.jsx"),
 };
+
+/** Compact header date for iOS (avoids "Mi., 15. Juli" / "Mi.15 Juli" quirks). */
+const WEEKDAYS_DE = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
+const MONTHS_DE = [
+  "Jan",
+  "Feb",
+  "Mär",
+  "Apr",
+  "Mai",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Okt",
+  "Nov",
+  "Dez",
+];
+function formatHeaderDate(d = new Date()) {
+  return `${WEEKDAYS_DE[d.getDay()]} ${d.getDate()}. ${MONTHS_DE[d.getMonth()]}`;
+}
 const LogTab = lazy(routeImports.workout);
 const WorkoutMode = lazy(routeImports.workoutMode);
 const PlansTab = lazy(routeImports.plan);
@@ -252,13 +272,14 @@ export default function App() {
         <header className="ig-header">
           <div className="ig-brand">
             <span className="ig-brand-mark">
-              <OzGymMark size={32} variant="glass" title="OZGYM" />
+              <OzGymMark size={30} variant="glass" title="OZGYM" />
             </span>
-            <span style={{ letterSpacing: "0.18em", fontWeight: 700 }}>OZGYM</span>
+            <span className="ig-brand-name">OZGYM</span>
           </div>
-          <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+          <div className="ig-header-actions">
             <button
               className="ig-mute-btn"
+              type="button"
               onClick={() =>
                 update((prev) => ({
                   ...prev,
@@ -274,6 +295,7 @@ export default function App() {
             </button>
             <button
               className="ig-mute-btn"
+              type="button"
               onClick={() =>
                 update((prev) => ({
                   ...prev,
@@ -285,13 +307,7 @@ export default function App() {
               {soundOn ? <Volume2 size={18} /> : <VolumeX size={18} />}
             </button>
           </div>
-          <span className="ig-date">
-            {new Date().toLocaleDateString("de-DE", {
-              weekday: "short",
-              day: "2-digit",
-              month: "short",
-            })}
-          </span>
+          <span className="ig-date">{formatHeaderDate(new Date())}</span>
         </header>
 
         <main className="ig-main">
