@@ -75,6 +75,14 @@ export default function App() {
   // zu zeigen), merkt sich das die App hier und reicht es an PlansTab durch.
   const [autoEditPlanId, setAutoEditPlanId] = useState(null);
   const saveTimer = useRef(null);
+  const mainRef = useRef(null);
+
+  // Reset scroll when switching tabs so iOS doesn't keep a stuck offset
+  useEffect(() => {
+    const el = mainRef.current;
+    if (!el) return;
+    el.scrollTop = 0;
+  }, [tab]);
 
   useEffect(() => {
     try {
@@ -290,14 +298,16 @@ export default function App() {
           </div>
         </header>
 
-        <main className="ig-main">
+        <main className="ig-main" ref={mainRef}>
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={tab}
-              initial={reduced ? false : { opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={reduced ? undefined : { opacity: 0, y: -8 }}
-              transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+              className="ig-tab-motion"
+              /* Opacity only — y/transform breaks nested overflow scroll on iOS */
+              initial={reduced ? false : { opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={reduced ? undefined : { opacity: 0 }}
+              transition={{ duration: 0.14, ease: [0.16, 1, 0.3, 1] }}
             >
               <Suspense fallback={<TabSkeleton />}>
                 {tab === "home" && (

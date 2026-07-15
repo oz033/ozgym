@@ -42,9 +42,8 @@ html, body, #root {
   /* Bottom dock: floating pill + home-indicator zone painted as app bg */
   --dock-pill-h: 58px;
   --dock-gap: 10px;
-  --tabbar-stack: calc(
-    var(--dock-pill-h) + var(--dock-gap) + max(10px, var(--safe-bottom)) + 8px
-  );
+  /* Extra 18px = min bottom air + safe-area (safe-bottom may be 0 on some WebViews) */
+  --tabbar-stack: calc(var(--dock-pill-h) + var(--dock-gap) + var(--safe-bottom) + 18px);
 
   /* Status-Farben (themenunabhaengig) */
   --success: #34b36a;
@@ -64,12 +63,13 @@ html, body, #root {
   max-height: var(--app-height, 100dvh);
   display: flex;
   justify-content: center;
+  align-items: stretch;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
   -webkit-user-select: none;
   overscroll-behavior: none;
   transition: background 0.35s ease, color 0.35s ease;
-  touch-action: manipulation;
+  /* Do NOT set touch-action here — it blocks nested pan-y scroll on iOS */
   overflow: hidden;
 }
 .ig-app input, .ig-app select, .ig-app textarea { user-select: text; -webkit-user-select: text; }
@@ -302,14 +302,18 @@ html, body, #root {
 .ig-phone {
   width: 100%;
   max-width: 430px;
+  /* Flex column chain: phone must be height-bounded so .ig-main can scroll */
+  flex: 1 1 auto;
   height: 100%;
+  max-height: 100%;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   position: relative;
   overflow: hidden;
   background: var(--bg);
 }
-/* iOS PWA: black-translucent status bar — title must sit below notch / Dynamic Island */
+/* Header is flex item (not sticky-in-scroll) so only .ig-main scrolls */
 .ig-header {
   display: flex;
   align-items: center;
@@ -320,14 +324,13 @@ html, body, #root {
     max(16px, var(--safe-right))
     12px
     max(16px, var(--safe-left));
-  position: sticky;
-  top: 0;
+  position: relative;
   z-index: 10;
   backdrop-filter: blur(18px) saturate(1.4);
   -webkit-backdrop-filter: blur(18px) saturate(1.4);
-  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
   border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
+  flex: 0 0 auto;
 }
 .ig-brand {
   display: flex;
@@ -378,17 +381,36 @@ html, body, #root {
 }
 .ig-mute-btn:hover { color: var(--text); }
 
+/*
+ * ONLY scroll surface in the app shell.
+ * flex-basis: 0 is required — without it, main grows with content and never scrolls.
+ */
 .ig-main {
-  flex: 1;
+  flex: 1 1 0;
+  min-height: 0;
+  height: auto;
+  max-height: 100%;
   padding: 16px 16px var(--tabbar-stack);
-  overflow-y: auto;
   overflow-x: hidden;
-  scroll-behavior: smooth;
+  overflow-y: scroll; /* scroll (not auto) = reliable iOS scrollport */
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
-  min-height: 0;
+  touch-action: pan-y;
+  scroll-behavior: auto; /* smooth + nested scroll = janky on iPhone */
+  position: relative;
+  z-index: 1;
 }
-.ig-tabpane { display: flex; flex-direction: column; gap: 14px; }
+/* Framer tab wrapper — block layout, no height trap */
+.ig-tab-motion {
+  display: block;
+  width: 100%;
+}
+.ig-tabpane {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-bottom: 8px;
+}
 .ig-loading {
   display: flex;
   flex-direction: column;
