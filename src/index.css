@@ -1,9 +1,10 @@
-/* ============================================================
+/* Hallmark · redesign: spacing density · tone: utilitarian premium fitness
+ * nav: N5 floating pill compact · dock: safe-bottom only · 4pt scale
+ * pre-emit critique: P4 H4 E5 S4 R5 V3
+ * ============================================================
    Design System v2 — Monochrom-Premium
    Themes:    .ig-app[data-theme="dark" | "light"]
    Modi:      .ig-app[data-mode="m" | "f" | "n"]
-   Varianten: data-radius / data-density / data-font /
-              data-gradient / data-glow / data-glass / data-motion
    ============================================================ */
 
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
@@ -34,18 +35,28 @@ html, body, #root {
   --font-display: 'Space Grotesk', sans-serif;
   --font-body: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
 
-  /* Safe areas: env (modern) — constant() set on :root in index.html for old iOS */
+  /* Safe areas — ONLY device insets, no invented “safety” padding */
   --safe-top: var(--sat, env(safe-area-inset-top, 0px));
   --safe-right: var(--sar, env(safe-area-inset-right, 0px));
   --safe-bottom: var(--sab, env(safe-area-inset-bottom, 0px));
   --safe-left: var(--sal, env(safe-area-inset-left, 0px));
-  /* Compact bottom dock — pill sits tight, only real home-indicator inset below */
-  --dock-pill-h: 52px;
-  --dock-gap: 8px;
-  /* Content end padding ≈ actual dock height + small clearance (no fat 40px void) */
-  --tabbar-stack: calc(
-    var(--dock-pill-h) + var(--dock-gap) + var(--safe-bottom) + 12px
-  );
+
+  /* 4pt density scale (Hallmark) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --touch: 44px;
+
+  /*
+   * Bottom pill (N5-style, compact):
+   * height 52–54 · gap above pill 6 · under pill = home indicator ONLY
+   * Content reserve = exact dock footprint (no +12/+40 fudge)
+   */
+  --dock-pill-h: 54px;
+  --dock-gap: 6px;
+  --tabbar-stack: calc(var(--dock-pill-h) + var(--dock-gap) + var(--safe-bottom));
 
   /* Status-Farben (themenunabhaengig) */
   --success: #34b36a;
@@ -183,9 +194,9 @@ html, body, #root {
 .ig-app[data-radius="sharp"] .ig-wellness-add { border-radius: var(--radius-pill); }
 
 /* Dichte: kompakt */
-.ig-app[data-density="compact"] .ig-card { padding: 12px; gap: 9px; }
-.ig-app[data-density="compact"] .ig-main { padding: 14px 12px var(--tabbar-stack); }
-.ig-app[data-density="compact"] .ig-tabpane { gap: 10px; }
+.ig-app[data-density="compact"] .ig-card { padding: var(--space-2) var(--space-3); gap: var(--space-2); }
+.ig-app[data-density="compact"] .ig-main { padding: var(--space-2) var(--space-2) var(--tabbar-stack); }
+.ig-app[data-density="compact"] .ig-tabpane { gap: var(--space-2); }
 .ig-app[data-density="compact"] .ig-btn-primary { height: 42px; }
 .ig-app[data-density="compact"] .ig-btn-primary.xl { height: 50px; }
 .ig-app[data-density="compact"] .ig-dash-grid { gap: 8px; }
@@ -315,17 +326,17 @@ html, body, #root {
   overflow: hidden;
   background: var(--bg);
 }
-/* Header is flex item (not sticky-in-scroll) so only .ig-main scrolls */
+/* Header — safe-top only + tight chrome */
 .ig-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--space-2);
   padding:
-    calc(var(--safe-top) + 12px)
-    max(16px, var(--safe-right))
-    12px
-    max(16px, var(--safe-left));
+    calc(var(--safe-top) + var(--space-2))
+    max(var(--space-3), var(--safe-right))
+    var(--space-2)
+    max(var(--space-3), var(--safe-left));
   position: relative;
   z-index: 10;
   backdrop-filter: blur(18px) saturate(1.4);
@@ -337,7 +348,7 @@ html, body, #root {
 .ig-brand {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   min-width: 0;
   font-family: var(--font-display);
   font-weight: 700;
@@ -355,28 +366,21 @@ html, body, #root {
 .ig-brand svg { color: var(--text); display: block; flex-shrink: 0; }
 .ig-header-actions {
   display: flex;
-  gap: 2px;
+  gap: 0;
   align-items: center;
   flex-shrink: 0;
-}
-.ig-date {
-  font-size: 12px;
-  color: var(--text-dim);
-  font-weight: 500;
-  white-space: nowrap;
-  letter-spacing: 0.01em;
-  flex-shrink: 0;
-  line-height: 1;
-  /* no text-transform — de-DE dates look broken with capitalize */
 }
 .ig-mute-btn {
   background: none;
   border: none;
   color: var(--text-dim);
-  padding: 6px;
+  width: var(--touch);
+  height: var(--touch);
+  padding: 0;
   cursor: pointer;
   display: flex;
   align-items: center;
+  justify-content: center;
   transition: color 0.2s;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
@@ -384,25 +388,24 @@ html, body, #root {
 .ig-mute-btn:hover { color: var(--text); }
 
 /*
- * ONLY scroll surface in the app shell.
- * flex-basis: 0 is required — without it, main grows with content and never scrolls.
+ * ONLY scroll surface.
+ * bottom padding = exact dock footprint (pill + gap + home indicator)
  */
 .ig-main {
   flex: 1 1 0;
   min-height: 0;
   height: auto;
   max-height: 100%;
-  padding: 16px 16px var(--tabbar-stack);
+  padding: var(--space-3) var(--space-3) var(--tabbar-stack);
   overflow-x: hidden;
-  overflow-y: scroll; /* scroll (not auto) = reliable iOS scrollport */
+  overflow-y: scroll;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
   touch-action: pan-y;
-  scroll-behavior: auto; /* smooth + nested scroll = janky on iPhone */
+  scroll-behavior: auto;
   position: relative;
   z-index: 1;
 }
-/* Framer tab wrapper — block layout, no height trap */
 .ig-tab-motion {
   display: block;
   width: 100%;
@@ -410,15 +413,15 @@ html, body, #root {
 .ig-tabpane {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding-bottom: 8px;
+  gap: var(--space-3);
+  padding-bottom: 0; /* no double stack with --tabbar-stack */
 }
 .ig-loading {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 14px;
+  gap: var(--space-3);
   height: 100%;
   min-height: var(--app-height, 100dvh);
   color: var(--text-dim);
@@ -426,9 +429,9 @@ html, body, #root {
 }
 
 /*
- * Compact iOS dock: pill hugs the bottom.
- * Only env(safe-area-inset-bottom) sits under the pill (home indicator) —
- * no extra 10–40px “void” that looked like wasted space.
+ * Bottom pill — as low as iOS allows.
+ * padding-bottom: safe-bottom ONLY (home indicator). No +4/+10 fudge.
+ * Side inset 12px for pill float; no full-width painted dead zone.
  */
 .ig-dock {
   position: fixed;
@@ -437,10 +440,9 @@ html, body, #root {
   bottom: 0;
   z-index: 40;
   width: 100%;
-  background: transparent; /* no fat painted band under the pill */
-  /* 8px top air · sides · ONLY real safe-area (+4px) under pill */
-  padding: var(--dock-gap) max(12px, var(--safe-left))
-    calc(var(--safe-bottom) + 4px) max(12px, var(--safe-right));
+  background: transparent;
+  padding: var(--dock-gap) max(12px, var(--safe-left)) var(--safe-bottom)
+    max(12px, var(--safe-right));
   box-sizing: border-box;
   pointer-events: none;
   box-shadow: none;
@@ -456,18 +458,20 @@ html, body, #root {
   margin: 0 auto;
   display: flex;
   align-items: stretch;
-  gap: 2px;
+  gap: 0;
   height: var(--dock-pill-h);
-  background: color-mix(in srgb, var(--surface) 94%, var(--bg));
+  min-height: var(--dock-pill-h);
+  max-height: var(--dock-pill-h);
+  background: color-mix(in srgb, var(--surface) 96%, var(--bg));
   border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 3px;
+  border-radius: 18px;
+  padding: 2px;
   box-sizing: border-box;
   box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.04) inset,
-    0 8px 22px rgba(0, 0, 0, 0.25);
-  backdrop-filter: blur(18px) saturate(1.35);
-  -webkit-backdrop-filter: blur(18px) saturate(1.35);
+    0 1px 0 rgba(255, 255, 255, 0.05) inset,
+    0 6px 18px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
 }
 .ig-tab {
   position: relative;
@@ -483,40 +487,53 @@ html, body, #root {
   font-family: inherit;
   font-size: 9px;
   font-weight: 600;
-  padding: 2px 0;
+  padding: 0;
   min-height: 0;
   height: 100%;
+  min-width: 0;
+  /* visual compact; hit area is full tab cell (~full pill height / 5) */
   cursor: pointer;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.02em;
   border-radius: 16px;
   transition: color 0.15s var(--ease-out);
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
 }
-.ig-tab:active { opacity: 0.8; transform: scale(0.96); }
+.ig-tab:active { opacity: 0.85; }
 .ig-tab.active { color: var(--accent); }
 .ig-tab-pill {
   position: absolute;
-  inset: 2px;
+  inset: 1px;
   background: color-mix(in srgb, var(--accent) 14%, var(--surface-2));
-  border-radius: 14px;
+  border-radius: 15px;
   box-shadow: none;
 }
 .ig-tab-icon,
 .ig-tab-label { position: relative; z-index: 1; }
-.ig-tab-icon { display: flex; opacity: 0.8; }
+.ig-tab-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  opacity: 0.85;
+}
 .ig-tab.active .ig-tab-icon { opacity: 1; }
-.ig-tab-label { line-height: 1; font-size: 9px; }
+.ig-tab-label {
+  line-height: 1;
+  font-size: 9px;
+  margin: 0;
+}
 
 /* ============ Cards & Basis ============ */
 .ig-card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  padding: 14px 16px;
+  padding: var(--space-3) var(--space-3);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-2);
   box-shadow: none;
   animation: ig-fade-up 0.35s var(--ease-out);
 }
@@ -635,8 +652,11 @@ html, body, #root {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  padding: calc(var(--safe-top, env(safe-area-inset-top, 0px)) + 36px) 24px calc(var(--safe-bottom, env(safe-area-inset-bottom, 0px)) + 28px);
+  gap: var(--space-4);
+  padding:
+    calc(var(--safe-top, env(safe-area-inset-top, 0px)) + var(--space-5))
+    var(--space-5)
+    calc(var(--safe-bottom, env(safe-area-inset-bottom, 0px)) + var(--space-4));
   animation: ig-fade-up 0.5s var(--ease-out);
   max-width: 430px;
   width: 100%;
@@ -678,7 +698,7 @@ html, body, #root {
 .ig-onb-day-label { font-size: 11px; color: var(--text-dim); font-weight: 600; }
 .ig-onb-hint { width: 100%; font-size: 12.5px; color: var(--text-dim); line-height: 1.5; margin: 4px 0 0; }
 .ig-onb-field-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-.ig-onb-footer { display: flex; flex-direction: column; gap: 6px; padding-bottom: env(safe-area-inset-bottom, 0px); }
+.ig-onb-footer { display: flex; flex-direction: column; gap: var(--space-1); padding-bottom: 0; }
 .ig-onb-back { background: none; border: none; color: var(--text-dim); font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; padding: 10px; align-self: center; display: flex; align-items: center; gap: 4px; }
 
 /* ============ Home / Dashboard ============ */
@@ -686,8 +706,8 @@ html, body, #root {
 /* Hallmark · project: OZGYM · genre: modern-minimal · tone: utilitarian
  * macrostructure family: workbench-lite · brand mark locked (do not touch brand.jsx)
  * audience: private · use: start workout */
-.ig-home { gap: 12px; }
-.ig-home-hero { display: flex; flex-direction: column; gap: 6px; padding: 4px 2px 2px; }
+.ig-home { gap: var(--space-3); }
+.ig-home-hero { display: flex; flex-direction: column; gap: var(--space-1); padding: 0; }
 .ig-home .ig-home-title { font-size: clamp(26px, 7vw, 30px); letter-spacing: -0.5px; }
 .ig-home-overview { margin-top: 0; }
 .ig-screen-title {
@@ -696,16 +716,16 @@ html, body, #root {
   font-weight: 700;
   letter-spacing: -0.3px;
   margin: 0;
-  padding: 2px 2px 0;
+  padding: 0;
 }
-/* Screen title row with primary actions (never under bottom dock) */
 .ig-screen-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: var(--space-2);
   flex-wrap: wrap;
-  padding: 2px 0 4px;
+  padding: 0;
+  min-height: var(--touch);
 }
 .ig-screen-head .ig-screen-title {
   padding: 0;
@@ -715,17 +735,17 @@ html, body, #root {
 .ig-screen-head-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   flex-shrink: 0;
 }
 .ig-plan-new-btn {
   height: 40px;
-  padding: 0 14px;
+  min-height: 40px;
+  padding: 0 var(--space-3);
   font-size: 13px;
   border-radius: 12px;
   gap: 6px;
   white-space: nowrap;
-  /* Always tappable above dock */
   position: relative;
   z-index: 6;
   -webkit-tap-highlight-color: transparent;
@@ -862,23 +882,20 @@ button.ig-overview-col { cursor: pointer; }
 .ig-done-note { flex-direction: row; align-items: center; gap: 12px; font-size: 13.5px; line-height: 1.5; border-color: color-mix(in srgb, var(--success) 35%, transparent); }
 .ig-done-note-icon { font-size: 26px; }
 
-/*
- * Sticky Start-CTA sits at the bottom of .ig-main's scrollport (bottom: 0).
- * Main already reserves --tabbar-stack so the button clears the floating dock.
- */
+/* Sticky CTA — flush to end of content; main already clears the dock */
 .ig-sticky-cta {
   position: sticky;
   bottom: 0;
   z-index: 5;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin-top: 12px;
-  padding: 14px 0 12px;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  padding: var(--space-2) 0 0;
   background: linear-gradient(
     to bottom,
     color-mix(in srgb, var(--bg) 0%, transparent) 0%,
-    var(--bg) 40%,
+    var(--bg) 45%,
     var(--bg) 100%
   );
 }
@@ -913,8 +930,8 @@ button.ig-overview-col { cursor: pointer; }
 .ig-wo-head {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: calc(var(--safe-top, env(safe-area-inset-top, 0px)) + 10px) 16px 6px;
+  gap: var(--space-3);
+  padding: calc(var(--safe-top, env(safe-area-inset-top, 0px)) + var(--space-2)) var(--space-3) var(--space-1);
   flex-shrink: 0;
 }
 .ig-wo-head-mid { flex: 1; display: flex; flex-direction: column; gap: 4px; }
@@ -1128,13 +1145,13 @@ button.ig-overview-col { cursor: pointer; }
   border-color: color-mix(in srgb, var(--accent) 40%, transparent);
   color: var(--accent);
 }
-/* Bottom-Sheet: immer sichtbar über dem dunklen BG */
+/* Workout bottom chrome — safe-bottom only under controls */
 .ig-wo-bottom {
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 14px 20px calc(env(safe-area-inset-bottom, 0px) + 16px);
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4) calc(var(--safe-bottom, env(safe-area-inset-bottom, 0px)) + var(--space-3));
   background: var(--surface, #161822);
   color: var(--text, #f2f3f7);
   border-top: 1px solid var(--border, #2a2d3a);
@@ -1215,19 +1232,18 @@ button.ig-overview-col { cursor: pointer; }
 .ig-active-plan-preview { display: flex; flex-wrap: wrap; gap: 6px; }
 .ig-plan-add-row {
   display: flex;
-  gap: 10px;
+  gap: var(--space-2);
   flex-wrap: wrap;
-  /* Keep Export/Import fully visible above dock when card is last */
-  margin-top: 4px;
-  padding-bottom: 2px;
+  margin-top: var(--space-1);
+  padding: 0;
 }
 .ig-plan-add-row .ig-btn-primary {
   flex: 1;
   min-width: 0;
-  min-height: 44px; /* iOS tap target, not half-clipped */
+  min-height: var(--touch);
 }
 .ig-profile-backup-row {
-  margin-top: 10px;
+  margin-top: var(--space-2);
 }
 
 .ig-plan-list { display: flex; flex-direction: column; gap: 8px; }
@@ -1244,12 +1260,26 @@ button.ig-overview-col { cursor: pointer; }
 
 .ig-sheet { position: fixed; inset: 0; z-index: 70; background: var(--bg); max-width: 430px; margin: 0 auto; display: flex; flex-direction: column; animation: ig-slide-up 0.3s var(--ease-out); }
 .ig-sheet-over { z-index: 80; }
-.ig-sheet-head { display: flex; align-items: center; gap: 10px; padding: calc(env(safe-area-inset-top, 0px) + 12px) 16px 10px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.ig-sheet-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: calc(var(--safe-top, env(safe-area-inset-top, 0px)) + var(--space-2)) var(--space-3) var(--space-2);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
 .ig-sheet-title { flex: 1; font-weight: 700; font-size: 15px; }
 .ig-sheet-title-input { flex: 1; background: none; border: none; border-bottom: 1px dashed var(--border); color: var(--text); font-family: var(--font-display); font-size: 19px; font-weight: 700; padding: 4px 2px; min-width: 0; }
 .ig-sheet-title-input:focus { outline: none; border-bottom-color: var(--accent); }
-.ig-sheet-body { flex: 1; overflow-y: auto; padding: 14px 16px calc(env(safe-area-inset-bottom, 0px) + 20px); display: flex; flex-direction: column; gap: 12px; }
-.ig-sheet-search { position: relative; padding: 12px 16px 0; flex-shrink: 0; }
+.ig-sheet-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-3) var(--space-3) calc(var(--safe-bottom, env(safe-area-inset-bottom, 0px)) + var(--space-3));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.ig-sheet-search { position: relative; padding: var(--space-3) var(--space-3) 0; flex-shrink: 0; }
 .ig-sheet-search .ig-input { padding-left: 38px; }
 .ig-sheet-search-icon { position: absolute; left: 29px; top: 27px; color: var(--text-dim); pointer-events: none; }
 
