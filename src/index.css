@@ -39,11 +39,11 @@ html, body, #root {
   --safe-right: var(--sar, env(safe-area-inset-right, 0px));
   --safe-bottom: var(--sab, env(safe-area-inset-bottom, 0px));
   --safe-left: var(--sal, env(safe-area-inset-left, 0px));
-  /* Tab dock metrics (all iPhones X–16 / 17 / 18 class) */
-  --tabbar-content: 50px;
-  --tabbar-pad-y: 6px;
+  /* Bottom dock: floating pill + home-indicator zone painted as app bg */
+  --dock-pill-h: 58px;
+  --dock-gap: 10px;
   --tabbar-stack: calc(
-    var(--tabbar-content) + (var(--tabbar-pad-y) * 2) + var(--safe-bottom) + 4px
+    var(--dock-pill-h) + var(--dock-gap) + max(10px, var(--safe-bottom)) + 8px
   );
 
   /* Status-Farben (themenunabhaengig) */
@@ -117,9 +117,9 @@ html, body, #root {
   --border: rgba(255, 255, 255, 0.08);
   --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 8px 28px rgba(0,0,0,0.30);
   --shadow-soft: 0 2px 10px rgba(0,0,0,0.25);
+  /* Only top glow — bottom stays flat so dock zone never looks like a foreign strip */
   background-image:
-    radial-gradient(ellipse 80% 40% at 50% 0%, rgba(var(--accent-rgb),0.10) 0%, transparent 100%),
-    radial-gradient(ellipse 55% 32% at 85% 100%, rgba(var(--accent-rgb),0.05) 0%, transparent 100%);
+    radial-gradient(ellipse 80% 40% at 50% 0%, rgba(var(--accent-rgb), 0.1) 0%, transparent 100%);
 }
 .ig-app[data-mode="f"][data-theme="dark"] {
   --bg: #100d18;
@@ -402,49 +402,54 @@ html, body, #root {
 }
 
 /*
- * Bottom tab dock — edge-to-edge on EVERY iPhone (X–16 / 17 / 18 class).
- * - No transform (iOS transform + fixed bugs)
- * - Full device width so no side/bottom dead zone
- * - Safe-area only as INNER padding (bar paints into the home-indicator zone)
- * - Opaque background so nothing “empty” shows under the tabs
+ * Clean iOS bottom dock (all iPhones):
+ * Outer shell paints EXACTLY var(--bg) into the home-indicator zone —
+ * so there is never a “foreign empty strip”. Floating pill sits above it.
  */
-.ig-tabbar {
+.ig-dock {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
+  z-index: 40;
   width: 100%;
-  max-width: none;
+  /* Same as page background — home indicator sits on app bg, not a hole */
+  background: var(--bg);
+  /* top pad + pill + bottom = safe area (min 10px so non-notch iPhones still breathe) */
+  padding: var(--dock-gap) max(16px, var(--safe-left)) max(10px, var(--safe-bottom))
+    max(16px, var(--safe-right));
+  box-sizing: border-box;
+  pointer-events: none; /* only pill is clickable */
+  /* Paint far below the screen edge (overscroll / subpixels / older WebKit) */
+  box-shadow: 0 1px 0 60px var(--bg);
+}
+.ig-dock[hidden] {
+  display: none !important;
+}
+.ig-tabbar {
+  pointer-events: auto;
+  position: relative;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  width: 100%;
+  max-width: 430px;
+  margin: 0 auto;
   display: flex;
   align-items: stretch;
   gap: 2px;
-  /* solid — semi-transparent made the home-indicator zone look like empty void */
-  background: var(--surface);
-  border: none;
-  border-top: 1px solid var(--border);
-  border-radius: 0;
-  padding-top: var(--tabbar-pad-y);
-  padding-left: max(10px, var(--safe-left));
-  padding-right: max(10px, var(--safe-right));
-  /* iOS 11 constant() + modern env() via --safe-bottom */
-  padding-bottom: calc(var(--safe-bottom) + var(--tabbar-pad-y));
-  z-index: 40;
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.2);
+  height: var(--dock-pill-h);
+  background: color-mix(in srgb, var(--surface) 92%, var(--bg));
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  padding: 4px;
   box-sizing: border-box;
-  /* paint into any sub-pixel gap under the home indicator */
-  margin: 0;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 10px 28px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(18px) saturate(1.35);
+  -webkit-backdrop-filter: blur(18px) saturate(1.35);
   transform: none;
-}
-/* Extra paint layer: kills 1px hairline / overscroll voids under the dock */
-.ig-tabbar::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 100%;
-  height: 80px;
-  background: var(--surface);
-  pointer-events: none;
 }
 .ig-tab {
   position: relative;
@@ -453,37 +458,37 @@ html, body, #root {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: 2px;
   background: none;
   border: none;
   color: var(--text-dim);
   font-family: inherit;
   font-size: 9px;
   font-weight: 600;
-  padding: 6px 0 5px;
-  min-height: var(--tabbar-content);
+  padding: 4px 0;
+  min-height: 0;
+  height: 100%;
   cursor: pointer;
-  letter-spacing: 0.04em;
-  border-radius: 14px;
-  transition: color 0.15s var(--ease-out), background 0.15s var(--ease-out);
+  letter-spacing: 0.03em;
+  border-radius: 18px;
+  transition: color 0.15s var(--ease-out);
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
 }
-.ig-tab:active { opacity: 0.75; }
+.ig-tab:active { opacity: 0.8; transform: scale(0.96); }
 .ig-tab.active { color: var(--accent); }
-/* Soft selected surface — not a solid accent blob */
 .ig-tab-pill {
   position: absolute;
   inset: 2px;
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface-2));
+  border-radius: 16px;
   box-shadow: none;
 }
 .ig-tab-icon,
 .ig-tab-label { position: relative; z-index: 1; }
-.ig-tab-icon { display: flex; opacity: 0.85; }
+.ig-tab-icon { display: flex; opacity: 0.8; }
 .ig-tab.active .ig-tab-icon { opacity: 1; }
-.ig-tab-label { line-height: 1; }
+.ig-tab-label { line-height: 1; font-size: 9px; }
 
 /* ============ Cards & Basis ============ */
 .ig-card {

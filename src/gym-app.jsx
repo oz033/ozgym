@@ -350,38 +350,43 @@ export default function App() {
           </Suspense>
         )}
 
-        <nav className="ig-tabbar" aria-label="Hauptnavigation">
-          <TabBtn
-            active={tab === "home"}
-            onClick={() => goTo("home")}
-            icon={<House size={20} strokeWidth={1.75} />}
-            label="Heute"
-          />
-          <TabBtn
-            active={tab === "workout"}
-            onClick={() => goTo("workout")}
-            icon={<Dumbbell size={20} strokeWidth={1.75} />}
-            label="Train"
-          />
-          <TabBtn
-            active={tab === "plan"}
-            onClick={() => goTo("plan")}
-            icon={<List size={20} strokeWidth={1.75} />}
-            label="Pläne"
-          />
-          <TabBtn
-            active={tab === "progress"}
-            onClick={() => goTo("progress")}
-            icon={<ChartColumn size={20} strokeWidth={1.75} />}
-            label="Stats"
-          />
-          <TabBtn
-            active={tab === "profile"}
-            onClick={() => goTo("profile")}
-            icon={<UserRound size={20} strokeWidth={1.75} />}
-            label="Profil"
-          />
-        </nav>
+        {/* Dock shell paints app bg into home-indicator zone; pill floats above */}
+        {!workoutOpen && (
+          <div className="ig-dock">
+            <nav className="ig-tabbar" aria-label="Hauptnavigation">
+              <TabBtn
+                active={tab === "home"}
+                onClick={() => goTo("home")}
+                icon={<House size={20} strokeWidth={1.75} />}
+                label="Heute"
+              />
+              <TabBtn
+                active={tab === "workout"}
+                onClick={() => goTo("workout")}
+                icon={<Dumbbell size={20} strokeWidth={1.75} />}
+                label="Train"
+              />
+              <TabBtn
+                active={tab === "plan"}
+                onClick={() => goTo("plan")}
+                icon={<List size={20} strokeWidth={1.75} />}
+                label="Pläne"
+              />
+              <TabBtn
+                active={tab === "progress"}
+                onClick={() => goTo("progress")}
+                icon={<ChartColumn size={20} strokeWidth={1.75} />}
+                label="Stats"
+              />
+              <TabBtn
+                active={tab === "profile"}
+                onClick={() => goTo("profile")}
+                icon={<UserRound size={20} strokeWidth={1.75} />}
+                label="Profil"
+              />
+            </nav>
+          </div>
+        )}
       </div>
     </div>
   );
