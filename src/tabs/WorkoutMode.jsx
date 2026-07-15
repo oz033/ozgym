@@ -106,7 +106,10 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
   const [reps, setReps] = useState(10);
   const [suggestion, setSuggestion] = useState(null);
   const [noteDraft, setNoteDraft] = useState("");
+  const [noteFocused, setNoteFocused] = useState(false);
   const noteSaveTimer = useRef(null);
+  const noteInputRef = useRef(null);
+  const bottomRef = useRef(null);
 
   // Live refs for swipe handlers (avoid stale closures / React re-renders mid-drag)
   const idxRef = useRef(firstOpen === -1 ? 0 : firstOpen);
@@ -291,19 +294,67 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
   const onNoteChange = (val) => {
     setNoteDraft(val);
     if (noteSaveTimer.current) clearTimeout(noteSaveTimer.current);
-    // Debounce: speichern während Tippen, ohne jeden Keystroke
     noteSaveTimer.current = setTimeout(() => {
       persistExerciseNote(val);
     }, 450);
   };
 
   const onNoteBlur = () => {
+    setNoteFocused(false);
     if (noteSaveTimer.current) {
       clearTimeout(noteSaveTimer.current);
       noteSaveTimer.current = null;
     }
     persistExerciseNote(noteDraft);
+    // Keyboard gone — reset bottom offset
+    if (bottomRef.current) {
+      bottomRef.current.style.transform = "";
+    }
   };
+
+  const onNoteFocus = () => {
+    setNoteFocused(true);
+    // Keep field above iOS keyboard: lift bottom sheet with visualViewport
+    const lift = () => {
+      const vv = window.visualViewport;
+      if (!vv || !bottomRef.current) return;
+      const covered = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      // Move sheet up by keyboard overlap so the note row stays visible
+      bottomRef.current.style.transform =
+        covered > 0 ? `translate3d(0, -${covered}px, 0)` : "";
+      try {
+        noteInputRef.current?.scrollIntoView({
+          block: "nearest",
+          behavior: "smooth",
+        });
+      } catch {
+        /* ignore */
+      }
+    };
+    // iOS keyboard animates — remeasure a few times
+    requestAnimationFrame(lift);
+    setTimeout(lift, 80);
+    setTimeout(lift, 280);
+    setTimeout(lift, 480);
+  };
+
+  useEffect(() => {
+    if (!noteFocused) return;
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const onResize = () => {
+      if (!bottomRef.current) return;
+      const covered = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      bottomRef.current.style.transform =
+        covered > 0 ? `translate3d(0, -${covered}px, 0)` : "";
+    };
+    vv.addEventListener("resize", onResize);
+    vv.addEventListener("scroll", onResize);
+    return () => {
+      vv.removeEventListener("resize", onResize);
+      vv.removeEventListener("scroll", onResize);
+    };
+  }, [noteFocused]);
 
   useEffect(
     () => () => {
@@ -899,27 +950,8 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
               {active && m?.hint && !noteDraft.trim() && (
                 <p className="ig-wo-hint dim">{shortTip(m.hint, 72)}</p>
               )}
-              {active && (
-                <div className="ig-wo-note-edit" data-no-swipe>
-                  <label className="ig-wo-note-label" htmlFor="ig-wo-note">
-                    Deine Notiz
-                  </label>
-                  <textarea
-                    id="ig-wo-note"
-                    className="ig-wo-note-input"
-                    rows={2}
-                    enterKeyHint="done"
-                    value={noteDraft}
-                    onChange={(ev) => onNoteChange(ev.target.value)}
-                    onBlur={onNoteBlur}
-                    placeholder={
-                      m?.hint
-                        ? "Eigene Notiz (z. B. Sitz 4 · Pin 7)…"
-                        : "z. B. Sitz 4 · Pin 7 · Griff eng"
-                    }
-                    maxLength={160}
-                  />
-                </div>
+              {active && noteDraft.trim() && (
+                <p className="ig-wo-hint note">{shortTip(noteDraft, 80)}</p>
               )}
             </div>
           );
@@ -927,8 +959,13 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
       </div>
       </div>
 
-      {/* Ein-Hand-Zone: Exit X + Steppers + CTA im Daumenbereich */}
-      <div className="ig-wo-bottom ig-wo-onehand">
+      {/* Ein-Hand-Zone: Exit X + Notiz + Steppers + CTA (Notiz hier = über Tastatur sichtbar) */}
+      <div
+        ref={bottomRef}
+        className={
+          "ig-wo-bottom ig-wo-onehand" + (noteFocused ? " note-focus" : "")
+        }
+      >
         {/* Leiste: X (beenden) · Satz-Dots · Platzhalter für Balance */}
         <div className="ig-wo-bottom-top">
           <button
@@ -952,7 +989,7 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
           </div>
           <span className="ig-wo-exit-spacer" aria-hidden="true" />
         </div>
-        {milestone && (
+        {milestone && !noteFocused && (
           <span
             className={"ig-wo-milestone" + (milestone.smart ? " smart" : "")}
             key={milestone.label}
@@ -961,7 +998,7 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
             {milestone.label}
           </span>
         )}
-        {lastLoad && (
+        {lastLoad && !noteFocused && (
           <button
             type="button"
             className={
@@ -979,6 +1016,33 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
             </span>
           </button>
         )}
+        <div className="ig-wo-note-edit" data-no-swipe>
+          <label className="ig-wo-note-label" htmlFor="ig-wo-note">
+            Notiz
+          </label>
+          <input
+            ref={noteInputRef}
+            id="ig-wo-note"
+            type="text"
+            className="ig-wo-note-input"
+            inputMode="text"
+            enterKeyHint="done"
+            autoComplete="off"
+            autoCorrect="on"
+            value={noteDraft}
+            onChange={(ev) => onNoteChange(ev.target.value)}
+            onFocus={onNoteFocus}
+            onBlur={onNoteBlur}
+            onKeyDown={(ev) => {
+              if (ev.key === "Enter") {
+                ev.preventDefault();
+                ev.currentTarget.blur();
+              }
+            }}
+            placeholder="Sitz · Pin · Griff…"
+            maxLength={120}
+          />
+        </div>
         <div className="ig-set-inputs two ig-wo-steppers">
           <div className="ig-num-field">
             <span className="ig-steplabel">Gewicht (kg)</span>

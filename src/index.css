@@ -1186,14 +1186,21 @@ button.ig-overview-col { cursor: pointer; }
 .ig-wo-card-info .ig-plan-badges { justify-content: center; }
 .ig-wo-hint { font-size: 12px; color: var(--text-dim); line-height: 1.35; margin: 0; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 7px 12px; flex-shrink: 0; }
 .ig-wo-hint.dim { opacity: 0.75; border-style: dashed; }
+/* Note in bottom sheet — stays visible above keyboard via JS translate */
+.ig-wo-bottom {
+  transition: transform 0.18s ease-out;
+  will-change: transform;
+}
+.ig-wo-bottom.note-focus {
+  /* Extra top radius when floating over keyboard */
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.35);
+}
 .ig-wo-note-edit {
   width: 100%;
-  max-width: 320px;
   display: flex;
   flex-direction: column;
   gap: 4px;
   flex-shrink: 0;
-  margin-top: 2px;
 }
 .ig-wo-note-label {
   font-size: 10px;
@@ -1206,29 +1213,30 @@ button.ig-overview-col { cursor: pointer; }
 .ig-wo-note-input {
   width: 100%;
   box-sizing: border-box;
-  min-height: 52px;
-  resize: none;
+  height: 48px;
+  min-height: 48px;
   border-radius: 12px;
   border: 1px solid var(--border);
-  background: var(--surface);
+  background: var(--surface-2);
   color: var(--text);
   font-family: inherit;
-  font-size: 14px;
+  font-size: 16px; /* 16px = no iOS input zoom */
   font-weight: 500;
-  line-height: 1.35;
-  padding: 10px 12px;
+  line-height: 1.25;
+  padding: 12px 14px;
   -webkit-appearance: none;
   appearance: none;
   touch-action: manipulation;
 }
 .ig-wo-note-input::placeholder {
   color: var(--text-dim);
-  opacity: 0.75;
+  opacity: 0.7;
 }
 .ig-wo-note-input:focus {
   outline: none;
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+  background: var(--surface);
 }
 .ig-wo-hint.note { border-left: 3px solid var(--accent); color: var(--text); }
 .ig-pe-note { background: var(--surface); border: 1px dashed var(--border); border-radius: var(--radius-sm); color: var(--text); padding: 8px 10px; font-size: 12px; font-family: inherit; width: 100%; }
