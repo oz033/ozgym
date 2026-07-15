@@ -127,6 +127,8 @@ export function freshState() {
     wellness: {},
     profile: { ...DEFAULT_PROFILE },
     settings,
+    /** Übungen zum Nachholen (wegen Dauer-Kappung o. manuell gemerkt) */
+    carryOver: [],
   };
 }
 
@@ -149,6 +151,7 @@ export function hydrate(parsed) {
     plans,
     activePlanId,
     wellness: migrated.wellness || {},
+    carryOver: Array.isArray(migrated.carryOver) ? migrated.carryOver : [],
     profile: {
       ...DEFAULT_PROFILE,
       ...(migrated.profile || {}),

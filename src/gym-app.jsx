@@ -23,6 +23,9 @@ import {
   getTodayPlan,
   workoutReadiness,
   trimExercisesToDuration,
+  deferredFromTrim,
+  mergeQueues,
+  hydrateCarryItem,
 } from "./lib/utils.js";
 import { hydrate, freshState, prepareForStorage } from "./lib/migrate.js";
 import { generatePlans } from "./lib/planGenerator.js";
@@ -163,14 +166,22 @@ export default function App() {
   };
   const reduced = cfg.motion === "reduced";
 
-  // Workout-Queue: heutiger Plan, zugeschnitten auf gewählte Session-Dauer
-  const queue = useMemo(() => {
+  // Heutiger Plan: full → trim by Dauer; optional Carry-Over anhängen
+  const { queue, fullQueue, deferredQueue, carryHydrated } = useMemo(() => {
     const plan = getTodayPlan(data);
-    if (!plan) return [];
     const byId = {};
     (data.library || []).forEach((e) => {
       byId[e.id] = e;
     });
+    const rest = data.settings?.restSeconds ?? 90;
+    const empty = {
+      queue: [],
+      fullQueue: [],
+      deferredQueue: [],
+      carryHydrated: [],
+    };
+    if (!plan) return empty;
+
     const full = plan.exercises
       .map((item) => {
         const entry = byId[item.exerciseId];
@@ -180,18 +191,34 @@ export default function App() {
           sets: item.sets || 3,
           reps: item.reps || 10,
           weight: item.weight,
-          rest: item.rest ?? data.settings?.restSeconds ?? 90,
+          rest: item.rest ?? rest,
           note: item.note || "",
           entry,
         };
       })
       .filter(Boolean);
+
     const sessionMin =
       data.settings?.sessionMinutes != null
         ? data.settings.sessionMinutes
         : data.profile?.duration ?? 45;
-    const rest = data.settings?.restSeconds ?? 90;
-    return trimExercisesToDuration(full, sessionMin, rest);
+    const trimmed = trimExercisesToDuration(full, sessionMin, rest);
+    const deferred = deferredFromTrim(full, trimmed);
+    const carryHydrated = (data.carryOver || [])
+      .map((raw) => hydrateCarryItem(raw, byId, rest))
+      .filter(Boolean);
+    // Carry nur anhängen wenn Nutzer das will (nicht doppelt mit heutiger Session)
+    const includeCarry = data.settings?.includeCarryOver === true;
+    const session = includeCarry
+      ? mergeQueues(trimmed, carryHydrated)
+      : trimmed;
+
+    return {
+      queue: session,
+      fullQueue: full,
+      deferredQueue: deferred,
+      carryHydrated,
+    };
   }, [data]);
 
   if (!loaded) {
@@ -331,6 +358,8 @@ export default function App() {
                     update={update}
                     goTo={goTo}
                     queue={queue}
+                    deferredQueue={deferredQueue}
+                    carryHydrated={carryHydrated}
                     onStart={() => setWorkoutOpen(true)}
                     onCreatePlan={createPlanAndEdit}
                     onCreateSmartPlan={createSmartPlanAndGo}
@@ -361,6 +390,17 @@ export default function App() {
               onExit={() => setWorkoutOpen(false)}
               onFinish={() => {
                 setWorkoutOpen(false);
+                // Nachholen-Liste leeren, wenn sie in dieser Session drin war
+                update((prev) => {
+                  if (!prev.settings?.includeCarryOver) {
+                    return prev;
+                  }
+                  return {
+                    ...prev,
+                    carryOver: [],
+                    settings: { ...prev.settings, includeCarryOver: false },
+                  };
+                });
                 goTo("home");
               }}
             />

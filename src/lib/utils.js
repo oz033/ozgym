@@ -401,6 +401,56 @@ export function trimExercisesToDuration(exercises, targetMin, defaultRest = 90) 
   return out.length ? out : list.slice(0, 1);
 }
 
+/** Übungen, die durch die Dauer-Kappung rausgefallen sind */
+export function deferredFromTrim(full, trimmed) {
+  const keep = new Set((trimmed || []).map((e) => e.entry?.id || e.name));
+  return (full || []).filter((e) => !keep.has(e.entry?.id || e.name));
+}
+
+/** Queue-Items mergen (nach exerciseId/name), Reihenfolge: primary dann extra */
+export function mergeQueues(primary, extra) {
+  const out = [...(primary || [])];
+  const seen = new Set(out.map((e) => e.entry?.id || e.name));
+  for (const e of extra || []) {
+    const k = e.entry?.id || e.name;
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(e);
+  }
+  return out;
+}
+
+/** Für Persistenz: schlanke Carry-Over-Items */
+export function serializeQueueItem(e) {
+  return {
+    exerciseId: e.entry?.id || e.exerciseId || null,
+    name: e.name,
+    sets: e.sets || 3,
+    reps: e.reps || 10,
+    weight: e.weight ?? null,
+    rest: e.rest ?? 90,
+    note: e.note || "",
+  };
+}
+
+export function hydrateCarryItem(raw, libraryById, defaultRest = 90) {
+  if (!raw) return null;
+  const entry =
+    (raw.exerciseId && libraryById[raw.exerciseId]) ||
+    Object.values(libraryById).find((x) => x.name === raw.name) ||
+    null;
+  if (!entry && !raw.name) return null;
+  return {
+    name: entry?.name || raw.name,
+    sets: raw.sets || 3,
+    reps: raw.reps || 10,
+    weight: raw.weight ?? null,
+    rest: raw.rest ?? defaultRest,
+    note: raw.note || "",
+    entry: entry || { id: raw.exerciseId, name: raw.name },
+  };
+}
+
 /** Feste Auswahl für Session-Dauer (UI-Chips) */
 export const SESSION_DURATION_OPTIONS = [
   { min: 30, label: "30 Min" },

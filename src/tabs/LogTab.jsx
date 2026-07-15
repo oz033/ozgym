@@ -14,9 +14,20 @@ import {
   workoutReadiness,
   estimateDuration,
   SESSION_DURATION_OPTIONS,
+  serializeQueueItem,
 } from "../lib/utils.js";
 
-export default function LogTab({ data, update, queue, onStart, onCreatePlan, onCreateSmartPlan, onEditPlan }) {
+export default function LogTab({
+  data,
+  update,
+  queue,
+  deferredQueue = [],
+  carryHydrated = [],
+  onStart,
+  onCreatePlan,
+  onCreateSmartPlan,
+  onEditPlan,
+}) {
   const today = todayISO();
   const [showStreak, setShowStreak] = useState(false);
 
@@ -29,19 +40,63 @@ export default function LogTab({ data, update, queue, onStart, onCreatePlan, onC
     data.settings?.sessionMinutes != null
       ? data.settings.sessionMinutes
       : data.profile?.duration ?? 45;
+  const includeCarry = data.settings?.includeCarryOver === true;
   const estMin = estimateDuration(queue, restDefault);
   const planExerciseCount = plan?.exercises?.length || 0;
+  const deferred = deferredQueue || [];
+  const carry = carryHydrated || [];
 
   const setSessionMinutes = (min) => {
     update((prev) => ({
       ...prev,
-      settings: { ...prev.settings, sessionMinutes: min },
-      // Sync profile duration for Smart-Plan generation (0 = keep last non-zero / 45)
+      settings: {
+        ...prev.settings,
+        sessionMinutes: min,
+        // "Alles" → Carry-Anhängen nicht nötig
+        includeCarryOver: min === 0 ? false : prev.settings?.includeCarryOver,
+      },
       profile: {
         ...prev.profile,
         duration: min > 0 ? min : prev.profile?.duration || 45,
       },
     }));
+  };
+
+  /** Dauer-Lücken in carryOver merken (merge unique) */
+  const saveDeferredForLater = () => {
+    if (!deferred.length) return;
+    update((prev) => {
+      const existing = prev.carryOver || [];
+      const byKey = new Map(
+        existing.map((x) => [x.exerciseId || x.name, x]),
+      );
+      deferred.forEach((e) => {
+        const s = serializeQueueItem(e);
+        byKey.set(s.exerciseId || s.name, s);
+      });
+      return { ...prev, carryOver: [...byKey.values()] };
+    });
+    playSound("tap", data.settings?.sound !== false);
+  };
+
+  const trainCarryToday = () => {
+    update((prev) => ({
+      ...prev,
+      settings: { ...prev.settings, includeCarryOver: true },
+    }));
+    playSound("tap", data.settings?.sound !== false);
+  };
+
+  const discardCarry = () => {
+    update((prev) => ({
+      ...prev,
+      carryOver: [],
+      settings: { ...prev.settings, includeCarryOver: false },
+    }));
+  };
+
+  const trainAllToday = () => {
+    setSessionMinutes(0);
   };
 
   const setsToday = useMemo(() => {
@@ -243,6 +298,7 @@ export default function LogTab({ data, update, queue, onStart, onCreatePlan, onC
             ≈ {estMin} Min
             {planExerciseCount > 0 &&
               ` · ${queue.length}/${planExerciseCount} Übungen`}
+            {includeCarry && carry.length > 0 ? " · +Nachholen" : ""}
           </span>
         </div>
         <div className="ig-mode-toggle ig-session-duration-chips" role="group" aria-label="Ziel-Dauer">
@@ -260,6 +316,80 @@ export default function LogTab({ data, update, queue, onStart, onCreatePlan, onC
           ))}
         </div>
       </div>
+
+      {/* Durch Dauer ausgelassen — merken oder alles trainieren */}
+      {deferred.length > 0 && (
+        <div className="ig-card ig-carry-card">
+          <div className="ig-field-label">
+            Nicht in der Session · {deferred.length}{" "}
+            {deferred.length === 1 ? "Übung" : "Übungen"}
+          </div>
+          <p className="ig-plan-text" style={{ margin: 0 }}>
+            {deferred.map((e) => e.name).join(" · ")}
+          </p>
+          <div className="ig-plan-add-row">
+            <button
+              type="button"
+              className="ig-btn-primary wide ghosted"
+              onClick={saveDeferredForLater}
+            >
+              Für später merken
+            </button>
+            <button
+              type="button"
+              className="ig-btn-primary wide ghosted"
+              onClick={trainAllToday}
+            >
+              Heute alles
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Gemerkte Nachhol-Übungen */}
+      {carry.length > 0 && (
+        <div className="ig-card ig-carry-card saved">
+          <div className="ig-field-label">
+            Zum Nachholen · {carry.length}{" "}
+            {carry.length === 1 ? "Übung" : "Übungen"}
+            {includeCarry ? " · in Session" : ""}
+          </div>
+          <p className="ig-plan-text" style={{ margin: 0 }}>
+            {carry.map((e) => e.name).join(" · ")}
+          </p>
+          <div className="ig-plan-add-row">
+            {!includeCarry ? (
+              <button
+                type="button"
+                className="ig-btn-primary wide ghosted"
+                onClick={trainCarryToday}
+              >
+                Heute mit trainieren
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="ig-btn-primary wide ghosted"
+                onClick={() =>
+                  update((prev) => ({
+                    ...prev,
+                    settings: { ...prev.settings, includeCarryOver: false },
+                  }))
+                }
+              >
+                Aus Session nehmen
+              </button>
+            )}
+            <button
+              type="button"
+              className="ig-btn-primary wide ghosted"
+              onClick={discardCarry}
+            >
+              Verwerfen
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="ig-card">
         <div className="ig-field-label">
