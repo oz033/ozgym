@@ -39,25 +39,6 @@ const routeImports = {
   profile: () => import("./tabs/ProfileTab.jsx"),
 };
 
-/** Compact header date for iOS (avoids "Mi., 15. Juli" / "Mi.15 Juli" quirks). */
-const WEEKDAYS_DE = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
-const MONTHS_DE = [
-  "Jan",
-  "Feb",
-  "Mär",
-  "Apr",
-  "Mai",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Okt",
-  "Nov",
-  "Dez",
-];
-function formatHeaderDate(d = new Date()) {
-  return `${WEEKDAYS_DE[d.getDay()]} ${d.getDate()}. ${MONTHS_DE[d.getMonth()]}`;
-}
 const LogTab = lazy(routeImports.workout);
 const WorkoutMode = lazy(routeImports.workoutMode);
 const PlansTab = lazy(routeImports.plan);
@@ -307,7 +288,6 @@ export default function App() {
               {soundOn ? <Volume2 size={18} /> : <VolumeX size={18} />}
             </button>
           </div>
-          <span className="ig-date">{formatHeaderDate(new Date())}</span>
         </header>
 
         <main className="ig-main">

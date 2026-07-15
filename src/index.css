@@ -282,9 +282,9 @@ html, body, #root { margin: 0; padding: 0; background: var(--boot-bg, #0c0d12); 
 }
 /* iOS PWA: black-translucent status bar — title must sit below notch / Dynamic Island */
 .ig-header {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
+  display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
   padding:
     calc(env(safe-area-inset-top, 0px) + 12px)
@@ -761,32 +761,31 @@ button.ig-overview-col { cursor: pointer; }
 .ig-wo-swipe-hint { text-align: center; font-size: 11px; color: var(--text-dim); padding: 2px 0; animation: ig-fade-up 0.4s var(--ease-out); }
 .ig-wo-nextline { text-align: center; font-size: 11.5px; color: var(--text-dim); padding: 2px 16px 0; flex-shrink: 0; }
 .ig-wo-nextline strong { color: var(--text); }
-/* Clip-Viewport; Kartenbreite kommt aus JS (px), nicht aus %-Transform */
+/* Clip-Viewport; transform driven by JS for fluid iOS swipe */
 .ig-wo-track-wrap {
   flex: 1 1 auto;
   min-height: 200px;
   width: 100%;
   overflow: hidden;
   position: relative;
-  /* Horizontal swipe owns the gesture — no browser scroll fight on iOS */
-  touch-action: pan-y pinch-zoom;
+  /* Own all gestures here — weight/reps controls sit outside this box */
+  touch-action: none;
   cursor: grab;
   background: var(--bg, #0c0d12);
   -webkit-user-select: none;
   user-select: none;
+  -webkit-touch-callout: none;
 }
 .ig-wo-track-wrap.is-dragging {
   cursor: grabbing;
-  touch-action: none;
 }
 .ig-wo-track {
   display: flex;
   flex-direction: row;
   align-items: stretch;
-  width: 100%;
   height: 100%;
   will-change: transform;
-  transform: translateZ(0);
+  transform: translate3d(0, 0, 0);
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
 }
@@ -803,11 +802,15 @@ button.ig-overview-col { cursor: pointer; }
   align-items: center;
   gap: 10px;
   opacity: 0.4;
-  transition: opacity 0.3s;
+  transition: opacity 0.25s ease;
   overflow: hidden;
   color: var(--text, #f2f3f7);
+  pointer-events: none; /* swipe hits wrap; controls are below */
 }
-.ig-wo-card.active { opacity: 1; }
+.ig-wo-card.active {
+  opacity: 1;
+  pointer-events: auto;
+}
 .ig-wo-final-banner { background: color-mix(in srgb, var(--accent) 12%, transparent); border-left: 3px solid var(--accent); border-radius: 6px; padding: 6px 12px; font-size: 12px; font-weight: 600; flex-shrink: 0; width: 100%; box-sizing: border-box; }
 .ig-wo-card-top { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; flex-shrink: 0; width: 100%; }
 /* ============ Exercise demo (GIF from exercises-dataset) ============ */

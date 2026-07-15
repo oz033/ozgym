@@ -70,13 +70,28 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
   const [phase, setPhase] = useState(firstOpen === -1 ? "done" : "lift"); // lift | rest | go | done
   const [restLeft, setRestLeft] = useState(restSeconds);
   const [restTotal, setRestTotal] = useState(restSeconds);
-  const [dragX, setDragX] = useState(0);
-  const dragRef = useRef(null);
   const trackWrapRef = useRef(null);
+  const trackRef = useRef(null);
   const [trackW, setTrackW] = useState(0);
   const [weight, setWeight] = useState(20);
   const [reps, setReps] = useState(10);
   const [suggestion, setSuggestion] = useState(null);
+
+  // Live refs for swipe handlers (avoid stale closures / React re-renders mid-drag)
+  const idxRef = useRef(firstOpen === -1 ? 0 : firstOpen);
+  const phaseRef = useRef(phase);
+  const trackWRef = useRef(0);
+  const queueLenRef = useRef(queue?.length || 0);
+  const dragRef = useRef({
+    active: false,
+    locked: false,
+    startX: 0,
+    startY: 0,
+    dx: 0,
+    lastX: 0,
+    lastT: 0,
+    vx: 0,
+  });
 
   const [showSwipeHint, setShowSwipeHint] = useState(
     () => !localStorage.getItem("ozgym:swipehint") && queue.length > 1,
@@ -104,12 +119,50 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
     return () => clearInterval(iv);
   }, []);
 
+  // Keep refs in sync
+  useEffect(() => {
+    idxRef.current = idx;
+  }, [idx]);
+  useEffect(() => {
+    phaseRef.current = phase;
+  }, [phase]);
+  useEffect(() => {
+    queueLenRef.current = queue?.length || 0;
+  }, [queue?.length]);
+
+  // Apply track transform without React state during drag (60fps on iOS)
+  const applyTrackX = useCallback((offsetPx, withTransition) => {
+    const el = trackRef.current;
+    if (!el) return;
+    if (withTransition) {
+      el.style.transition = "transform 0.28s cubic-bezier(0.22, 1, 0.36, 1)";
+    } else {
+      el.style.transition = "none";
+    }
+    el.style.transform = `translate3d(${offsetPx}px, 0, 0)`;
+  }, []);
+
+  const settleTrack = useCallback(
+    (nextIdx) => {
+      const w = trackWRef.current || 0;
+      applyTrackX(-nextIdx * w, true);
+    },
+    [applyTrackX],
+  );
+
   // Kartenbreite in px messen — %-translateX am Track ist unzuverlässig
   useLayoutEffect(() => {
     if (phase === "done") return;
     const el = trackWrapRef.current;
     if (!el) return;
-    const measure = () => setTrackW(el.clientWidth || 0);
+    const measure = () => {
+      const w = el.clientWidth || 0;
+      trackWRef.current = w;
+      setTrackW(w);
+      // re-snap to current index after measure
+      const i = idxRef.current;
+      applyTrackX(-i * w, false);
+    };
     measure();
     const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null;
     ro?.observe(el);
@@ -118,7 +171,14 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
       ro?.disconnect();
       window.removeEventListener("resize", measure);
     };
-  }, [phase, queue?.length]);
+  }, [phase, queue?.length, applyTrackX]);
+
+  // Snap when idx changes (from buttons / complete-set advance)
+  useLayoutEffect(() => {
+    if (phase === "done") return;
+    if (dragRef.current.active) return;
+    settleTrack(idx);
+  }, [idx, phase, trackW, settleTrack]);
 
   const sessionRef = useRef({ sets: 0, volume: 0, prs: 0, records: [], zones: new Set() });
 
@@ -321,125 +381,141 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
     buzz(20, hapticsOn);
   };
 
-  // Swipe (nur beim Heben) — pointer + velocity, rAF for 60fps on iOS
-  const dragRaf = useRef(0);
-  const [dragging, setDragging] = useState(false);
+  // Swipe between exercises — pointer + capture, DOM transform (no React mid-drag)
+  useEffect(() => {
+    const wrap = trackWrapRef.current;
+    if (!wrap || phase === "done") return;
 
-  const onPointerDown = (e) => {
-    if (phase !== "lift") return;
-    if (e.target?.closest?.("button, input, a, [data-no-swipe]")) return;
-    // Ignore multi-touch / secondary pointers
-    if (e.isPrimary === false) return;
-    try {
-      e.currentTarget.setPointerCapture?.(e.pointerId);
-    } catch {
-      /* ignore */
-    }
-    const now = performance.now();
-    dragRef.current = {
-      x: e.clientX,
-      y: e.clientY,
-      active: true,
-      locked: false, // true once horizontal intent is clear
-      dx: 0,
-      t0: now,
-      lastX: e.clientX,
-      lastT: now,
-      vx: 0,
-      pointerId: e.pointerId,
-    };
-    setDragX(0);
-    setDragging(true);
-  };
-
-  const onPointerMove = (e) => {
     const d = dragRef.current;
-    if (!d?.active) return;
-    if (d.pointerId != null && e.pointerId !== d.pointerId) return;
+    let pid = null;
 
-    const dx = e.clientX - d.x;
-    const dy = e.clientY - d.y;
-    const now = performance.now();
-    const dt = Math.max(1, now - d.lastT);
-    // Instant velocity (px/ms) smoothed lightly
-    const instVx = (e.clientX - d.lastX) / dt;
-    d.vx = d.vx * 0.65 + instVx * 0.35;
-    d.lastX = e.clientX;
-    d.lastT = now;
+    const onStart = (e) => {
+      if (phaseRef.current !== "lift") return;
+      if (e.isPrimary === false) return;
+      if (e.pointerType === "mouse" && e.button !== 0) return;
+      if (e.target?.closest?.("button, input, a, [data-no-swipe]")) return;
+      pid = e.pointerId;
+      try {
+        wrap.setPointerCapture(e.pointerId);
+      } catch {
+        /* ignore */
+      }
+      const now = performance.now();
+      d.active = true;
+      d.locked = false;
+      d.startX = e.clientX;
+      d.startY = e.clientY;
+      d.dx = 0;
+      d.lastX = e.clientX;
+      d.lastT = now;
+      d.vx = 0;
+      wrap.classList.add("is-dragging");
+      applyTrackX(-(idxRef.current) * (trackWRef.current || 0), false);
+    };
 
-    // Axis lock: only claim horizontal once clearly intentional
-    if (!d.locked) {
-      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
-      if (Math.abs(dy) > Math.abs(dx) * 1.15) {
-        // Vertical scroll intent — abort swipe
-        d.active = false;
-        setDragging(false);
-        setDragX(0);
-        try {
-          e.currentTarget.releasePointerCapture?.(e.pointerId);
-        } catch {
-          /* ignore */
+    const onMove = (e) => {
+      if (!d.active || (pid != null && e.pointerId !== pid)) return;
+      const dx = e.clientX - d.startX;
+      const dy = e.clientY - d.startY;
+      const now = performance.now();
+      const dt = Math.max(8, now - d.lastT);
+      d.vx = d.vx * 0.55 + ((e.clientX - d.lastX) / dt) * 0.45;
+      d.lastX = e.clientX;
+      d.lastT = now;
+
+      if (!d.locked) {
+        if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+        // Clearly vertical → give up
+        if (Math.abs(dy) > 16 && Math.abs(dy) > Math.abs(dx) * 1.4) {
+          d.active = false;
+          d.locked = false;
+          pid = null;
+          wrap.classList.remove("is-dragging");
+          try {
+            wrap.releasePointerCapture(e.pointerId);
+          } catch {
+            /* ignore */
+          }
+          settleTrack(idxRef.current);
+          return;
         }
+        // Commit horizontal once sideways enough
+        if (Math.abs(dx) < 8 && Math.abs(dx) <= Math.abs(dy)) return;
+        d.locked = true;
+      }
+
+      if (e.cancelable) e.preventDefault();
+
+      const i = idxRef.current;
+      const len = queueLenRef.current;
+      let next = dx;
+      if ((i <= 0 && next > 0) || (i >= len - 1 && next < 0)) next *= 0.32;
+      d.dx = next;
+      applyTrackX(-i * (trackWRef.current || 0) + next, false);
+    };
+
+    const finish = (e) => {
+      if (!d.active) return;
+      if (pid != null && e.pointerId != null && e.pointerId !== pid) return;
+      const wasLocked = d.locked;
+      const dx = d.dx;
+      const vx = d.vx;
+      d.active = false;
+      d.locked = false;
+      pid = null;
+      wrap.classList.remove("is-dragging");
+      try {
+        if (e.pointerId != null) wrap.releasePointerCapture(e.pointerId);
+      } catch {
+        /* ignore */
+      }
+
+      if (!wasLocked) {
+        settleTrack(idxRef.current);
         return;
       }
-      d.locked = true;
-    }
 
-    // Rubber-band at ends
-    let next = dx;
-    if ((idx === 0 && next > 0) || (idx >= queue.length - 1 && next < 0)) {
-      next = next * 0.28;
-    }
-    d.dx = next;
+      const i = idxRef.current;
+      const len = Math.max(1, queueLenRef.current);
+      const w = trackWRef.current || 1;
+      const distOk = Math.abs(dx) > Math.min(48, w * 0.15);
+      const flingOk = Math.abs(vx) > 0.32;
+      let nextIdx = i;
+      if ((dx < -12 && distOk) || (vx < -0.32 && flingOk && dx <= 4)) {
+        nextIdx = Math.min(i + 1, len - 1);
+      } else if ((dx > 12 && distOk) || (vx > 0.32 && flingOk && dx >= -4)) {
+        nextIdx = Math.max(i - 1, 0);
+      }
 
-    if (dragRaf.current) cancelAnimationFrame(dragRaf.current);
-    dragRaf.current = requestAnimationFrame(() => {
-      setDragX(d.dx);
-    });
-  };
+      if (nextIdx !== i) {
+        idxRef.current = nextIdx;
+        setIdx(nextIdx);
+        settleTrack(nextIdx);
+        playSound("tap", soundOn);
+        setShowSwipeHint(false);
+        if (hapticsOn) buzz(10, true);
+      } else {
+        settleTrack(i);
+      }
+      d.dx = 0;
+      d.vx = 0;
+    };
 
-  const finishDrag = (e) => {
-    const d = dragRef.current;
-    if (!d?.active && !d?.locked) {
-      setDragging(false);
-      return;
-    }
-    if (d.pointerId != null && e?.pointerId != null && e.pointerId !== d.pointerId) {
-      return;
-    }
-    const dx = d?.dx || 0;
-    const vx = d?.vx || 0; // px/ms
-    if (d) d.active = false;
-    setDragging(false);
-    if (dragRaf.current) {
-      cancelAnimationFrame(dragRaf.current);
-      dragRaf.current = 0;
-    }
-    setDragX(0);
-    try {
-      e?.currentTarget?.releasePointerCapture?.(e.pointerId);
-    } catch {
-      /* ignore */
-    }
+    wrap.addEventListener("pointerdown", onStart);
+    wrap.addEventListener("pointermove", onMove, { passive: false });
+    wrap.addEventListener("pointerup", finish);
+    wrap.addEventListener("pointercancel", finish);
+    // Lost capture (iOS edge cases)
+    wrap.addEventListener("lostpointercapture", finish);
 
-    // Distance OR fling velocity (iOS feels snappy with velocity)
-    const distOk = Math.abs(dx) > 48;
-    const flingOk = Math.abs(vx) > 0.45; // ~450 px/s
-    const goNext = (dx < 0 && distOk) || (vx < -0.45 && flingOk);
-    const goPrev = (dx > 0 && distOk) || (vx > 0.45 && flingOk);
-
-    if (goNext && idx < queue.length - 1) {
-      setIdx((i) => Math.min(i + 1, queue.length - 1));
-      playSound("tap", soundOn);
-      setShowSwipeHint(false);
-      if (hapticsOn) buzz(12, true);
-    } else if (goPrev && idx > 0) {
-      setIdx((i) => Math.max(i - 1, 0));
-      playSound("tap", soundOn);
-      setShowSwipeHint(false);
-      if (hapticsOn) buzz(12, true);
-    }
-  };
+    return () => {
+      wrap.removeEventListener("pointerdown", onStart);
+      wrap.removeEventListener("pointermove", onMove);
+      wrap.removeEventListener("pointerup", finish);
+      wrap.removeEventListener("pointercancel", finish);
+      wrap.removeEventListener("lostpointercapture", finish);
+    };
+  }, [phase, applyTrackX, settleTrack, soundOn, hapticsOn]);
 
   // Nächste offene Übung (für Coach-Karte in der Pause)
   const nextUp = useMemo(() => {
@@ -631,26 +707,12 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
         })()}
       </div>
 
+      <div ref={trackWrapRef} className="ig-wo-track-wrap">
       <div
-        ref={trackWrapRef}
-        className={"ig-wo-track-wrap" + (dragging ? " is-dragging" : "")}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={finishDrag}
-        onPointerCancel={finishDrag}
-        onPointerLeave={(e) => {
-          // iOS Safari sometimes drops pointerup outside the element
-          if (dragRef.current?.active) finishDrag(e);
-        }}
-      >
-      <div
+        ref={trackRef}
         className="ig-wo-track"
         style={{
-          width: trackW > 0 ? `${Math.max(queue.length, 1) * trackW}px` : "100%",
-          transform: `translate3d(${-idx * (trackW || 0) + dragX}px, 0, 0)`,
-          transition: dragging
-            ? "none"
-            : "transform 0.22s cubic-bezier(0.22, 1, 0.36, 1)",
+          width: trackW > 0 ? `${Math.max(queue.length, 1) * trackW}px` : `${Math.max(queue.length, 1) * 100}%`,
         }}
       >
         {queue.map((it, i) => {
