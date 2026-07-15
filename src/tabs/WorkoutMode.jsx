@@ -844,8 +844,49 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
                 </div>
               )}
               <RestRing left={restLeft} total={restTotal} />
+              <p className="ig-wo-rest-label">
+                Pause
+                {item?.rest != null
+                  ? ` · ${item.rest}s für diese Übung`
+                  : ` · Standard ${restSeconds}s`}
+              </p>
+              {/* Schnell-Presets: Timer neu setzen (bleibt nur für diesen Satz) */}
+              <div
+                className="ig-wo-rest-presets"
+                role="group"
+                aria-label="Pause anpassen"
+              >
+                {[60, 90, 120, 180].map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    className={
+                      "ig-chip sm" + (restTotal === s ? " active" : "")
+                    }
+                    onClick={() => {
+                      setRestTotal(s);
+                      setRestLeft(s);
+                      playSound("tap", soundOn);
+                    }}
+                  >
+                    {s % 60 === 0 ? `${s / 60} Min` : `${s}s`}
+                  </button>
+                ))}
+              </div>
               <div className="ig-wo-rest-btns">
                 <button
+                  type="button"
+                  className="ig-chip"
+                  disabled={restLeft <= 15}
+                  onClick={() => {
+                    setRestLeft((l) => Math.max(5, l - 15));
+                    setRestTotal((t) => Math.max(5, t - 15));
+                  }}
+                >
+                  −15 Sek
+                </button>
+                <button
+                  type="button"
                   className="ig-chip"
                   onClick={() => {
                     setRestLeft((l) => l + 15);
@@ -855,6 +896,7 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
                   +15 Sek
                 </button>
                 <button
+                  type="button"
                   className="ig-chip"
                   onClick={() => {
                     playSound("tap", soundOn);
@@ -862,7 +904,7 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
                     setRestLeft(0);
                   }}
                 >
-                  Pause überspringen
+                  Überspringen
                 </button>
               </div>
               {nextUp && (

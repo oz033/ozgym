@@ -492,7 +492,7 @@ function PlanEditor({ plan, data, update, onClose }) {
                         inputMode="numeric"
                         min="0"
                         step="15"
-                        value={e.rest}
+                        value={e.rest ?? data.settings?.restSeconds ?? 90}
                         onChange={(ev) =>
                           patchExercise(i, {
                             rest: Math.max(0, Number(ev.target.value) || 0),
@@ -500,6 +500,27 @@ function PlanEditor({ plan, data, update, onClose }) {
                         }
                       />
                     </label>
+                  </div>
+                  <div
+                    className="ig-pe-rest-chips"
+                    role="group"
+                    aria-label={`Pause für ${name}`}
+                  >
+                    {[60, 90, 120, 180].map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        className={
+                          "ig-chip sm" +
+                          ((e.rest ?? data.settings?.restSeconds ?? 90) === s
+                            ? " active"
+                            : "")
+                        }
+                        onClick={() => patchExercise(i, { rest: s })}
+                      >
+                        {s % 60 === 0 ? `${s / 60}m` : `${s}s`}
+                      </button>
+                    ))}
                   </div>
                   <input
                     className="ig-pe-note"

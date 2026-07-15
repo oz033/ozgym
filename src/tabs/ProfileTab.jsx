@@ -205,9 +205,38 @@ export default function ProfileTab({ data, update, goTo }) {
         </button>
       </div>
 
-      {/* Einstellungen (ohne Wochen-/Tagesziele) */}
+      {/* Einstellungen */}
       <div className="ig-card">
         <div className="ig-field-label">Einstellungen</div>
+        <div className="ig-rest-setting">
+          <div className="ig-session-duration-head">
+            <span className="ig-field-label" style={{ margin: 0 }}>
+              Standard-Pause
+            </span>
+            <span className="ig-session-duration-est mono">
+              {settings.restSeconds ?? 90}s zwischen Sätzen
+            </span>
+          </div>
+          <p className="ig-plan-text" style={{ margin: 0 }}>
+            Gilt für neue Übungen und wenn im Plan keine eigene Pause steht.
+            Pro Übung im Plan-Editor überschreibbar.
+          </p>
+          <div className="ig-mode-toggle ig-session-duration-chips" role="group" aria-label="Standard-Pause">
+            {[60, 90, 120, 180].map((s) => (
+              <button
+                key={s}
+                type="button"
+                className={
+                  "ig-chip sm" +
+                  ((settings.restSeconds ?? 90) === s ? " active" : "")
+                }
+                onClick={() => patchSettings({ restSeconds: s })}
+              >
+                {s < 60 ? `${s}s` : s % 60 === 0 ? `${s / 60} Min` : `${s}s`}
+              </button>
+            ))}
+          </div>
+        </div>
         <ToggleRow
           checked={settings.sound !== false}
           onChange={(v) => {
