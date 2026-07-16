@@ -26,9 +26,10 @@ App is a **phone shell** (single viewport, bottom tabs) — not a marketing site
 ## Brand (locked — do not redesign without ask)
 
 - **Wordmark:** OZGYM (Space Grotesk, letter-spacing ~0.14–0.18em, weight 700)
-- **Mark:** White tile · pure black brush **O** · pure black **Z** (iOS full-bleed)  
+- **Mark:** Frosted glass tile · larger black brush **O**+**Z** (~90% fill, iOS full-bleed)  
   Source: `public/logo-source-oz.png` · runtime: `public/oz-mark.png`  
-  Component: `src/components/brand.jsx` · regenerate: `node scripts/gen-icons-from-source.mjs`
+  Component: `src/components/brand.jsx` · regenerate: `node scripts/gen-icons-from-source.mjs`  
+  Glass: soft cool gradient + specular highlight in icon pipeline; in-app CSS glass rim
 - **UI accent:** Mono silver/white on dark · ink on light · bg `#0c0d12` / light `#e8e8ea`
 - **Credit line:** “by OZ” only where identity needs it (Profil, splash)
 

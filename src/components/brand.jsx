@@ -1,4 +1,4 @@
-/* OZGYM Mark — black brush O + black Z on white (iOS full-bleed) */
+/* OZGYM Mark — large black brush O+Z on frosted glass tile */
 
 import React from "react";
 
@@ -14,37 +14,45 @@ export function OzGymMark({
   variant = "glass",
 }) {
   const mode = variant === "color" ? "glass" : variant;
-  const filter =
-    mode === "mono"
-      ? "grayscale(1) contrast(1.05)"
-      : "none";
+  const r = Math.max(6, Math.round(size * 0.22));
 
   return (
-    <img
-      src={MARK_SRC}
-      width={size}
-      height={size}
-      alt={title || ""}
-      draggable={false}
+    <span
       className={
         "ig-logo ig-logo-oz" +
+        (mode === "glass" || mode === "mono" ? " ig-logo-glass" : "") +
         (mode === "mono" ? " mono" : "") +
         (mode === "onLight" ? " on-light" : "") +
+        (mode === "onDark" ? " on-dark" : "") +
         (className ? ` ${className}` : "")
       }
       style={{
         width: size,
         height: size,
-        objectFit: "cover",
-        borderRadius: Math.max(6, Math.round(size * 0.22)),
-        display: "block",
+        borderRadius: r,
+        display: "inline-flex",
         flexShrink: 0,
-        filter,
-        background: "#ffffff",
-        WebkitUserDrag: "none",
-        userSelect: "none",
+        lineHeight: 0,
       }}
-    />
+      title={title || undefined}
+    >
+      <img
+        src={MARK_SRC}
+        width={size}
+        height={size}
+        alt={title || ""}
+        draggable={false}
+        style={{
+          width: size,
+          height: size,
+          objectFit: "cover",
+          borderRadius: r,
+          display: "block",
+          WebkitUserDrag: "none",
+          userSelect: "none",
+        }}
+      />
+    </span>
   );
 }
 
@@ -57,7 +65,7 @@ export function SplashScreen({ label = "OZGYM" }) {
   return (
     <div className="ig-splash">
       <div className="ig-splash-mark ig-splash-oz">
-        <OzGymMark size={108} variant="glass" title="OZGYM" />
+        <OzGymMark size={120} variant="glass" title="OZGYM" />
       </div>
       <span className="ig-splash-word">{label}</span>
       <span className="ig-splash-tag">by OZ</span>

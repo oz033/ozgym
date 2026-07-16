@@ -285,19 +285,61 @@ html, body, #root {
 .ig-splash-mark { color: var(--text); animation: ig-splash-in 0.9s var(--ease-out) both; }
 .ig-splash-glass,
 .ig-splash-oz {
-  filter:
-    drop-shadow(0 1px 0 rgba(255, 255, 255, 0.12))
-    drop-shadow(0 12px 28px rgba(0, 0, 0, 0.35))
-    drop-shadow(0 0 20px rgba(255, 255, 255, 0.06));
   border-radius: 22%;
   line-height: 0;
-  background: #ffffff;
+  /* Floating glass tile on dark splash */
+  filter:
+    drop-shadow(0 1px 0 rgba(255, 255, 255, 0.22))
+    drop-shadow(0 14px 32px rgba(0, 0, 0, 0.42))
+    drop-shadow(0 0 24px rgba(255, 255, 255, 0.08));
 }
+/* In-app mark — iOS-style frosted glass chrome around tile */
 .ig-logo-oz {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background:
+    linear-gradient(
+      155deg,
+      rgba(255, 255, 255, 0.55) 0%,
+      rgba(255, 255, 255, 0.08) 42%,
+      rgba(255, 255, 255, 0) 70%
+    ),
+    linear-gradient(180deg, #fbfcfe 0%, #e8ecf2 100%);
   box-shadow:
+    0 0 0 0.5px rgba(255, 255, 255, 0.35) inset,
+    0 1px 0 rgba(255, 255, 255, 0.55) inset,
+    0 0 0 0.5px rgba(0, 0, 0, 0.12),
+    0 4px 14px rgba(0, 0, 0, 0.22),
+    0 1px 3px rgba(0, 0, 0, 0.12);
+  -webkit-backdrop-filter: blur(12px) saturate(1.35);
+  backdrop-filter: blur(12px) saturate(1.35);
+}
+.ig-logo-oz::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 1;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.45) 0%,
+    rgba(255, 255, 255, 0.08) 28%,
+    transparent 55%
+  );
+}
+.ig-logo-oz img {
+  position: relative;
+  z-index: 0;
+  display: block;
+}
+.ig-app[data-theme="light"] .ig-logo-oz {
+  box-shadow:
+    0 0 0 0.5px rgba(255, 255, 255, 0.7) inset,
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
     0 0 0 0.5px rgba(0, 0, 0, 0.08),
-    0 2px 10px rgba(0, 0, 0, 0.2);
-  background: #ffffff !important;
+    0 3px 12px rgba(0, 0, 0, 0.1);
 }
 .ig-splash-word {
   font-family: var(--font-display);
