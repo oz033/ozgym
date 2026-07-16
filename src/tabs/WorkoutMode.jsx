@@ -44,7 +44,6 @@ import { smartSuggest } from "../lib/planGenerator.js";
 import {
   resolveWarmupItems,
   resolveCooldownItems,
-  resolveCardioItems,
   formatPrepMeta,
   CARDIO_INTENSITIES,
 } from "../lib/stretches.js";
@@ -84,16 +83,53 @@ function liftTipFromMeta(meta) {
   return { setup, cue };
 }
 
-/* Cardio / Warm-up / Cool-down: geführte Abfolge. Jede Übung erledigen,
-   überspringen oder (bei Zeitangabe) per Countdown. Alles überspringbar. */
+/* Gate vor Warm-up / Cool-down: starten, überspringen, (CD) beenden */
+function PrepGate({ mode, count, planName, onStart, onSkip, onFinish }) {
+  const isWu = mode === "warmup";
+  return (
+    <div className="ig-wo ig-wo-gate">
+      <div className="ig-wo-gate-body">
+        <span className="ig-wo-gate-kicker">
+          {isWu ? "Pre-Workout" : "Post-Workout"}
+          {planName ? ` · ${planName}` : ""}
+        </span>
+        <h2 className="ig-wo-gate-title">
+          {isWu ? "🔥 Warm-up & Stretch" : "🧘 Cool-down & Stretch"}
+        </h2>
+        <p className="ig-wo-gate-meta mono">
+          {count} {count === 1 ? "Übung" : "Übungen"}
+        </p>
+        <p className="ig-wo-gate-hint dim">
+          {isWu
+            ? "Kurz mobilisieren, dann ins Training — oder überspringen."
+            : "Dehnen und runterfahren — oder direkt beenden."}
+        </p>
+        <div className="ig-wo-gate-actions">
+          <button type="button" className="ig-btn-primary wide xl" onClick={onStart}>
+            {isWu ? "Warm-up starten" : "Cool-down starten"}
+          </button>
+          <button type="button" className="ig-btn-secondary wide" onClick={onSkip}>
+            {isWu ? "Warm-up überspringen" : "Cool-down überspringen"}
+          </button>
+          {!isWu && onFinish && (
+            <button type="button" className="ig-btn-secondary wide ghosted" onClick={onFinish}>
+              Workout beenden
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* Warm-up / Cool-down: geführte Abfolge. Cardio-Items im Warm-up mit Zeit/Intensität. */
 function StretchFlow({ mode, items, soundOn, hapticsOn, onDone }) {
   const [idx, setIdx] = useState(0);
   const [status, setStatus] = useState(() => items.map(() => "open"));
   const [timeLeft, setTimeLeft] = useState(items[0]?.seconds || 0);
   const [running, setRunning] = useState(false);
   const item = items[idx];
-  const isWarmup = mode === "warmup";
-  const isCardio = mode === "cardio";
+  const isCardio = item?.kind === "cardio" || mode === "cardio";
   const doneCount = status.filter((s) => s !== "open").length;
 
   const titles = {
@@ -525,36 +561,6 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
     [applyTrackX],
   );
 
-  // Kartenbreite in px messen — %-translateX am Track ist unzuverlässig
-  useLayoutEffect(() => {
-    if (phase === "done") return;
-    const el = trackWrapRef.current;
-    if (!el) return;
-    const measure = () => {
-      const w = el.clientWidth || 0;
-      trackWRef.current = w;
-      setTrackW(w);
-      // re-snap to current index after measure
-      const i = idxRef.current;
-      applyTrackX(-i * w, false);
-    };
-    measure();
-    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null;
-    ro?.observe(el);
-    window.addEventListener("resize", measure);
-    return () => {
-      ro?.disconnect();
-      window.removeEventListener("resize", measure);
-    };
-  }, [phase, queue?.length, applyTrackX]);
-
-  // Snap when idx changes (from buttons / complete-set advance)
-  useLayoutEffect(() => {
-    if (phase === "done") return;
-    if (dragRef.current.active) return;
-    settleTrack(idx);
-  }, [idx, phase, trackW, settleTrack]);
-
   const sessionRef = useRef({
     sets: 0,
     volume: 0,
@@ -564,16 +570,17 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
     stretches: 0,
   });
 
-  /* ---- Cardio / Warm-up / Cool-down / Übung ersetzen ---- */
+  /* ---- Warm-up / Cool-down (Vorlagen am Plan) ---- */
   const plan = useMemo(() => getTodayPlan(data), [data]);
+  const prepTemplates = data.prepTemplates || [];
   const warmupEnabled = data.settings?.warmup !== false;
   const cooldownEnabled = data.settings?.cooldown !== false;
-  const cardioItems = useMemo(() => resolveCardioItems(plan), [plan]);
   const warmupItems = useMemo(
-    () => (warmupEnabled ? resolveWarmupItems(plan, queue) : []),
-    [plan, queue, warmupEnabled],
+    () =>
+      warmupEnabled ? resolveWarmupItems(plan, prepTemplates) : [],
+    [plan, prepTemplates, warmupEnabled],
   );
-  // Cardio → Warm-up → Main; nur beim frischen Einstieg (nicht Resume)
+  // Gate → Flow → Main nur bei zugewiesener Vorlage
   const [flowPhase, setFlowPhase] = useState(() => {
     if (firstOpen === -1) return "main";
     const logged = queue.some((it) =>
@@ -582,31 +589,73 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
       ),
     );
     if (logged) return "main";
-    const cardio = resolveCardioItems(getTodayPlan(data));
-    if (cardio.length) return "cardio";
-    if (warmupEnabled && resolveWarmupItems(getTodayPlan(data), queue).length) {
-      return "warmup";
-    }
+    const p = getTodayPlan(data);
+    const wu = resolveWarmupItems(p, data.prepTemplates || []);
+    if (data.settings?.warmup !== false && wu.length) return "warmup-gate";
     return "main";
   });
   const [cooldownItems, setCooldownItems] = useState(null);
   const [cooldownDone, setCooldownDone] = useState(false);
+  /** null = noch entscheiden, true = läuft/fertig, false = übersprungen ohne Liste */
+  const [cooldownGate, setCooldownGate] = useState(null);
   const [replaceOpen, setReplaceOpen] = useState(false);
   const queueNames = useMemo(() => new Set(queue.map((it) => it.name)), [queue]);
 
-  // Nach dem letzten Satz: Cool-down (Plan-Override oder trainierte Zonen)
+  // Kartenbreite in px messen — %-Breiten am Track verschieben den Inhalt
+  // aus dem Viewport (GIF/Name wirken „schwarz/leer“). Nach Cardio/Warm-up
+  // mountet der Track neu → erneut messen.
+  useLayoutEffect(() => {
+    if (phase === "done") return;
+    if (flowPhase !== "main") return;
+    const el = trackWrapRef.current;
+    if (!el) return;
+    const measure = () => {
+      const w = el.clientWidth || 0;
+      if (w <= 0) return;
+      trackWRef.current = w;
+      setTrackW(w);
+      const i = idxRef.current;
+      applyTrackX(-i * w, false);
+    };
+    measure();
+    const raf = requestAnimationFrame(measure);
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null;
+    ro?.observe(el);
+    window.addEventListener("resize", measure);
+    return () => {
+      cancelAnimationFrame(raf);
+      ro?.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [phase, flowPhase, queue?.length, applyTrackX]);
+
+  // Snap when idx changes (from buttons / complete-set advance)
+  useLayoutEffect(() => {
+    if (phase === "done") return;
+    if (flowPhase !== "main") return;
+    if (dragRef.current.active) return;
+    settleTrack(idx);
+  }, [idx, phase, flowPhase, trackW, settleTrack]);
+
+  // Nach dem letzten Satz: Cool-down nur bei zugewiesener Vorlage
   useEffect(() => {
     if (phase !== "done" || cooldownItems !== null) return;
     const s = sessionRef.current;
     if (!cooldownEnabled || s.sets === 0) {
       setCooldownItems([]);
       setCooldownDone(true);
+      setCooldownGate(false);
       return;
     }
-    const items = resolveCooldownItems(plan, s.zones);
+    const items = resolveCooldownItems(plan, prepTemplates, s.zones);
     setCooldownItems(items);
-    if (!items.length) setCooldownDone(true);
-  }, [phase, cooldownEnabled, cooldownItems, plan]);
+    if (!items.length) {
+      setCooldownDone(true);
+      setCooldownGate(false);
+    } else {
+      setCooldownGate("ask"); // starten / überspringen
+    }
+  }, [phase, cooldownEnabled, cooldownItems, plan, prepTemplates]);
 
   // Einheit beim Abschluss einmalig persistieren (Dauer, Sätze, Volumen, PRs)
   // — Grundlage für Trainingszeit + ≈kcal auf dem Dashboard und im Verlauf.
@@ -1469,29 +1518,26 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
   const mm = String(Math.floor(elapsed / 60)).padStart(2, "0");
   const ss = String(elapsed % 60).padStart(2, "0");
 
-  /* ---- Cardio vor Warm-up / Training ---- */
-  if (flowPhase === "cardio" && phase !== "done") {
+  /* ---- Warm-up: starten oder überspringen ---- */
+  if (flowPhase === "warmup-gate" && phase !== "done") {
     return (
-      <StretchFlow
-        mode="cardio"
-        items={cardioItems}
-        soundOn={soundOn}
-        hapticsOn={hapticsOn}
-        onDone={(n) => {
-          sessionRef.current.stretches += n;
-          if (warmupEnabled && warmupItems.length) {
-            setFlowPhase("warmup");
-          } else {
-            setFlowPhase("main");
-          }
-          playSound("pr", soundOn);
-          buzz(40, hapticsOn);
+      <PrepGate
+        mode="warmup"
+        count={warmupItems.length}
+        planName={plan?.name}
+        onStart={() => {
+          setFlowPhase("warmup");
+          playSound("tap", soundOn);
+        }}
+        onSkip={() => {
+          setFlowPhase("main");
+          playSound("tap", soundOn);
         }}
       />
     );
   }
 
-  /* ---- Warm-up vor dem Training ---- */
+  /* ---- Warm-up Flow ---- */
   if (flowPhase === "warmup" && phase !== "done") {
     return (
       <StretchFlow
@@ -1509,22 +1555,47 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
     );
   }
 
-  /* ---- Cool-down nach dem letzten Satz ---- */
+  /* ---- Cool-down: starten / überspringen / beenden ---- */
   if (phase === "done" && cooldownEnabled && !cooldownDone) {
-    if (!cooldownItems) return null; // ein Frame, bis der Effekt die Liste baut
-    return (
-      <StretchFlow
-        mode="cooldown"
-        items={cooldownItems}
-        soundOn={soundOn}
-        hapticsOn={hapticsOn}
-        onDone={(n) => {
-          sessionRef.current.stretches += n;
-          setCooldownDone(true);
-          playSound("timer", soundOn);
-        }}
-      />
-    );
+    if (cooldownItems === null) return null;
+    if (cooldownGate === "ask") {
+      return (
+        <PrepGate
+          mode="cooldown"
+          count={cooldownItems.length}
+          planName={plan?.name}
+          onStart={() => {
+            setCooldownGate("run");
+            playSound("tap", soundOn);
+          }}
+          onSkip={() => {
+            setCooldownDone(true);
+            setCooldownGate(false);
+            playSound("tap", soundOn);
+          }}
+          onFinish={() => {
+            setCooldownDone(true);
+            setCooldownGate(false);
+            playSound("tap", soundOn);
+          }}
+        />
+      );
+    }
+    if (cooldownGate === "run") {
+      return (
+        <StretchFlow
+          mode="cooldown"
+          items={cooldownItems}
+          soundOn={soundOn}
+          hapticsOn={hapticsOn}
+          onDone={(n) => {
+            sessionRef.current.stretches += n;
+            setCooldownDone(true);
+            playSound("timer", soundOn);
+          }}
+        />
+      );
+    }
   }
 
   /* ---- Abschluss-Screen ---- */
@@ -1717,18 +1788,28 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
         ref={trackRef}
         className="ig-wo-track"
         style={{
-          width: trackW > 0 ? `${Math.max(queue.length, 1) * trackW}px` : `${Math.max(queue.length, 1) * 100}%`,
+          // Immer Viewport-Vielfaches: nie % der Track-Breite (sonst zentriert
+          // der Inhalt außerhalb des sichtbaren Bereichs → leerer schwarzer Screen).
+          width:
+            trackW > 0
+              ? `${Math.max(queue.length, 1) * trackW}px`
+              : `${Math.max(queue.length, 1) * 100}%`,
         }}
       >
         {queue.map((it, i) => {
           const e = it.name;
           const m = it.entry || {};
           const active = i === idx;
+          const n = Math.max(queue.length, 1);
           return (
             <div
               key={`${e}-${i}`}
               className={"ig-wo-card" + (active ? " active" : "")}
-              style={trackW > 0 ? { width: trackW, minWidth: trackW, maxWidth: trackW } : undefined}
+              style={
+                trackW > 0
+                  ? { width: trackW, minWidth: trackW, maxWidth: trackW, flex: `0 0 ${trackW}px` }
+                  : { width: `${100 / n}%`, minWidth: `${100 / n}%`, maxWidth: `${100 / n}%`, flex: `0 0 ${100 / n}%` }
+              }
             >
               <div className="ig-wo-card-top">
                 <div className="ig-wo-card-info">

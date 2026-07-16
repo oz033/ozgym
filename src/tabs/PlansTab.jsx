@@ -12,9 +12,6 @@ import {
   Trash2,
   X,
   ClipboardList,
-  Flame,
-  Wind,
-  HeartPulse,
 } from "lucide-react";
 import {
   PLAN_COLORS,
@@ -23,24 +20,10 @@ import {
   MUSCLE_GROUPS,
   MUSCLE_NAME,
   MUSCLE_ZONE,
-  ZONE_LABEL,
   blankPlan,
 } from "../lib/constants.js";
 import { uid, planStats, relativeDay, todayISO, round1, buzz } from "../lib/utils.js";
 import { generatePlans } from "../lib/planGenerator.js";
-import {
-  PREP_KINDS,
-  PREP_EQUIPMENT,
-  CARDIO_INTENSITIES,
-  ALL_ZONES,
-  zonesFromPlan,
-  focusLabelForZones,
-  filterPrepCatalog,
-  prepItemFromCatalog,
-  suggestWarmupForPlan,
-  suggestCooldownForPlan,
-  formatPrepMeta,
-} from "../lib/stretches.js";
 import {
   EmptyState,
   showToast,
@@ -48,9 +31,12 @@ import {
   showActionSheet,
   SwipeRow,
 } from "../components/ui.jsx";
+import { PlanPrepChips, PrepAssignSheet } from "../components/PrepAssign.jsx";
 
 export default function PlansTab({ data, update, goTo, autoOpenPlanId, onAutoOpenHandled }) {
   const [editingId, setEditingId] = useState(null);
+  /** { planId, kind: 'warmup'|'cooldown' } */
+  const [prepAssign, setPrepAssign] = useState(null);
   const plans = data.plans || [];
   const profileReady = !!data.profile?.goal;
   const today = todayISO();
@@ -269,66 +255,101 @@ export default function PlansTab({ data, update, goTo, autoOpenPlanId, onAutoOpe
         </div>
       </div>
 
-      {/* Aktiver Plan: tippen öffnet Editor — dominant und klar als primäre Aktion */}
+      {/* Aktiver Plan: tippen öffnet Editor — Warm-up/Cool-down-Chips neben Titel */}
       {activePlan && (
-        <button
-          type="button"
-          className="ig-active-plan ig-active-plan-btn"
+        <div
+          className="ig-active-plan"
           style={{ "--plan-color": activePlan.color }}
-          onClick={() => setEditingId(activePlan.id)}
-          aria-label={`${activePlan.name} bearbeiten`}
         >
           <div className="ig-active-plan-head">
-            <span className="ig-active-plan-icon" aria-hidden="true">
-              {activePlan.icon}
-            </span>
-            <div className="ig-active-plan-title">
-              <span className="ig-active-plan-tag">Aktiver Plan</span>
-              <h2>{activePlan.name}</h2>
-            </div>
-            <span className="ig-active-plan-edit" aria-hidden="true">
+            <button
+              type="button"
+              className="ig-active-plan-open"
+              onClick={() => setEditingId(activePlan.id)}
+              aria-label={`${activePlan.name} bearbeiten`}
+            >
+              <span className="ig-active-plan-icon" aria-hidden="true">
+                {activePlan.icon}
+              </span>
+              <div className="ig-active-plan-title">
+                <span className="ig-active-plan-tag">Aktiver Plan</span>
+                <h2>{activePlan.name}</h2>
+              </div>
+            </button>
+            <PlanPrepChips
+              plan={activePlan}
+              templates={data.prepTemplates}
+              onWarmup={() =>
+                setPrepAssign({ planId: activePlan.id, kind: "warmup" })
+              }
+              onCooldown={() =>
+                setPrepAssign({ planId: activePlan.id, kind: "cooldown" })
+              }
+            />
+            <button
+              type="button"
+              className="ig-active-plan-edit"
+              onClick={() => setEditingId(activePlan.id)}
+              aria-label="Plan bearbeiten"
+            >
               <Pencil size={15} />
-            </span>
+            </button>
           </div>
 
-          <div className="ig-active-plan-stats">
-            <div className="ig-active-plan-stat">
-              <span className="ig-active-plan-num mono">{activePlan.exercises.length}</span>
-              <span className="ig-active-plan-label">Übungen</span>
+          <button
+            type="button"
+            className="ig-active-plan-body-btn"
+            onClick={() => setEditingId(activePlan.id)}
+          >
+            <div className="ig-active-plan-stats">
+              <div className="ig-active-plan-stat">
+                <span className="ig-active-plan-num mono">
+                  {activePlan.exercises.length}
+                </span>
+                <span className="ig-active-plan-label">Übungen</span>
+              </div>
+              <div className="ig-active-plan-stat">
+                <span className="ig-active-plan-num mono">
+                  {(activePlan.days || []).length > 0
+                    ? WEEKDAYS.filter((d) => activePlan.days.includes(d.key))
+                        .map((d) => d.short)
+                        .join(" ")
+                    : "—"}
+                </span>
+                <span className="ig-active-plan-label">Split</span>
+              </div>
+              <div className="ig-active-plan-stat">
+                <span className="ig-active-plan-num mono">
+                  {activeStats.volume >= 1000
+                    ? `${round1(activeStats.volume / 1000)}t`
+                    : `${activeStats.volume} kg`}
+                </span>
+                <span className="ig-active-plan-label">Volumen</span>
+              </div>
+              <div className="ig-active-plan-stat">
+                <span className="ig-active-plan-num mono">
+                  {activeStats.lastDate
+                    ? relativeDay(activeStats.lastDate, today)
+                    : "—"}
+                </span>
+                <span className="ig-active-plan-label">Zuletzt</span>
+              </div>
             </div>
-            <div className="ig-active-plan-stat">
-              <span className="ig-active-plan-num mono">
-                {(activePlan.days || []).length > 0
-                  ? WEEKDAYS.filter((d) => activePlan.days.includes(d.key)).map((d) => d.short).join(" ")
-                  : "—"}
-              </span>
-              <span className="ig-active-plan-label">Split</span>
-            </div>
-            <div className="ig-active-plan-stat">
-              <span className="ig-active-plan-num mono">
-                {activeStats.volume >= 1000 ? `${round1(activeStats.volume / 1000)}t` : `${activeStats.volume} kg`}
-              </span>
-              <span className="ig-active-plan-label">Volumen</span>
-            </div>
-            <div className="ig-active-plan-stat">
-              <span className="ig-active-plan-num mono">
-                {activeStats.lastDate ? relativeDay(activeStats.lastDate, today) : "—"}
-              </span>
-              <span className="ig-active-plan-label">Zuletzt</span>
-            </div>
-          </div>
 
-          <div className="ig-active-plan-preview">
-            {activePlan.exercises.slice(0, 4).map((e, i) => (
-              <span key={i} className="ig-badge">
-                {libraryById[e.exerciseId]?.name || "?"}
-              </span>
-            ))}
-            {activePlan.exercises.length > 4 && (
-              <span className="ig-badge dim">+{activePlan.exercises.length - 4} weitere</span>
-            )}
-          </div>
-        </button>
+            <div className="ig-active-plan-preview">
+              {activePlan.exercises.slice(0, 4).map((e, i) => (
+                <span key={i} className="ig-badge">
+                  {libraryById[e.exerciseId]?.name || "?"}
+                </span>
+              ))}
+              {activePlan.exercises.length > 4 && (
+                <span className="ig-badge dim">
+                  +{activePlan.exercises.length - 4} weitere
+                </span>
+              )}
+            </div>
+          </button>
+        </div>
       )}
 
       {/* Andere Pläne: kompakt, ein Tap zum Aktivieren */}
@@ -364,6 +385,17 @@ export default function PlansTab({ data, update, goTo, autoOpenPlanId, onAutoOpe
                       {(p.days || []).length > 0 &&
                         " · " + WEEKDAYS.filter((d) => p.days.includes(d.key)).map((d) => d.short).join(" ")}
                     </span>
+                    <PlanPrepChips
+                      plan={p}
+                      templates={data.prepTemplates}
+                      compact
+                      onWarmup={() =>
+                        setPrepAssign({ planId: p.id, kind: "warmup" })
+                      }
+                      onCooldown={() =>
+                        setPrepAssign({ planId: p.id, kind: "cooldown" })
+                      }
+                    />
                   </span>
                 </button>
                 <div className="ig-plan-actions">
@@ -389,46 +421,72 @@ export default function PlansTab({ data, update, goTo, autoOpenPlanId, onAutoOpe
           data={data}
           update={update}
           onClose={() => setEditingId(null)}
+          onOpenPrep={(kind) =>
+            setPrepAssign({ planId: editing.id, kind })
+          }
         />
       )}
+
+      {prepAssign && (() => {
+        const p =
+          (data.plans || []).find((x) => x.id === prepAssign.planId) || null;
+        if (!p) return null;
+        return (
+          <PrepAssignSheet
+            kind={prepAssign.kind}
+            plan={p}
+            data={data}
+            update={update}
+            onClose={() => setPrepAssign(null)}
+          />
+        );
+      })()}
     </div>
   );
 }
 
-function PlanEditor({ plan, data, update, onClose }) {
+function PlanEditor({ plan, data, update, onClose, onOpenPrep }) {
   const [showPicker, setShowPicker] = useState(false);
-  const [prepPicker, setPrepPicker] = useState(null); // 'cardio' | 'warmup' | 'cooldown'
+  const planId = plan.id;
 
-  const patch = (fields) =>
+  // Immer vom frischen prev-Plan patchen — verhindert, dass schnelle Edits
+  // einander überschreiben und „Speichern“ wirkungslos wirkt.
+  const patch = (fieldsOrFn) =>
     update((prev) => ({
       ...prev,
-      plans: prev.plans.map((p) =>
-        p.id === plan.id ? { ...p, ...fields } : p,
-      ),
+      plans: (prev.plans || []).map((p) => {
+        if (p.id !== planId) return p;
+        const fields =
+          typeof fieldsOrFn === "function" ? fieldsOrFn(p) : fieldsOrFn;
+        return { ...p, ...fields };
+      }),
     }));
 
   const patchExercise = (i, fields) =>
-    patch({
-      exercises: plan.exercises.map((e, idx) =>
+    patch((p) => ({
+      exercises: (p.exercises || []).map((e, idx) =>
         idx === i ? { ...e, ...fields } : e,
       ),
+    }));
+
+  const move = (i, dir) =>
+    patch((p) => {
+      const arr = [...(p.exercises || [])];
+      const j = i + dir;
+      if (j < 0 || j >= arr.length) return {};
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+      return { exercises: arr };
     });
 
-  const move = (i, dir) => {
-    const arr = [...plan.exercises];
-    const j = i + dir;
-    if (j < 0 || j >= arr.length) return;
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-    patch({ exercises: arr });
-  };
-
   const removeExercise = (i) =>
-    patch({ exercises: plan.exercises.filter((_, idx) => idx !== i) });
+    patch((p) => ({
+      exercises: (p.exercises || []).filter((_, idx) => idx !== i),
+    }));
 
   const addExercise = (libEntry) => {
-    patch({
+    patch((p) => ({
       exercises: [
-        ...plan.exercises,
+        ...(p.exercises || []),
         {
           exerciseId: libEntry.id,
           sets: 3,
@@ -437,15 +495,19 @@ function PlanEditor({ plan, data, update, onClose }) {
           rest: data.settings?.restSeconds || 90,
         },
       ],
-    });
+    }));
     setShowPicker(false);
+    showToast("Übung hinzugefügt", "success");
   };
 
   const toggleDay = (key) =>
-    patch({
-      days: (plan.days || []).includes(key)
-        ? plan.days.filter((d) => d !== key)
-        : [...(plan.days || []), key],
+    patch((p) => {
+      const days = p.days || [];
+      return {
+        days: days.includes(key)
+          ? days.filter((d) => d !== key)
+          : [...days, key],
+      };
     });
 
   const byId = useMemo(() => {
@@ -456,56 +518,16 @@ function PlanEditor({ plan, data, update, onClose }) {
     return m;
   }, [data.library]);
 
-  const planZones = useMemo(() => zonesFromPlan(plan, byId), [plan, byId]);
-  const focusLabel = focusLabelForZones(planZones);
-
-  const prepList = (key) => plan[key] || [];
-
-  const setPrepList = (key, list) => patch({ [key]: list });
-
-  const removePrep = (key, idx) =>
-    setPrepList(
-      key,
-      prepList(key).filter((_, i) => i !== idx),
-    );
-
-  const patchPrep = (key, idx, fields) =>
-    setPrepList(
-      key,
-      prepList(key).map((item, i) => (i === idx ? { ...item, ...fields } : item)),
-    );
-
-  const addPrep = (key, item) => {
-    setPrepList(key, [...prepList(key), item]);
-    setPrepPicker(null);
-  };
-
-  const smartFillWarmup = () => {
-    const list = suggestWarmupForPlan(plan, byId, 5);
-    setPrepList("warmup", list);
-    showToast(
-      list.length
-        ? `Warm-up für ${focusLabel} vorgeschlagen`
-        : "Zuerst Übungen im Plan setzen",
-      "info",
-    );
-  };
-
-  const smartFillCooldown = () => {
-    const list = suggestCooldownForPlan(plan, byId, 5);
-    setPrepList("cooldown", list);
-    showToast(
-      list.length
-        ? `Cool-down für ${focusLabel} vorgeschlagen`
-        : "Zuerst Übungen im Plan setzen",
-      "info",
-    );
+  const saveAndClose = () => {
+    update((prev) => prev, { immediate: true });
+    showToast("Plan gespeichert", "success");
+    onClose();
   };
 
   return (
     <div className="ig-sheet">
       <div className="ig-sheet-head">
-        <button className="ig-icon-btn ghost" onClick={onClose} aria-label="Zurück">
+        <button className="ig-icon-btn ghost" onClick={saveAndClose} aria-label="Zurück">
           <ChevronLeft size={20} />
         </button>
         <input
@@ -514,12 +536,20 @@ function PlanEditor({ plan, data, update, onClose }) {
           onChange={(e) => patch({ name: e.target.value })}
           placeholder="Plan-Name"
         />
-        <button className="ig-icon-btn primary" onClick={onClose} aria-label="Fertig">
+        <button
+          className="ig-icon-btn primary"
+          onClick={saveAndClose}
+          aria-label="Speichern"
+          title="Speichern"
+        >
           <Check size={18} />
         </button>
       </div>
 
       <div className="ig-sheet-body">
+        <p className="ig-prep-autosave dim">
+          Änderungen werden automatisch gespeichert — Haken = fertig &amp; sichern.
+        </p>
         <div className="ig-card">
           <div className="ig-field-label">Aussehen</div>
           <div className="ig-accent-row">
@@ -563,57 +593,19 @@ function PlanEditor({ plan, data, update, onClose }) {
           </div>
         </div>
 
-        {/* Fokus aus Plan-Übungen + Name (Push/Pull/Legs/…) */}
-        <div className="ig-card ig-prep-focus">
-          <div className="ig-field-label">Trainingsfokus</div>
-          <p className="ig-prep-focus-text">
-            <span className="ig-badge">{focusLabel}</span>
-            {planZones.size > 0 ? (
-              <span className="ig-prep-focus-zones">
-                {[...planZones].map((z) => ZONE_LABEL[z] || z).join(" · ")}
-              </span>
-            ) : (
-              <span className="ig-prep-focus-zones dim">
-                Übungen hinzufügen — dann filtern Warm-up & Cool-down automatisch
-              </span>
-            )}
+        <div className="ig-card">
+          <div className="ig-field-label">Pre- &amp; Post-Workout</div>
+          <p className="ig-prep-hub-hint dim" style={{ marginBottom: 10 }}>
+            Warm-up &amp; Cool-down sind Vorlagen — wiederverwendbar für mehrere
+            Pläne.
           </p>
+          <PlanPrepChips
+            plan={plan}
+            templates={data.prepTemplates}
+            onWarmup={() => onOpenPrep?.("warmup")}
+            onCooldown={() => onOpenPrep?.("cooldown")}
+          />
         </div>
-
-        <PrepSection
-          title="Cardio vor dem Workout"
-          icon={<HeartPulse size={14} />}
-          emptyHint="Optional: Laufband, Rad, Crosstrainer…"
-          items={prepList("cardio")}
-          onRemove={(i) => removePrep("cardio", i)}
-          onPatch={(i, f) => patchPrep("cardio", i, f)}
-          onAdd={() => setPrepPicker("cardio")}
-          cardio
-        />
-
-        <PrepSection
-          title="Warm-up"
-          icon={<Flame size={14} />}
-          emptyHint="Leer = Auto aus Fokus. Oder smart vorschlagen / manuell wählen."
-          items={prepList("warmup")}
-          onRemove={(i) => removePrep("warmup", i)}
-          onPatch={(i, f) => patchPrep("warmup", i, f)}
-          onAdd={() => setPrepPicker("warmup")}
-          onSmart={smartFillWarmup}
-          onClear={() => setPrepList("warmup", [])}
-        />
-
-        <PrepSection
-          title="Cool-down"
-          icon={<Wind size={14} />}
-          emptyHint="Leer = Auto aus trainierten Zonen. Statisches Stretching."
-          items={prepList("cooldown")}
-          onRemove={(i) => removePrep("cooldown", i)}
-          onPatch={(i, f) => patchPrep("cooldown", i, f)}
-          onAdd={() => setPrepPicker("cooldown")}
-          onSmart={smartFillCooldown}
-          onClear={() => setPrepList("cooldown", [])}
-        />
 
         <div className="ig-card">
           <div className="ig-field-label">Übungen ({plan.exercises.length})</div>
@@ -774,345 +766,6 @@ function PlanEditor({ plan, data, update, onClose }) {
           onClose={() => setShowPicker(false)}
         />
       )}
-
-      {prepPicker && (
-        <PrepPicker
-          mode={prepPicker}
-          planZones={planZones}
-          focusLabel={focusLabel}
-          usedIds={prepList(prepPicker).map((x) => x.catalogId || x.id)}
-          onPick={(entry) => addPrep(prepPicker, prepItemFromCatalog(entry))}
-          onClose={() => setPrepPicker(null)}
-        />
-      )}
-    </div>
-  );
-}
-
-/* ── Prep-Listen (Cardio / Warm-up / Cool-down) im Plan-Editor ── */
-
-function PrepSection({
-  title,
-  icon,
-  emptyHint,
-  items,
-  onRemove,
-  onPatch,
-  onAdd,
-  onSmart,
-  onClear,
-  cardio = false,
-}) {
-  return (
-    <div className="ig-card ig-prep-section">
-      <div className="ig-prep-section-head">
-        <div className="ig-field-label" style={{ margin: 0 }}>
-          {icon} {title}
-          {items.length > 0 && (
-            <span className="ig-prep-count mono"> {items.length}</span>
-          )}
-        </div>
-        <div className="ig-prep-section-actions">
-          {onSmart && (
-            <button type="button" className="ig-chip sm" onClick={onSmart}>
-              <Sparkles size={12} /> Smart
-            </button>
-          )}
-          {items.length > 0 && onClear && (
-            <button type="button" className="ig-chip sm" onClick={onClear}>
-              Leeren
-            </button>
-          )}
-        </div>
-      </div>
-
-      {items.length === 0 ? (
-        <p className="ig-empty ig-prep-empty">{emptyHint}</p>
-      ) : (
-        <div className="ig-pe-list">
-          {items.map((item, i) => (
-            <div key={(item.id || item.name) + i} className="ig-pe-row ig-prep-row">
-              <div className="ig-pe-head">
-                <span className="ig-pe-num mono">{i + 1}</span>
-                <span className="ig-pe-name">
-                  {item.name}
-                  {item.zones?.[0] && (
-                    <span className="ig-pe-muscle">
-                      {ZONE_LABEL[item.zones[0]] || item.zones[0]}
-                    </span>
-                  )}
-                </span>
-                <button
-                  type="button"
-                  className="ig-icon-btn ghost sm"
-                  onClick={() => onRemove(i)}
-                  aria-label="Entfernen"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-              <p className="ig-prep-meta dim">{formatPrepMeta(item)}</p>
-              {cardio ? (
-                <div className="ig-pe-config mono ig-prep-cardio-config">
-                  <label>
-                    Min
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      min="1"
-                      max="90"
-                      value={Math.max(1, Math.round((item.seconds || 300) / 60))}
-                      onChange={(ev) =>
-                        onPatch(i, {
-                          seconds: Math.max(1, Number(ev.target.value) || 1) * 60,
-                        })
-                      }
-                    />
-                  </label>
-                  <label>
-                    km
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      min="0"
-                      step="0.1"
-                      placeholder="–"
-                      value={item.distanceKm ?? ""}
-                      onChange={(ev) =>
-                        onPatch(i, {
-                          distanceKm:
-                            ev.target.value === ""
-                              ? null
-                              : Number(ev.target.value),
-                        })
-                      }
-                    />
-                  </label>
-                  <div className="ig-prep-intensity" role="group" aria-label="Intensität">
-                    {CARDIO_INTENSITIES.map((lvl) => (
-                      <button
-                        key={lvl.id}
-                        type="button"
-                        className={
-                          "ig-chip sm" +
-                          ((item.intensity || "moderat") === lvl.id ? " active" : "")
-                        }
-                        onClick={() => onPatch(i, { intensity: lvl.id })}
-                      >
-                        {lvl.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          ))}
-        </div>
-      )}
-
-      <button type="button" className="ig-btn-secondary wide" onClick={onAdd}>
-        <Plus size={16} /> Hinzufügen
-      </button>
-    </div>
-  );
-}
-
-function PrepPicker({ mode, planZones, focusLabel, usedIds, onPick, onClose }) {
-  const [query, setQuery] = useState("");
-  const [kind, setKind] = useState("");
-  const [zone, setZone] = useState("");
-  const [equipment, setEquipment] = useState("");
-  const [smart, setSmart] = useState(true);
-
-  const kindOptions = useMemo(() => {
-    if (mode === "cardio") return PREP_KINDS.filter((k) => k.id === "cardio");
-    if (mode === "cooldown")
-      return PREP_KINDS.filter((k) =>
-        ["static_stretch", "mobility", "dynamic_stretch"].includes(k.id),
-      );
-    return PREP_KINDS.filter((k) =>
-      ["warmup", "mobility", "dynamic_stretch"].includes(k.id),
-    );
-  }, [mode]);
-
-  const zoneOptions = useMemo(() => {
-    if (planZones.size > 0) return ALL_ZONES.filter((z) => planZones.has(z));
-    return ALL_ZONES;
-  }, [planZones]);
-
-  const results = useMemo(
-    () =>
-      filterPrepCatalog({
-        mode,
-        planZones,
-        kind,
-        zone,
-        equipment,
-        query,
-        smart: mode === "cardio" ? false : smart,
-        excludeIds: usedIds,
-      }),
-    [mode, planZones, kind, zone, equipment, query, smart, usedIds],
-  );
-
-  const title =
-    mode === "cardio"
-      ? "Cardio wählen"
-      : mode === "cooldown"
-        ? "Cool-down wählen"
-        : "Warm-up wählen";
-
-  return (
-    <div className="ig-sheet ig-sheet-over">
-      <div className="ig-sheet-head">
-        <button className="ig-icon-btn ghost" onClick={onClose} aria-label="Zurück">
-          <ChevronLeft size={20} />
-        </button>
-        <span className="ig-sheet-title">{title}</span>
-        <div style={{ width: 40 }} />
-      </div>
-
-      {mode !== "cardio" && (
-        <div className="ig-prep-smart-bar">
-          <button
-            type="button"
-            className={"ig-chip sm" + (smart ? " active" : "")}
-            onClick={() => setSmart(true)}
-          >
-            Passend zu {focusLabel}
-          </button>
-          <button
-            type="button"
-            className={"ig-chip sm" + (!smart ? " active" : "")}
-            onClick={() => setSmart(false)}
-          >
-            Alle Übungen
-          </button>
-        </div>
-      )}
-
-      <div className="ig-sheet-search">
-        <Search size={16} className="ig-sheet-search-icon" aria-hidden="true" />
-        <input
-          className="ig-input"
-          type="search"
-          enterKeyHint="search"
-          placeholder="Suchen…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-      </div>
-
-      {mode !== "cardio" && (
-        <>
-          <div className="ig-picker-chips">
-            <button
-              type="button"
-              className={"ig-chip sm" + (kind === "" ? " active" : "")}
-              onClick={() => setKind("")}
-            >
-              Art: alle
-            </button>
-            {kindOptions.map((k) => (
-              <button
-                key={k.id}
-                type="button"
-                className={"ig-chip sm" + (kind === k.id ? " active" : "")}
-                onClick={() => setKind(kind === k.id ? "" : k.id)}
-              >
-                {k.label}
-              </button>
-            ))}
-          </div>
-          <div className="ig-picker-chips">
-            <button
-              type="button"
-              className={"ig-chip sm" + (zone === "" ? " active" : "")}
-              onClick={() => setZone("")}
-            >
-              Muskel: alle
-            </button>
-            {zoneOptions.map((z) => (
-              <button
-                key={z}
-                type="button"
-                className={"ig-chip sm" + (zone === z ? " active" : "")}
-                onClick={() => setZone(zone === z ? "" : z)}
-              >
-                {ZONE_LABEL[z] || z}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-
-      <div className="ig-picker-chips">
-        <button
-          type="button"
-          className={"ig-chip sm" + (equipment === "" ? " active" : "")}
-          onClick={() => setEquipment("")}
-        >
-          Equipment: alle
-        </button>
-        {PREP_EQUIPMENT.map((e) => (
-          <button
-            key={e.id}
-            type="button"
-            className={"ig-chip sm" + (equipment === e.id ? " active" : "")}
-            onClick={() => setEquipment(equipment === e.id ? "" : e.id)}
-          >
-            {e.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="ig-picker-count mono">{results.length} Treffer</div>
-
-      <div className="ig-sheet-body">
-        <ul className="ig-picker-list">
-          {results.map((e) => {
-            const used = usedIds.includes(e.id);
-            return (
-              <li key={e.id} className="ig-picker-row">
-                <button
-                  type="button"
-                  className="ig-picker-main"
-                  disabled={used}
-                  onClick={() => onPick(e)}
-                >
-                  <span className="ig-picker-text">
-                    <span className="ig-picker-name">{e.name}</span>
-                    <span className="ig-picker-meta">
-                      {[
-                        formatPrepMeta(prepItemFromCatalog(e)),
-                        e.zones?.length
-                          ? e.zones.map((z) => ZONE_LABEL[z] || z).join(", ")
-                          : "Allgemein",
-                        e.equipment,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </span>
-                    {e.note && (
-                      <span className="ig-picker-meta ig-prep-note-line">{e.note}</span>
-                    )}
-                  </span>
-                </button>
-                {used ? (
-                  <Check size={16} className="ig-picker-used" />
-                ) : (
-                  <Plus size={16} className="ig-picker-add" />
-                )}
-              </li>
-            );
-          })}
-          {results.length === 0 && (
-            <p className="ig-empty">
-              Keine passenden Übungen — Filter lockern oder „Alle Übungen“.
-            </p>
-          )}
-        </ul>
-      </div>
     </div>
   );
 }

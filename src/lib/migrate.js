@@ -8,6 +8,7 @@ import {
   getCatalog,
   buildCleverFitPlans,
 } from "./exerciseCatalog.js";
+import { migratePlansToPrepTemplates } from "./stretches.js";
 
 /* Theme-Studio-Voreinstellung: null-Accent = Modus-Standard (m/f/neutral) */
 export const DEFAULT_THEME_CFG = {
@@ -127,6 +128,8 @@ export function freshState() {
     library: getCatalog().map((e) => ({ ...e })),
     plans,
     activePlanId: plans[0]?.id || null,
+    /** Wiederverwendbare Warm-up- / Cool-down-Vorlagen */
+    prepTemplates: [],
     wellness: {},
     profile: { ...DEFAULT_PROFILE },
     settings,
@@ -145,7 +148,12 @@ export function hydrate(parsed) {
     themeCfg: { ...DEFAULT_THEME_CFG, ...(parsed.settings?.themeCfg || {}) },
   };
   const migrated = migrateToPlans(parsed, settings);
-  const plans = ensureCleverFitPlans(migrated.plans, settings.restSeconds);
+  let plans = ensureCleverFitPlans(migrated.plans, settings.restSeconds);
+  const { plans: plansWithPrep, prepTemplates } = migratePlansToPrepTemplates(
+    plans,
+    parsed.prepTemplates || migrated.prepTemplates || [],
+  );
+  plans = plansWithPrep;
   const activePlanId =
     migrated.activePlanId && plans.some((p) => p.id === migrated.activePlanId)
       ? migrated.activePlanId
@@ -154,6 +162,7 @@ export function hydrate(parsed) {
     ...migrated,
     library: mergeLibrary(migrated.library),
     plans,
+    prepTemplates,
     activePlanId,
     wellness: migrated.wellness || {},
     carryOver: Array.isArray(migrated.carryOver) ? migrated.carryOver : [],

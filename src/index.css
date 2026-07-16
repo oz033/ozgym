@@ -1251,8 +1251,11 @@ button.ig-wo-seg:active {
 .ig-wo-card {
   box-sizing: border-box;
   flex: 0 0 auto;
+  /* Breite kommt aus JS (px) — nicht 100% der Track-Breite, sonst liegt
+     Name/GIF außerhalb des Viewports (schwarzer leerer Workout-Screen). */
   width: 100%;
-  min-width: 100%;
+  min-width: 0;
+  max-width: 100%;
   height: 100%;
   padding: 10px 20px 8px;
   display: flex;
@@ -2269,6 +2272,158 @@ button.ig-wo-seg:active {
 /* ============ Plaene ============ */
 /* Aktiver Plan: dominante Hero-Karte, damit sofort klar ist "das ist mein Plan" */
 .ig-active-plan { background: var(--surface); border: 1.5px solid var(--plan-color, var(--accent)); border-radius: var(--radius-xl); padding: 18px; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 6px 24px color-mix(in srgb, var(--plan-color, var(--accent)) 18%, transparent); }
+.ig-active-plan-open {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  padding: 0;
+  cursor: pointer;
+}
+.ig-active-plan-body-btn {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  padding: 0;
+  cursor: pointer;
+}
+/* Warm-up / Cool-down Chips — freier Platz neben Titel */
+.ig-plan-prep-chips {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex-shrink: 0;
+  max-width: 42%;
+}
+.ig-plan-prep-chips.compact {
+  flex-direction: row;
+  flex-wrap: wrap;
+  max-width: none;
+  margin-top: 6px;
+}
+.ig-plan-prep-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 9px;
+  border-radius: 999px;
+  border: 1px dashed var(--border);
+  background: var(--surface-2);
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.ig-plan-prep-chip:hover {
+  border-color: var(--text-dim);
+  color: var(--text);
+}
+.ig-plan-prep-chip.set {
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--plan-color, var(--accent)) 45%, var(--border));
+  background: color-mix(in srgb, var(--plan-color, var(--accent)) 12%, var(--surface-2));
+  color: var(--text);
+}
+.ig-plan-prep-chip.cool.set {
+  border-color: color-mix(in srgb, #6aa8f0 40%, var(--border));
+  background: color-mix(in srgb, #6aa8f0 10%, var(--surface-2));
+}
+.ig-plan-prep-n {
+  font-size: 10px;
+  opacity: 0.75;
+  min-width: 1em;
+  text-align: center;
+}
+.ig-prep-hub-hint {
+  font-size: 12.5px;
+  line-height: 1.4;
+  margin: 0 0 10px;
+}
+.ig-prep-hub-row {
+  gap: 6px;
+}
+.ig-prep-hub-row.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.ig-prep-hub-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  padding: 0;
+  cursor: pointer;
+}
+.ig-prep-hub-actions {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.ig-wo-gate {
+  justify-content: center;
+  padding: 24px 20px;
+}
+.ig-wo-gate-body {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  max-width: 340px;
+  margin: 0 auto;
+  width: 100%;
+  text-align: center;
+}
+.ig-wo-gate-kicker {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+}
+.ig-wo-gate-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+.ig-wo-gate-meta {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+.ig-wo-gate-hint {
+  font-size: 13px;
+  line-height: 1.4;
+  margin: 0 0 8px;
+}
+.ig-wo-gate-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
 button.ig-active-plan-btn {
   width: 100%;
   text-align: left;
@@ -2282,11 +2437,47 @@ button.ig-active-plan-btn {
 button.ig-active-plan-btn:active {
   transform: scale(0.985);
 }
-.ig-active-plan-head { display: flex; align-items: center; gap: 14px; }
-.ig-active-plan-icon { font-size: 26px; width: 46px; height: 46px; border-radius: var(--radius-md); background: color-mix(in srgb, var(--plan-color, var(--accent)) 14%, var(--surface-2)); color: var(--plan-color, var(--accent)); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.ig-active-plan-title { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.ig-active-plan-tag { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--plan-color, var(--accent)); }
-.ig-active-plan-title h2 { font-family: var(--font-display); font-size: 21px; font-weight: 700; margin: 0; letter-spacing: -0.3px; }
+.ig-active-plan-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.ig-active-plan-icon {
+  font-size: 26px;
+  width: 46px;
+  height: 46px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--plan-color, var(--accent)) 14%, var(--surface-2));
+  color: var(--plan-color, var(--accent));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.ig-active-plan-title {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.ig-active-plan-tag {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--plan-color, var(--accent));
+}
+.ig-active-plan-title h2 {
+  font-family: var(--font-display);
+  font-size: 21px;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: -0.3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .ig-active-plan-edit {
   width: 36px;
   height: 36px;
@@ -2432,6 +2623,12 @@ button.ig-active-plan-btn:active {
 .ig-pe-config input:focus { outline: none; border-color: var(--accent); }
 
 /* Prep: Cardio / Warm-up / Cool-down im Plan-Editor */
+.ig-prep-autosave {
+  margin: 0 0 4px;
+  padding: 0 2px;
+  font-size: 11.5px;
+  line-height: 1.35;
+}
 .ig-prep-focus-text {
   display: flex;
   flex-direction: column;

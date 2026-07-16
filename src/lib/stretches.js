@@ -6,6 +6,7 @@
  */
 
 import { ZONE_LABEL } from "./constants.js";
+import { uid } from "./utils.js";
 
 /** Art der Prep-Übung (manuelle Filter im Picker) */
 export const PREP_KINDS = [
@@ -736,38 +737,119 @@ export function suggestCooldownForPlan(plan, libraryById, cap = 5) {
   return buildCooldown(zones, cap);
 }
 
+/* ── Wiederverwendbare Prep-Vorlagen (Warm-up / Cool-down) ── */
+
+/** @param {'warmup'|'cooldown'} kind */
+export function blankPrepTemplate(kind, name = "") {
+  return {
+    id: "prep-" + uid(),
+    kind,
+    name:
+      name ||
+      (kind === "cooldown" ? "Cool-down" : "Warm-up"),
+    items: [],
+  };
+}
+
+export function getPrepTemplate(templates, id) {
+  if (!id) return null;
+  return (templates || []).find((t) => t.id === id) || null;
+}
+
+export function templatesOfKind(templates, kind) {
+  return (templates || []).filter((t) => t.kind === kind);
+}
+
+function normalizePrepItems(items) {
+  return (items || []).map((item) => ({
+    ...item,
+    zone: item.zones?.[0] || item.zone || null,
+  }));
+}
+
 /**
- * Workout-Auflösung: Plan-Custom-Liste wenn gesetzt, sonst Auto.
- * plan.warmup / plan.cooldown / plan.cardio — Arrays, length > 0 = override
+ * Workout-Auflösung über zugewiesene Vorlagen (plan.warmupTemplateId).
+ * Legacy: plan.warmup[] / plan.cardio[] falls noch vorhanden.
+ * Kein Auto-Warm-up ohne Zuweisung.
  */
-export function resolveWarmupItems(plan, queue) {
-  if (plan?.warmup?.length) {
-    return plan.warmup.map((item) => ({
-      ...item,
-      zone: item.zones?.[0] || item.zone || null,
-    }));
-  }
-  return buildWarmup(queue);
-}
-
-export function resolveCooldownItems(plan, trainedZones) {
-  if (plan?.cooldown?.length) {
-    return plan.cooldown.map((item) => ({
-      ...item,
-      zone: item.zones?.[0] || item.zone || null,
-    }));
-  }
-  return buildCooldown(trainedZones);
-}
-
-export function resolveCardioItems(plan) {
-  if (plan?.cardio?.length) {
-    return plan.cardio.map((item) => ({
-      ...item,
-      zone: item.zones?.[0] || null,
-    }));
-  }
+export function resolveWarmupItems(plan, prepTemplates = []) {
+  const t = getPrepTemplate(prepTemplates, plan?.warmupTemplateId);
+  if (t?.items?.length) return normalizePrepItems(t.items);
+  // Legacy inline
+  const legacy = [
+    ...(plan?.cardio || []),
+    ...(plan?.warmup || []),
+  ];
+  if (legacy.length) return normalizePrepItems(legacy);
   return [];
+}
+
+/**
+ * Cool-down nur wenn Vorlage zugewiesen (oder Legacy plan.cooldown[]).
+ * Kein stilles Auto-Cool-down — Nutzer soll überspringen/starten wählen können.
+ */
+export function resolveCooldownItems(plan, prepTemplates = [], _trainedZones) {
+  const t = getPrepTemplate(prepTemplates, plan?.cooldownTemplateId);
+  if (t?.items?.length) return normalizePrepItems(t.items);
+  if (plan?.cooldown?.length) return normalizePrepItems(plan.cooldown);
+  return [];
+}
+
+/** @deprecated Cardio steckt in Warm-up-Vorlagen; leer für Backcompat */
+export function resolveCardioItems(_plan) {
+  return [];
+}
+
+/**
+ * Inline-Plan-Arrays (warmup/cooldown/cardio) → globale Vorlagen + IDs.
+ * Idempotent: vorhandene warmupTemplateId bleibt.
+ */
+export function migratePlansToPrepTemplates(plans, existingTemplates = []) {
+  const templates = Array.isArray(existingTemplates)
+    ? existingTemplates.map((t) => ({ ...t, items: [...(t.items || [])] }))
+    : [];
+  const nextPlans = (plans || []).map((plan) => {
+    let warmupTemplateId = plan.warmupTemplateId || null;
+    let cooldownTemplateId = plan.cooldownTemplateId || null;
+
+    const legacyWarm = [
+      ...(plan.cardio || []),
+      ...(plan.warmup || []),
+    ];
+    if (!warmupTemplateId && legacyWarm.length) {
+      const t = blankPrepTemplate(
+        "warmup",
+        `${plan.name || "Plan"} · Warm-up`,
+      );
+      t.items = legacyWarm;
+      templates.push(t);
+      warmupTemplateId = t.id;
+    }
+
+    if (!cooldownTemplateId && plan.cooldown?.length) {
+      const t = blankPrepTemplate(
+        "cooldown",
+        `${plan.name || "Plan"} · Cool-down`,
+      );
+      t.items = [...plan.cooldown];
+      templates.push(t);
+      cooldownTemplateId = t.id;
+    }
+
+    // Inline-Arrays entfernen — Quelle der Wahrheit sind Vorlagen
+    const {
+      warmup: _w,
+      cooldown: _c,
+      cardio: _k,
+      ...rest
+    } = plan;
+    return {
+      ...rest,
+      warmupTemplateId,
+      cooldownTemplateId,
+    };
+  });
+  return { plans: nextPlans, prepTemplates: templates };
 }
 
 export function formatPrepMeta(item) {

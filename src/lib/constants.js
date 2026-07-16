@@ -406,10 +406,9 @@ export function blankPlan(index, name = "Neuer Plan") {
     description: "",
     days: [],
     exercises: [],
-    // Optional Prep: leer = im Workout Auto-Vorschlag aus Plan-Zonen
-    cardio: [],
-    warmup: [],
-    cooldown: [],
+    // Wiederverwendbare Prep-Vorlagen (IDs in data.prepTemplates)
+    warmupTemplateId: null,
+    cooldownTemplateId: null,
   };
 }
 
