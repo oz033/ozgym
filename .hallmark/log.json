@@ -1,4 +1,12 @@
-﻿[
+[
+  {
+    "date": "2026-07-16",
+    "macrostructure": "Workbench-lite (app shell)",
+    "theme": "modern-minimal / mono-premium dark",
+    "enrichment": "none",
+    "scope": "app",
+    "brief": "OZGYM v2.1 interaction consistency: Fokus-Ringe, Press-Feedback auf allen Buttons, globale Haptik, 44pt Touch-Ziele"
+  },
   {
     "date": "2026-07-15",
     "macrostructure": "Workbench-lite (app shell)",

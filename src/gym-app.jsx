@@ -118,6 +118,23 @@ export default function App() {
     return () => cancelIdle(id);
   }, [loaded]);
 
+  // Globale Haptik: jeder Button-Tap gibt sofort spürbares Feedback, ohne dass
+  // jede Komponente selbst buzz() aufrufen muss. Lokale, stärkere Muster (z. B.
+  // Satz abschließen) feuern auf click und ersetzen das kurze Tap-Muster.
+  const hapticsRef = useRef(true);
+  useEffect(() => {
+    hapticsRef.current = data.settings?.haptics !== false;
+  }, [data.settings?.haptics]);
+  useEffect(() => {
+    const onPointerDown = (e) => {
+      const btn = e.target?.closest?.('button, [role="button"]');
+      if (!btn || btn.disabled) return;
+      buzz(10, hapticsRef.current);
+    };
+    window.addEventListener("pointerdown", onPointerDown, { passive: true });
+    return () => window.removeEventListener("pointerdown", onPointerDown);
+  }, []);
+
   const persist = useCallback((next) => {
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {

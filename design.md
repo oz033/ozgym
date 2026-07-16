@@ -89,6 +89,24 @@ No italic headers. Emphasis via weight or accent underline.
 - Prefer `transform` + `opacity`, `--ease-out`, respect `prefers-reduced-motion`.
 - Buttons: 1px press, no bounce.
 
+## Interaction layer (v2.1 — locked 2026-07-16)
+
+Lives at the end of `src/index.css` ("Interaction Consistency Layer"). Rules:
+
+- **Every pressable element** gets `:active` feedback: `scale(0.97)` standard,
+  `scale(0.9)` icon-only, compositor-only (`transform`), `--dur-fast` (120ms).
+- **Focus ring everywhere:** `.ig-app :focus-visible` = 2px accent outline,
+  offset 2px, never animated (transition-property lists exclude `outline`).
+  Text inputs keep their border+glow focus style; checkboxes/radios keep the ring.
+- **Global haptics:** one `pointerdown` listener in `gym-app.jsx` buzzes 10ms on
+  any button tap (respects `settings.haptics`). Local, stronger patterns
+  (workout events) fire on click and override the tap pattern. New components
+  never need their own tap-buzz.
+- **Touch targets:** `.ig-icon-btn` = 44pt (`--touch`); `.sm`/`.ghost` variants
+  are deliberate exceptions for inline contexts.
+- Timing tokens: `--dur-fast: 120ms`, `--dur-med: 200ms` — new transitions use
+  these, not ad-hoc values.
+
 ## Copy voice
 
 - German, short, second person optional.

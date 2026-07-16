@@ -1,8 +1,10 @@
-/* Hallmark · redesign: spacing density · tone: utilitarian premium fitness
+/* Hallmark · redesign: interaction consistency · tone: utilitarian premium fitness
+ * genre: modern-minimal · design-system: design.md · designed-as-app
  * nav: N5 floating pill compact · dock: safe-bottom only · 4pt scale
- * pre-emit critique: P4 H4 E5 S4 R5 V3
+ * v2.1: globaler Fokus-Ring · einheitliches Press-Feedback · globale Haptik
+ * pre-emit critique: P4 H5 E5 S4 R5 V3
  * ============================================================
-   Design System v2 — Monochrom-Premium
+   Design System v2.1 — Monochrom-Premium
    Themes:    .ig-app[data-theme="dark" | "light"]
    Modi:      .ig-app[data-mode="m" | "f" | "n"]
    ============================================================ */
@@ -2647,3 +2649,82 @@ button.ig-active-plan-btn:active {
 .ig-range-row span:nth-child(2) { flex: 1; }
 .ig-range-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
 .ig-range-val { font-size: 12px; color: var(--text-dim); }
+
+/* ============================================================
+   Interaction Consistency Layer — Design System v2.1
+   Jede Interaktion reagiert sofort: Press-Feedback (compositor-only),
+   Fokus-Ring für Tastatur/Switch Control, einheitliches Timing.
+   :where() hält die Spezifität bei 0 — komponenteneigene States
+   (z. B. .ig-ts-swatch.active) gewinnen immer.
+   ============================================================ */
+
+.ig-app {
+  --dur-fast: 120ms;
+  --dur-med: 200ms;
+}
+
+/* ---- Fokus-Ring: sichtbar, sofort, auf jedem interaktiven Element ---- */
+.ig-app :focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+/* Text-Inputs behalten ihre eigene Fokus-Optik (Border + Schein);
+   Checkboxen/Radios (z. B. iOS-Switch) brauchen den Ring weiterhin. */
+.ig-app input:not([type="checkbox"]):not([type="radio"]):focus-visible,
+.ig-app select:focus-visible,
+.ig-app textarea:focus-visible {
+  outline: none;
+}
+/* Ring erscheint sofort: outline aus den "all"-Transitions ausschließen.
+   Gleiche Spezifität wie die Ursprungsregeln, steht später — gewinnt. */
+.ig-chip, .ig-btn-secondary, .ig-icon-btn, .ig-segment-btn, .ig-ts-swatch,
+.ig-studio-open, .ig-onb-gender, .ig-onb-option, .ig-onb-day, .ig-pr-banner,
+.ig-weight-line, .ig-cal-open, .ig-wellness-add, .ig-cal-cell, .ig-plan-banner,
+.ig-accent-swatch, .ig-emoji-btn, .ig-picker-custom, .ig-identity-badges,
+.ig-theme-btn {
+  transition-property: color, background-color, border-color, box-shadow,
+    opacity, transform, filter;
+}
+
+/* ---- Tap-Verhalten vereinheitlicht (kein grauer iOS-Blitz, kein Zoom) ---- */
+.ig-app :where(button, [role="button"]) {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* ---- Press-Feedback: alles Drückbare quittiert den Tap ---- */
+.ig-app :where(.ig-chip, .ig-segment-btn, .ig-btn-secondary, .ig-studio-open,
+  .ig-onb-day, .ig-plan-banner, .ig-picker-custom, .ig-theme-btn,
+  .ig-emoji-btn, .ig-accent-swatch, .ig-cal-cell, .ig-active-plan-edit,
+  .ig-plan-main, .ig-picker-main, .ig-picker-more, .ig-rest-card):active {
+  transform: scale(0.97);
+}
+.ig-app :where(.ig-picker-fav):active {
+  transform: scale(0.85);
+}
+/* Klassen ohne eigene transform-Transition: Press federt statt zu springen */
+.ig-app :where(.ig-active-plan-edit, .ig-plan-main, .ig-picker-main,
+  .ig-picker-more, .ig-picker-fav, .ig-rest-card) {
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.ig-app :where(.ig-mute-btn):active {
+  transform: scale(0.9);
+}
+.ig-mute-btn { transition: color 0.2s, transform var(--dur-fast) var(--ease-out); }
+
+/* Tabbar: Icon federt beim Druck, die Pill bleibt ruhig */
+.ig-tab-icon { transition: transform var(--dur-fast) var(--ease-out); }
+.ig-tab:active .ig-tab-icon { transform: scale(0.86); }
+
+/* iOS-Switch: Knopf dehnt sich beim Halten wie beim System-Schalter */
+.ig-toggle-row input::after {
+  transition: transform 0.25s var(--ease-spring), background 0.2s,
+    width var(--dur-fast) var(--ease-out);
+}
+.ig-toggle-row input:active::after { width: 26px; }
+.ig-toggle-row input:checked:active::after { transform: translateX(14px); }
+
+/* ---- Touch-Ziel: Icon-Buttons auf 44pt (Apple-HIG-Minimum) ---- */
+.ig-icon-btn { width: var(--touch); height: var(--touch); }
+.ig-icon-btn.sm { width: 32px; height: 32px; }
+.ig-icon-btn.ghost { width: 28px; height: 28px; }
