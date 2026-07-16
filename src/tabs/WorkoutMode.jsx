@@ -25,16 +25,20 @@ import {
 import { CountUp, RestRing, Confetti } from "../components/ui.jsx";
 import { EclipseMark } from "../components/brand.jsx";
 import ExerciseDemo from "../components/ExerciseDemo.jsx";
+import WorkoutExerciseCard from "../components/WorkoutExerciseCard.jsx";
 import {
   todayISO,
   calcStats,
   playSound,
   buzz,
   round1,
+  REDUCED_MOTION,
 } from "../lib/utils.js";
 import { setWorkoutWakeLock } from "../lib/wakeLock.js";
 import { ZONE_LABEL, MOTIVATION_POOL } from "../lib/constants.js";
 import { smartSuggest } from "../lib/planGenerator.js";
+import { findExerciseMedia } from "../lib/exerciseMedia.js";
+import { prefetchExerciseMedia } from "../lib/mediaCache.js";
 
 /** Kurz-Tipp: max. ~1 Zeile, kein Absatz-Wälzer auf dem Lift-Screen. */
 function shortTip(text, max = 72) {
@@ -111,6 +115,13 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
     lastT: 0,
     vx: 0,
   });
+  /** Indices whose media stay mounted forever once warmed (no remount flash). */
+  const mediaHydratedRef = useRef(new Set());
+  const [mediaEpoch, setMediaEpoch] = useState(0);
+  const segbarRef = useRef(null);
+  const springRafRef = useRef(0);
+  /** When true, layout snap is skipped (swipe already sprang with velocity). */
+  const skipLayoutSnapRef = useRef(false);
 
   const [showSwipeHint, setShowSwipeHint] = useState(
     () => !localStorage.getItem("ozgym:swipehint") && queue.length > 1,
@@ -149,24 +160,102 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
     queueLenRef.current = queue?.length || 0;
   }, [queue?.length]);
 
-  // Apply track transform without React state during drag (60fps on iOS)
-  const applyTrackX = useCallback((offsetPx, withTransition) => {
-    const el = trackRef.current;
-    if (!el) return;
-    if (withTransition) {
-      el.style.transition = "transform 0.28s cubic-bezier(0.22, 1, 0.36, 1)";
-    } else {
-      el.style.transition = "none";
+  /**
+   * Per-card scale / opacity / media parallax from finger progress.
+   * DOM-only — never touches React state (120 Hz capable).
+   */
+  const applyCardMotion = useCallback((index, dxPx) => {
+    const track = trackRef.current;
+    if (!track) return;
+    const w = trackWRef.current || 1;
+    const cards = track.children;
+    const reduced = REDUCED_MOTION;
+    for (let j = 0; j < cards.length; j++) {
+      const card = cards[j];
+      const screenX = (j - index) * w + dxPx;
+      const t = screenX / w; // 0 = centered
+      const dist = Math.min(1.25, Math.abs(t));
+      if (reduced) {
+        card.style.opacity = dist < 0.5 ? "1" : "0.55";
+        card.style.transform = "none";
+        const media = card.querySelector("[data-parallax-media]");
+        if (media) media.style.transform = "";
+        continue;
+      }
+      // Active card slightly larger; neighbors recede (Stories / Fitness+)
+      const scale = 1 - dist * 0.055;
+      const opacity = Math.max(0.42, 1 - dist * 0.38);
+      card.style.opacity = String(opacity);
+      card.style.transform = `scale(${scale})`;
+      const media = card.querySelector("[data-parallax-media]");
+      if (media) {
+        // Opposite parallax so media leads into the swipe direction
+        const px = -t * 22;
+        const mScale = 1 + (1 - Math.min(dist, 1)) * 0.04;
+        media.style.transform = `translate3d(${px}px, 0, 0) scale(${mScale})`;
+      }
     }
-    el.style.transform = `translate3d(${offsetPx}px, 0, 0)`;
+    // Segment bar: continuous fill following finger
+    const fill = segbarRef.current?.querySelector?.(".ig-wo-seg-scrub");
+    if (fill && queueLenRef.current > 0) {
+      const len = queueLenRef.current;
+      const progress = (index - dxPx / w) / Math.max(1, len - 1 || 1);
+      const pct =
+        len <= 1 ? 100 : Math.max(0, Math.min(1, progress)) * 100;
+      fill.style.width = `${pct}%`;
+      fill.style.transition = "none";
+    }
   }, []);
 
-  const settleTrack = useCallback(
-    (nextIdx) => {
-      const w = trackWRef.current || 0;
-      applyTrackX(-nextIdx * w, true);
+  // Apply track transform without React state during drag (60–120fps on iOS)
+  const applyTrackX = useCallback(
+    (offsetPx, withTransition, springMs = 380) => {
+      const el = trackRef.current;
+      if (!el) return;
+      if (withTransition && !REDUCED_MOTION) {
+        // interactiveSpring-ish: snappy settle, soft overshoot damp
+        el.style.transition = `transform ${springMs}ms cubic-bezier(0.32, 0.72, 0, 1)`;
+      } else if (withTransition) {
+        el.style.transition = `transform ${Math.min(springMs, 220)}ms ease-out`;
+      } else {
+        el.style.transition = "none";
+      }
+      el.style.transform = `translate3d(${offsetPx}px, 0, 0)`;
     },
-    [applyTrackX],
+    [],
+  );
+
+  const settleTrack = useCallback(
+    (nextIdx, velocityPxPerMs = 0) => {
+      const w = trackWRef.current || 0;
+      const target = -nextIdx * w;
+      // Velocity-aware duration (faster fling → slightly snappier spring)
+      const v = Math.min(2.2, Math.abs(velocityPxPerMs || 0));
+      const ms = REDUCED_MOTION ? 180 : Math.round(420 - v * 90);
+      applyTrackX(target, true, ms);
+      applyCardMotion(nextIdx, 0);
+      // After spring ends, clear inline transforms so CSS active state wins
+      if (springRafRef.current) cancelAnimationFrame(springRafRef.current);
+      const endAt = performance.now() + ms + 32;
+      const tick = (now) => {
+        if (now < endAt && dragRef.current.active === false) {
+          springRafRef.current = requestAnimationFrame(tick);
+          return;
+        }
+        // Leave cards clean when settled on current index
+        const track = trackRef.current;
+        if (!track || dragRef.current.active) return;
+        for (const card of track.children) {
+          const isActive = card.dataset.active === "1";
+          card.style.opacity = isActive ? "1" : "";
+          card.style.transform = "";
+          const media = card.querySelector("[data-parallax-media]");
+          if (media) media.style.transform = "";
+        }
+      };
+      springRafRef.current = requestAnimationFrame(tick);
+    },
+    [applyTrackX, applyCardMotion],
   );
 
   // Kartenbreite in px messen — %-translateX am Track ist unzuverlässig
@@ -196,8 +285,55 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
   useLayoutEffect(() => {
     if (phase === "done") return;
     if (dragRef.current.active) return;
+    if (skipLayoutSnapRef.current) {
+      skipLayoutSnapRef.current = false;
+      return;
+    }
     settleTrack(idx);
   }, [idx, phase, trackW, settleTrack]);
+
+  /**
+   * Keep previous · current · next (+2 prefetch) media mounted & decoded
+   * before the finger ever moves — Instagram Stories style.
+   */
+  useEffect(() => {
+    if (phase === "done" || !queue?.length) return;
+    const want = new Set();
+    for (let d = -1; d <= 2; d++) {
+      const i = idx + d;
+      if (i >= 0 && i < queue.length) want.add(i);
+    }
+    let grew = false;
+    for (const i of want) {
+      if (!mediaHydratedRef.current.has(i)) {
+        mediaHydratedRef.current.add(i);
+        grew = true;
+      }
+      const it = queue[i];
+      prefetchExerciseMedia(
+        { name: it?.name, entry: it?.entry, gif: it?.entry?.gif, image: it?.entry?.image },
+        findExerciseMedia,
+      );
+    }
+    if (grew) setMediaEpoch((n) => n + 1);
+  }, [idx, phase, queue]);
+
+  // Initial hydrate current ±1 so first paint already has neighbors
+  useEffect(() => {
+    if (!queue?.length) return;
+    const start = Math.max(0, (firstOpen === -1 ? 0 : firstOpen) - 1);
+    const end = Math.min(queue.length - 1, (firstOpen === -1 ? 0 : firstOpen) + 2);
+    for (let i = start; i <= end; i++) {
+      mediaHydratedRef.current.add(i);
+      const it = queue[i];
+      prefetchExerciseMedia(
+        { name: it?.name, entry: it?.entry, gif: it?.entry?.gif, image: it?.entry?.image },
+        findExerciseMedia,
+      );
+    }
+    setMediaEpoch((n) => n + 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const sessionRef = useRef({ sets: 0, volume: 0, prs: 0, records: [], zones: new Set() });
 
@@ -213,6 +349,33 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
       exerciseGuide.avoid?.length);
   const doneCount = setsFor(exercise);
 
+  /** Per-card load preview + PR so pages are complete while swiping */
+  const cardMeta = useMemo(() => {
+    const pastLogs = data.logs.filter((l) => l.date !== today);
+    return (queue || []).map((it) => {
+      const name = it.name;
+      const s = smartSuggest(pastLogs, name, it.reps, {
+        weight: it.weight,
+        reps: it.reps,
+      });
+      let pr = 0;
+      for (const l of pastLogs) {
+        if (l.exercise !== name) continue;
+        for (const set of l.sets || []) {
+          if (set.weight > pr) pr = set.weight;
+        }
+      }
+      const done = data.logs
+        .filter((l) => l.date === today && l.exercise === name)
+        .reduce((n, l) => n + l.sets.length, 0);
+      return {
+        load: { weight: s.weight, reps: s.reps, bump: s.bump },
+        pr,
+        done,
+        note: it.note || "",
+      };
+    });
+  }, [queue, data.logs, today]);
 
   // Beim Übungswechsel Guide schließen
   useEffect(() => {
@@ -633,24 +796,31 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
     buzz(20, hapticsOn);
   };
 
-  // Swipe between exercises — pointer + capture, DOM transform (no React mid-drag)
+  // Interactive horizontal pager — finger drives previous/current/next live
   useEffect(() => {
     const wrap = trackWrapRef.current;
     if (!wrap || phase === "done") return;
 
     const d = dragRef.current;
     let pid = null;
+    let finished = false;
 
     const onStart = (e) => {
       if (phaseRef.current !== "lift") return;
       if (e.isPrimary === false) return;
       if (e.pointerType === "mouse" && e.button !== 0) return;
       if (e.target?.closest?.("button, input, a, [data-no-swipe]")) return;
+      finished = false;
       pid = e.pointerId;
       try {
         wrap.setPointerCapture(e.pointerId);
       } catch {
         /* ignore */
+      }
+      // Cancel in-flight spring so finger takes over immediately
+      if (springRafRef.current) {
+        cancelAnimationFrame(springRafRef.current);
+        springRafRef.current = 0;
       }
       const now = performance.now();
       d.active = true;
@@ -662,7 +832,10 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
       d.lastT = now;
       d.vx = 0;
       wrap.classList.add("is-dragging");
-      applyTrackX(-(idxRef.current) * (trackWRef.current || 0), false);
+      const i = idxRef.current;
+      const w = trackWRef.current || 0;
+      applyTrackX(-i * w, false);
+      applyCardMotion(i, 0);
     };
 
     const onMove = (e) => {
@@ -670,15 +843,16 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
       const dx = e.clientX - d.startX;
       const dy = e.clientY - d.startY;
       const now = performance.now();
-      const dt = Math.max(8, now - d.lastT);
-      d.vx = d.vx * 0.55 + ((e.clientX - d.lastX) / dt) * 0.45;
+      const dt = Math.max(6, now - d.lastT);
+      // EMA velocity in px/ms — works on 60–120 Hz
+      d.vx = d.vx * 0.6 + ((e.clientX - d.lastX) / dt) * 0.4;
       d.lastX = e.clientX;
       d.lastT = now;
 
       if (!d.locked) {
-        if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
-        // Clearly vertical → give up
-        if (Math.abs(dy) > 16 && Math.abs(dy) > Math.abs(dx) * 1.4) {
+        if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
+        // Clearly vertical → give up (scroll/note not blocked)
+        if (Math.abs(dy) > 14 && Math.abs(dy) > Math.abs(dx) * 1.35) {
           d.active = false;
           d.locked = false;
           pid = null;
@@ -688,12 +862,30 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
           } catch {
             /* ignore */
           }
-          settleTrack(idxRef.current);
+          settleTrack(idxRef.current, 0);
           return;
         }
         // Commit horizontal once sideways enough
-        if (Math.abs(dx) < 8 && Math.abs(dx) <= Math.abs(dy)) return;
+        if (Math.abs(dx) < 7 && Math.abs(dx) <= Math.abs(dy)) return;
         d.locked = true;
+        // Prefetch further ahead as soon as gesture commits
+        const i0 = idxRef.current;
+        for (const j of [i0 + 1, i0 + 2, i0 - 1]) {
+          if (j < 0 || j >= queueLenRef.current) continue;
+          mediaHydratedRef.current.add(j);
+          const it = queue[j];
+          if (it) {
+            prefetchExerciseMedia(
+              {
+                name: it.name,
+                entry: it.entry,
+                gif: it.entry?.gif,
+                image: it.entry?.image,
+              },
+              findExerciseMedia,
+            );
+          }
+        }
       }
 
       if (e.cancelable) e.preventDefault();
@@ -701,14 +893,21 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
       const i = idxRef.current;
       const len = queueLenRef.current;
       let next = dx;
-      if ((i <= 0 && next > 0) || (i >= len - 1 && next < 0)) next *= 0.32;
+      // Rubber-band at ends (Tinder / Apple edge resistance)
+      if ((i <= 0 && next > 0) || (i >= len - 1 && next < 0)) {
+        next = Math.sign(next) * Math.pow(Math.abs(next), 0.82) * 0.45;
+      }
       d.dx = next;
-      applyTrackX(-i * (trackWRef.current || 0) + next, false);
+      const w = trackWRef.current || 0;
+      // Destination page moves with the finger — never after release
+      applyTrackX(-i * w + next, false);
+      applyCardMotion(i, next);
     };
 
     const finish = (e) => {
-      if (!d.active) return;
+      if (!d.active || finished) return;
       if (pid != null && e.pointerId != null && e.pointerId !== pid) return;
+      finished = true;
       const wasLocked = d.locked;
       const dx = d.dx;
       const vx = d.vx;
@@ -723,31 +922,40 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
       }
 
       if (!wasLocked) {
-        settleTrack(idxRef.current);
+        settleTrack(idxRef.current, 0);
+        d.dx = 0;
+        d.vx = 0;
         return;
       }
 
       const i = idxRef.current;
       const len = Math.max(1, queueLenRef.current);
       const w = trackWRef.current || 1;
-      const distOk = Math.abs(dx) > Math.min(48, w * 0.15);
-      const flingOk = Math.abs(vx) > 0.32;
+      // Distance OR fling commits the page (interactiveSpring feel)
+      const distOk = Math.abs(dx) > Math.min(40, w * 0.12);
+      const flingOk = Math.abs(vx) > 0.28;
       let nextIdx = i;
-      if ((dx < -12 && distOk) || (vx < -0.32 && flingOk && dx <= 4)) {
+      // Swipe left (negative dx) → next · swipe right → previous
+      if ((dx < -10 && distOk) || (vx < -0.28 && flingOk && dx <= 6)) {
         nextIdx = Math.min(i + 1, len - 1);
-      } else if ((dx > 12 && distOk) || (vx > 0.32 && flingOk && dx >= -4)) {
+      } else if ((dx > 10 && distOk) || (vx > 0.28 && flingOk && dx >= -6)) {
         nextIdx = Math.max(i - 1, 0);
       }
 
       if (nextIdx !== i) {
         idxRef.current = nextIdx;
+        // Velocity spring here; layout effect must not restart it
+        skipLayoutSnapRef.current = true;
+        settleTrack(nextIdx, vx);
         setIdx(nextIdx);
-        settleTrack(nextIdx);
         playSound("tap", soundOn);
         setShowSwipeHint(false);
-        if (hapticsOn) buzz(10, true);
+        // Success haptic — slightly longer than soft cancel
+        if (hapticsOn) buzz([12, 30, 18], true);
       } else {
-        settleTrack(i);
+        // Cancel: spring back to current page
+        settleTrack(i, vx);
+        if (hapticsOn && Math.abs(dx) > 20) buzz(8, true);
       }
       d.dx = 0;
       d.vx = 0;
@@ -757,7 +965,6 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
     wrap.addEventListener("pointermove", onMove, { passive: false });
     wrap.addEventListener("pointerup", finish);
     wrap.addEventListener("pointercancel", finish);
-    // Lost capture (iOS edge cases)
     wrap.addEventListener("lostpointercapture", finish);
 
     return () => {
@@ -767,7 +974,7 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
       wrap.removeEventListener("pointercancel", finish);
       wrap.removeEventListener("lostpointercapture", finish);
     };
-  }, [phase, applyTrackX, settleTrack, soundOn, hapticsOn]);
+  }, [phase, applyTrackX, applyCardMotion, settleTrack, soundOn, hapticsOn, queue]);
 
   // Nächste offene Übung (für Coach-Karte in der Pause)
   const nextUp = useMemo(() => {
@@ -929,8 +1136,14 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
             <span className="ig-wo-head-vol-unit">kg</span>
           </div>
         </div>
-        {/* Eine Segment-Leiste: folgt Swipe; tippen springt zur Übung */}
-        <div className="ig-wo-segbar" role="tablist" aria-label="Übungen">
+        {/* Segment bar + continuous scrub under finger during swipe */}
+        <div
+          ref={segbarRef}
+          className="ig-wo-segbar"
+          role="tablist"
+          aria-label="Übungen"
+        >
+          <div className="ig-wo-seg-scrub" aria-hidden="true" />
           {queue.map((it, i) => {
             const done = itemDone(it);
             return (
@@ -947,8 +1160,26 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
                   (i < idx ? " past" : "")
                 }
                 onClick={() => {
+                  // Prefetch target + neighbors before jumping
+                  for (const j of [i - 1, i, i + 1, i + 2]) {
+                    if (j < 0 || j >= queue.length) continue;
+                    mediaHydratedRef.current.add(j);
+                    const q = queue[j];
+                    prefetchExerciseMedia(
+                      {
+                        name: q.name,
+                        entry: q.entry,
+                        gif: q.entry?.gif,
+                        image: q.entry?.image,
+                      },
+                      findExerciseMedia,
+                    );
+                  }
+                  setMediaEpoch((n) => n + 1);
+                  idxRef.current = i;
                   setIdx(i);
                   playSound("tap", soundOn);
+                  if (hapticsOn) buzz(10, true);
                 }}
               />
             );
@@ -958,76 +1189,58 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
 
       {showSwipeHint && (
         <div className="ig-wo-swipe-hint" aria-hidden="true">
-          ← wischen: nächste Übung
+          ← wischen: nächste Übung · → zurück
         </div>
       )}
 
       <div ref={trackWrapRef} className="ig-wo-track-wrap">
-      <div
-        ref={trackRef}
-        className="ig-wo-track"
-        style={{
-          width: trackW > 0 ? `${Math.max(queue.length, 1) * trackW}px` : `${Math.max(queue.length, 1) * 100}%`,
-        }}
-      >
-        {queue.map((it, i) => {
-          const e = it.name;
-          const m = it.entry || {};
-          const active = i === idx;
-          return (
-            <div
-              key={`${e}-${i}`}
-              className={"ig-wo-card" + (active ? " active" : "")}
-              style={trackW > 0 ? { width: trackW, minWidth: trackW, maxWidth: trackW } : undefined}
-            >
-              <div className="ig-wo-card-top">
-                <div className="ig-wo-card-info">
-                  <h3 className="ig-wo-ex-name">{e}</h3>
-                  <div className="ig-plan-badges">
-                    {m?.nr && <span className="ig-badge">Gerät {m.nr}</span>}
-                    <span className="ig-badge">{it.sets} × {it.reps} Wdh.</span>
-                    {it.weight != null && (
-                      <span className="ig-badge dim">Ziel {it.weight} kg</span>
-                    )}
-                  </div>
-                  {active && bestBefore > 0 && (
-                    <div className="ig-wo-mini-stats mono">
-                      <span>PR: {bestBefore} kg</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-              {active && (
-                <ExerciseDemo
-                  exerciseName={e}
-                  gif={m?.gif}
-                  image={m?.image}
-                />
-              )}
-              {active && m?.hint && !noteDraft.trim() && (
-                <button
-                  type="button"
-                  className="ig-wo-hint dim ig-wo-hint-btn"
-                  data-no-swipe
-                  onClick={() => {
-                    setGuideOpen(true);
-                    playSound("tap", soundOn);
-                  }}
-                  aria-label={`Anleitung: ${m.hint}`}
-                >
-                  <span className="ig-wo-hint-text">{shortTip(m.hint, 64)}</span>
-                  <span className="ig-wo-hint-info" aria-hidden="true">
-                    <Info size={16} strokeWidth={2.25} />
-                  </span>
-                </button>
-              )}
-              {active && noteDraft.trim() && (
-                <p className="ig-wo-hint note">{shortTip(noteDraft, 80)}</p>
-              )}
-            </div>
-          );
-        })}
-      </div>
+        <div
+          ref={trackRef}
+          className="ig-wo-track"
+          style={{
+            width:
+              trackW > 0
+                ? `${Math.max(queue.length, 1) * trackW}px`
+                : `${Math.max(queue.length, 1) * 100}%`,
+          }}
+        >
+          {queue.map((it, i) => {
+            const e = it.name;
+            const m = it.entry || {};
+            const active = i === idx;
+            // Window: prev/current/next(+2) always painted; hydrated stays mounted
+            // mediaEpoch: re-render when new indices join the warm set
+            const showMedia =
+              mediaEpoch >= 0 &&
+              (mediaHydratedRef.current.has(i) || Math.abs(i - idx) <= 2);
+            const cm = cardMeta[i] || {};
+            // Live note only on active card (draft); others use stored plan note
+            const note =
+              active && noteDraft.trim()
+                ? noteDraft
+                : cm.note || "";
+            return (
+              <WorkoutExerciseCard
+                key={`${e}-${i}`}
+                name={e}
+                meta={m}
+                sets={it.sets}
+                reps={it.reps}
+                targetWeight={it.weight}
+                loadPreview={cm.load}
+                prKg={cm.pr || 0}
+                doneSets={active ? doneCount : cm.done || 0}
+                active={active}
+                showMedia={showMedia}
+                priorityMedia={Math.abs(i - idx) <= 1}
+                widthPx={trackW}
+                hint={m?.hint}
+                note={note}
+                shortTip={shortTip}
+              />
+            );
+          })}
+        </div>
       </div>
 
       {/* Ausführliche Geräte-Anleitung */}

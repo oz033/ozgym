@@ -317,6 +317,14 @@ export default function App() {
               <OzGymMark size={30} variant="glass" title="OZGYM" />
             </span>
             <span className="ig-brand-name">OZGYM</span>
+            {import.meta.env.DEV && (
+              <span
+                className="ig-dev-badge"
+                title="Lokaler Vite-Server — nicht oz-delta.vercel.app"
+              >
+                DEV
+              </span>
+            )}
           </div>
           <div className="ig-header-actions">
             <button

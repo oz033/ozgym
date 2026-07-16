@@ -366,6 +366,19 @@ html, body, #root {
   letter-spacing: 0.16em;
   font-weight: 700;
 }
+/* Only rendered in Vite DEV — confirms you're not on Vercel/PWA cache */
+.ig-dev-badge {
+  margin-left: 8px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #0c0d12;
+  background: #5eead4;
+  line-height: 1.3;
+  flex-shrink: 0;
+}
 .ig-brand svg { color: var(--text); display: block; flex-shrink: 0; }
 .ig-header-actions {
   display: flex;
@@ -1129,6 +1142,21 @@ button.ig-queue-row.done {
   padding: 10px 0;
   box-sizing: content-box;
   align-items: center;
+  position: relative;
+}
+/* Continuous scrub fill under segments (driven by finger progress) */
+.ig-wo-seg-scrub {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  height: 2px;
+  width: 0;
+  margin-top: -1px;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--accent) 35%, transparent);
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.85;
 }
 button.ig-wo-seg {
   flex: 1;
@@ -1146,6 +1174,7 @@ button.ig-wo-seg {
     transform 0.12s var(--ease-out), height 0.15s var(--ease-out);
   /* Invisible padding for 44pt touch */
   position: relative;
+  z-index: 1;
 }
 button.ig-wo-seg::before {
   content: "";
@@ -1211,9 +1240,16 @@ button.ig-wo-seg:active {
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
+  /* Isolate compositing so 120 Hz transforms stay on GPU */
+  contain: layout style;
+  isolation: isolate;
 }
 .ig-wo-track-wrap.is-dragging {
   cursor: grabbing;
+}
+.ig-wo-track-wrap.is-dragging .ig-wo-card {
+  /* Finger owns opacity/scale — no CSS fight mid-gesture */
+  transition: none !important;
 }
 .ig-wo-track {
   display: flex;
@@ -1224,6 +1260,8 @@ button.ig-wo-seg:active {
   transform: translate3d(0, 0, 0);
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
+  /* Promote layer for smooth 60–120 Hz paging */
+  transform-style: preserve-3d;
 }
 .ig-wo-card {
   box-sizing: border-box;
@@ -1237,15 +1275,67 @@ button.ig-wo-seg:active {
   justify-content: center;
   align-items: center;
   gap: 10px;
-  opacity: 0.4;
-  transition: opacity 0.25s ease;
+  /* Neighbors stay readable during swipe (not near-invisible 0.4) */
+  opacity: 0.72;
+  transition: opacity 0.32s cubic-bezier(0.32, 0.72, 0, 1);
   overflow: hidden;
   color: var(--text, #f2f3f7);
   pointer-events: none; /* swipe hits wrap; controls are below */
+  transform-origin: center center;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
 .ig-wo-card.active {
   opacity: 1;
   pointer-events: auto;
+}
+.ig-wo-card-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  max-width: 100%;
+}
+/* Weight × reps painted on every page (visible mid-swipe) */
+.ig-wo-card-load {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 4px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-2) 88%, transparent);
+  border: 1px solid var(--border);
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.ig-wo-card-load small {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-dim);
+  margin-left: 2px;
+  text-transform: lowercase;
+}
+.ig-wo-card-load-x {
+  color: var(--text-dim);
+  font-weight: 600;
+  font-size: 14px;
+}
+.ig-wo-card.active .ig-wo-card-load {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface-2));
+}
+.ig-wo-hint-static {
+  margin: 0;
+  max-width: 280px;
+  text-align: center;
+  pointer-events: none;
 }
 
 .ig-wo-card-top { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; flex-shrink: 0; width: 100%; }
@@ -1272,6 +1362,10 @@ button.ig-wo-seg:active {
   align-items: center;
   justify-content: center;
   pointer-events: none; /* kein Image-Drag, Swipe bleibt auf dem Track */
+  will-change: transform;
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
 .ig-ex-demo-gif {
   width: 100%;
@@ -1282,6 +1376,28 @@ button.ig-wo-seg:active {
   -webkit-user-drag: none;
   user-select: none;
   pointer-events: none;
+}
+/* Warm / priority demos avoid empty surface flash */
+.ig-ex-demo.priority .ig-ex-demo-frame {
+  background: var(--surface-2, #1a1c28);
+}
+.ig-ex-demo.warm .ig-ex-demo-frame {
+  background: #0e1016;
+}
+.ig-wo-track-wrap.is-dragging .ig-ex-demo-frame {
+  transition: none;
+}
+/* Screen-reader-only utility (mediaEpoch anchor etc.) */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 .ig-ex-demo.empty .ig-ex-demo-fallback {
   width: 168px;
