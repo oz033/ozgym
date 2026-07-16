@@ -782,6 +782,9 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
     0,
   );
   const totalPct = totalTarget ? totalSetsDone / totalTarget : 0;
+  // Leiste folgt der aktuellen Karte (Swipe), nicht nur den fertigen Sätzen
+  const exercisePct =
+    queue.length > 0 ? Math.min(1, (idx + 1) / queue.length) : 0;
   const mm = String(Math.floor(elapsed / 60)).padStart(2, "0");
   const ss = String(elapsed % 60).padStart(2, "0");
 
@@ -910,22 +913,50 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
   return (
     <div className="ig-wo">
       <header className="ig-wo-head">
-        <div className="ig-wo-head-mid">
-          <span className="ig-wo-head-title">
-            Übung {idx + 1} von {queue.length}
-          </span>
-          <div className="ig-mini-track">
-            <div className="ig-mini-fill" style={{ width: `${totalPct * 100}%` }} />
+        <div className="ig-wo-head-row">
+          <div className="ig-wo-head-timer mono" aria-label="Trainingszeit">
+            <TimerIcon size={14} strokeWidth={2.25} aria-hidden="true" />
+            <span>
+              {mm}:{ss}
+            </span>
+          </div>
+          <div className="ig-wo-head-pos" aria-label={`Übung ${idx + 1} von ${queue.length}`}>
+            <span className="ig-wo-head-pos-cur mono">{idx + 1}</span>
+            <span className="ig-wo-head-pos-sep">/</span>
+            <span className="ig-wo-head-pos-total mono">{queue.length}</span>
+          </div>
+          <div
+            className="ig-wo-head-vol mono"
+            key={Math.round(sessionRef.current.volume)}
+          >
+            <span className="ig-num-pop">
+              {Math.round(sessionRef.current.volume)}
+            </span>
+            <span className="ig-wo-head-vol-unit">kg</span>
           </div>
         </div>
-        <div className="ig-wo-head-stats mono">
-          <span>{mm}:{ss}</span>
-          <span
-            key={Math.round(sessionRef.current.volume)}
-            className="ig-num-pop"
-          >
-            {Math.round(sessionRef.current.volume)} kg
-          </span>
+        {/* Segment-Leiste: folgt Swipe (idx), fertige Übungen zusätzlich markiert */}
+        <div className="ig-wo-segbar" aria-hidden="true">
+          {queue.map((it, i) => {
+            const done = itemDone(it);
+            return (
+              <span
+                key={`${it.name}-${i}`}
+                className={
+                  "ig-wo-seg" +
+                  (done ? " done" : "") +
+                  (i === idx ? " current" : "") +
+                  (i < idx ? " past" : "")
+                }
+              />
+            );
+          })}
+        </div>
+        <div className="ig-wo-head-track" aria-hidden="true">
+          <div
+            className="ig-wo-head-fill"
+            style={{ width: `${exercisePct * 100}%` }}
+          />
         </div>
       </header>
 
