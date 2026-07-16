@@ -1,4 +1,4 @@
-/* OZGYM Mark — Light tile: charcoal brush O + orange Z */
+/* OZGYM Mark — black brush O + black Z on subtle gray (iOS full-bleed) */
 
 import React from "react";
 
@@ -16,7 +16,7 @@ export function OzGymMark({
   const mode = variant === "color" ? "glass" : variant;
   const filter =
     mode === "mono"
-      ? "grayscale(1) contrast(1.1)"
+      ? "grayscale(1) contrast(1.05)"
       : "none";
 
   return (
@@ -40,7 +40,7 @@ export function OzGymMark({
         display: "block",
         flexShrink: 0,
         filter,
-        background: "#f3f0ea",
+        background: "#b0b4b8",
         WebkitUserDrag: "none",
         userSelect: "none",
       }}

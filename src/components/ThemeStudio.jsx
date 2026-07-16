@@ -7,13 +7,13 @@ import { EclipseMark } from "./brand.jsx";
 
 const ACCENT_PRESETS = [
   { id: "mono", label: "Mono", color: null },
-  { id: "#f5a524", label: "Orange", color: "#f5a524" },
-  { id: "#ff9f1a", label: "Amber", color: "#ff9f1a" },
-  { id: "#e8940f", label: "Gold", color: "#e8940f" },
-  { id: "#2a2a2c", label: "Charcoal", color: "#2a2a2c" },
+  { id: "#e8eaed", label: "Silver", color: "#e8eaed" },
+  { id: "#f2f3f7", label: "White", color: "#f2f3f7" },
+  { id: "#1a1a1c", label: "Ink", color: "#1a1a1c" },
+  { id: "#9aa0ad", label: "Steel", color: "#9aa0ad" },
   { id: "#2f5bff", label: "Kobalt", color: "#2f5bff" },
+  { id: "#f5a524", label: "Orange", color: "#f5a524" },
   { id: "#1f6b4f", label: "Forest", color: "#1f6b4f" },
-  { id: "#ff3b30", label: "Signal", color: "#ff3b30" },
 ];
 
 function Segment({ value, options, onChange }) {
