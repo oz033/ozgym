@@ -716,6 +716,62 @@ html, body, #root {
 .ig-home-hero { display: flex; flex-direction: column; gap: var(--space-1); padding: 0; }
 .ig-home .ig-home-title { font-size: clamp(26px, 7vw, 30px); letter-spacing: -0.5px; }
 .ig-home-overview { margin-top: 0; }
+/* First-run welcome */
+.ig-home-welcome .ig-home-cta {
+  margin-top: 0;
+}
+.ig-welcome-steps {
+  gap: var(--space-2);
+}
+.ig-welcome-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.ig-welcome-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 13.5px;
+  line-height: 1.4;
+  color: var(--text);
+}
+.ig-welcome-list strong {
+  font-weight: 700;
+}
+.ig-welcome-num {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: var(--font-display);
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface-2));
+  color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+}
+.ig-welcome-plans {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.ig-welcome-plans .ig-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.ig-welcome-plan-meta {
+  font-size: 11px;
+  opacity: 0.7;
+  margin-left: 2px;
+}
 .ig-screen-title {
   font-family: var(--font-display);
   font-size: 22px;
