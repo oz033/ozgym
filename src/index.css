@@ -24,6 +24,8 @@ html, body, #root {
 }
 
 .ig-app {
+  /* Fallback bg so children/dock never paint over a foreign page color */
+  --bg: #0c0d12;
   /* Radii & Motion */
   --radius-xl: 24px;
   --radius-lg: 20px;
@@ -67,6 +69,7 @@ html, body, #root {
   font-family: var(--font-body);
   color: var(--text);
   background: var(--bg);
+  background-color: var(--bg);
   /* Fill real iOS visual viewport — never leave a strip under the dock */
   position: fixed;
   inset: 0;
@@ -440,12 +443,15 @@ html, body, #root {
   bottom: 0;
   z-index: 40;
   width: 100%;
-  background: transparent;
+  /* Must match theme --bg so home-indicator zone never flashes white/black on toggle */
+  background: var(--bg);
+  background-color: var(--bg);
   padding: var(--dock-gap) max(12px, var(--safe-left)) var(--safe-bottom)
     max(12px, var(--safe-right));
   box-sizing: border-box;
   pointer-events: none;
-  box-shadow: none;
+  /* Extra paint under the physical bottom (overscroll / subpixel) */
+  box-shadow: 0 24px 0 24px var(--bg);
 }
 .ig-dock[hidden] {
   display: none !important;

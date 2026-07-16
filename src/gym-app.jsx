@@ -146,10 +146,29 @@ export default function App() {
   const cfg = data.settings?.themeCfg || {};
 
   // Browser-Chrome (PWA-Statusleiste) an Theme anpassen
+  // Sync root/html/body background with theme so iOS home-indicator zone
+  // never shows a stale white/black strip when toggling light ↔ dark.
   useEffect(() => {
+    const fallback = theme === "light" ? "#f4f5fa" : "#0c0d12";
+    // Prefer live CSS token from .ig-app (mode-specific dark tints etc.)
+    const appEl = document.querySelector(".ig-app");
+    const token = appEl
+      ? getComputedStyle(appEl).getPropertyValue("--bg").trim()
+      : "";
+    const bg = token || fallback;
+
+    document.documentElement.style.setProperty("--boot-bg", bg);
+    document.documentElement.style.backgroundColor = bg;
+    document.body.style.backgroundColor = bg;
+    const root = document.getElementById("root");
+    if (root) root.style.backgroundColor = bg;
+
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute("content", theme === "light" ? "#f4f5fa" : "#0c0d12");
-  }, [theme]);
+    if (meta) meta.setAttribute("content", bg);
+    // iOS status bar / PWA chrome
+    const metas = document.querySelectorAll('meta[name="theme-color"]');
+    metas.forEach((m) => m.setAttribute("content", bg));
+  }, [theme, mode, cfg.accent]);
 
   // Theme-Studio: Akzent-Variablen + Varianten-Attribute für die ganze App
   const accentStyle = useMemo(() => accentVars(cfg.accent, theme), [cfg.accent, theme]);
