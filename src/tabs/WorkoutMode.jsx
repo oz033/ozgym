@@ -1019,6 +1019,15 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
                   <span className="ig-badge">Gerät {meta.nr}</span>
                 )}
               </div>
+              {/* Demo sits between title and X — fills that empty top gap */}
+              <div className="ig-wo-guide-mid">
+                <ExerciseDemo
+                  exerciseName={exercise}
+                  gif={meta?.gif}
+                  image={meta?.image}
+                  className="ig-wo-guide-demo"
+                />
+              </div>
               <button
                 type="button"
                 className="ig-wo-exit"
@@ -1028,15 +1037,6 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
                 <X size={20} />
               </button>
             </header>
-            {/* Large centered demo — fills the open visual space */}
-            <div className="ig-wo-guide-hero">
-              <ExerciseDemo
-                exerciseName={exercise}
-                gif={meta?.gif}
-                image={meta?.image}
-                className="ig-wo-guide-demo"
-              />
-            </div>
             <div className="ig-wo-guide-body">
               {meta?.benefit && (
                 <p className="ig-wo-guide-benefit">{meta.benefit}</p>

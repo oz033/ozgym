@@ -1426,28 +1426,32 @@ button.ig-overview-col { cursor: pointer; }
   background: var(--surface, #161822);
   border-top: 1px solid var(--border);
   border-radius: 20px 20px 0 0;
-  /* Use almost full workout screen — demo + text need room */
-  max-height: min(92dvh, 900px);
-  height: min(92dvh, 900px);
+  max-height: min(88dvh, 720px);
   display: flex;
   flex-direction: column;
   box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.35);
 }
+/*
+ * Header row: [ title left ] [ demo fills gap ] [ X right ]
+ * Demo is centered in the free space between Shoulderpress and X.
+ */
 .ig-wo-guide-head {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 12px 16px 8px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(120px, 1.15fr) 44px;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px 12px 16px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
+  min-height: 132px;
 }
 .ig-wo-guide-titles {
-  flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 4px;
   align-items: flex-start;
+  justify-content: center;
 }
 .ig-wo-guide-kicker {
   font-size: 10px;
@@ -1460,44 +1464,43 @@ button.ig-overview-col { cursor: pointer; }
   margin: 0;
   width: 100%;
   font-family: var(--font-display);
-  font-size: 20px;
+  font-size: clamp(16px, 4.6vw, 20px);
   font-weight: 700;
   letter-spacing: -0.3px;
   line-height: 1.15;
 }
-/* Hero demo zone — fills empty middle of the sheet */
-.ig-wo-guide-hero {
-  flex: 0 0 auto;
+.ig-wo-guide-mid {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 100%;
-  padding: 10px 16px 6px;
-  background: color-mix(in srgb, var(--bg) 55%, var(--surface));
-  border-bottom: 1px solid var(--border);
-  min-height: min(42dvh, 320px);
-  max-height: min(46dvh, 360px);
+  min-width: 0;
+  height: 100%;
+  align-self: stretch;
 }
 .ig-wo-guide-demo {
   width: 100%;
-  max-width: min(100%, 340px);
-  margin: 0 auto;
+  height: 100%;
+  margin: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  gap: 0;
+}
+/* Hide extra chrome — only the GIF fills the mid column */
+.ig-wo-guide-demo .ig-ex-demo-match,
+.ig-wo-guide-demo .ig-ex-demo-chips {
+  display: none;
 }
 .ig-wo-guide-demo .ig-ex-demo-frame {
-  width: min(78vw, 300px);
-  height: min(78vw, 300px);
-  max-width: 100%;
-  max-height: min(40dvh, 300px);
+  width: min(100%, 148px);
+  height: min(100%, 148px);
   aspect-ratio: 1;
-  border-radius: 18px;
+  border-radius: 16px;
   border: 1px solid var(--border);
   overflow: hidden;
   background: var(--surface-2);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
 }
 .ig-wo-guide-demo .ig-ex-demo-gif {
   width: 100%;
@@ -1505,31 +1508,41 @@ button.ig-overview-col { cursor: pointer; }
   object-fit: cover;
   display: block;
 }
-.ig-wo-guide-demo .ig-ex-demo-match {
-  font-size: 10px;
-  color: var(--text-dim);
-}
-.ig-wo-guide-demo .ig-ex-demo-chips {
-  justify-content: center;
-  flex-wrap: wrap;
-  max-width: 100%;
-}
 .ig-wo-guide-demo.empty {
   width: 100%;
+  height: 100%;
 }
 .ig-wo-guide-demo.empty .ig-ex-demo-fallback {
-  width: min(78vw, 300px);
-  max-width: 100%;
-  min-height: min(40dvh, 280px);
+  width: min(100%, 148px);
+  height: min(100%, 148px);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 20px;
-  border-radius: 18px;
+  padding: 8px;
+  border-radius: 16px;
   border: 1px dashed var(--border);
   background: var(--surface-2);
+  font-size: 11px;
+}
+.ig-wo-guide-demo.empty .ig-ex-demo-fallback-hint {
+  display: none;
+}
+.ig-wo-guide-head .ig-wo-exit {
+  align-self: start;
+  margin-top: 2px;
+}
+@media (min-width: 380px) {
+  .ig-wo-guide-head {
+    min-height: 156px;
+    grid-template-columns: minmax(0, 1fr) minmax(140px, 1.2fr) 44px;
+  }
+  .ig-wo-guide-demo .ig-ex-demo-frame,
+  .ig-wo-guide-demo.empty .ig-ex-demo-fallback {
+    width: min(100%, 168px);
+    height: min(100%, 168px);
+  }
 }
 /* Compact variant kept for other uses */
 .ig-ex-demo.compact {
