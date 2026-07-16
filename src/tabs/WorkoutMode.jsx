@@ -212,7 +212,7 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
       exerciseGuide.move?.length ||
       exerciseGuide.avoid?.length);
   const doneCount = setsFor(exercise);
-  const isLast = idx === queue.length - 1;
+
 
   // Beim Übungswechsel Guide schließen
   useEffect(() => {
@@ -977,16 +977,9 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
           return (
             <div
               key={`${e}-${i}`}
-              className={
-                "ig-wo-card" +
-                (active ? " active" : "") +
-                (active && isLast ? " final" : "")
-              }
+              className={"ig-wo-card" + (active ? " active" : "")}
               style={trackW > 0 ? { width: trackW, minWidth: trackW, maxWidth: trackW } : undefined}
             >
-              {active && isLast && (
-                <div className="ig-wo-final-banner">Letzte Übung — jetzt alles geben!</div>
-              )}
               <div className="ig-wo-card-top">
                 <div className="ig-wo-card-info">
                   <h3 className="ig-wo-ex-name">{e}</h3>
