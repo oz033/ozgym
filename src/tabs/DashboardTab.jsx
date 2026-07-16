@@ -10,9 +10,6 @@ import {
   Target,
   CalendarDays,
   Zap,
-  ListPlus,
-  ClipboardList,
-  ChevronRight,
 } from "lucide-react";
 import { CountUp } from "../components/ui.jsx";
 import StreakCalendar from "../components/StreakCalendar.jsx";
@@ -74,110 +71,26 @@ export default function DashboardTab({ data, update, goTo, onStart }) {
   const weekday = WEEKDAYS_DE[new Date().getDay()];
   const preview = (plan?.exercises || []).slice(0, 5);
 
-  const plans = data.plans || [];
-  const hasPlanWithExercises =
-    plans.some((p) => (p.exercises || []).length > 0) ||
-    (plan && (plan.exercises || []).length > 0);
-
-  /* —— First open / noch kein Training: klarer Einstieg mit Plan-Fokus —— */
+  /* —— Empty: first session —— */
   if (stats.totalWorkouts === 0) {
     return (
-      <div className="ig-tabpane ig-home ig-home-welcome">
+      <div className="ig-tabpane ig-home">
         <div className="ig-home-hero">
-          <span className="ig-home-eyebrow mono">{weekday} · Willkommen</span>
-          <h1 className="ig-home-title">Bereit für OZGYM?</h1>
+          <span className="ig-home-eyebrow mono">{weekday} · Start</span>
+          <h1 className="ig-home-title">{greeting}</h1>
           <p className="ig-home-sub">
-            Leg zuerst deinen Trainingsplan fest — dann startest du dein erstes
-            Workout in wenigen Taps.
+            {plan
+              ? `${plan.name} · ${plan.exercises.length} Übungen · ≈ ${duration} Min`
+              : "Lege im Plan-Tab deinen Trainingsplan an — oder starte direkt."}
           </p>
         </div>
-
-        <div className="ig-card ig-welcome-steps">
-          <div className="ig-field-label">So startest du</div>
-          <ol className="ig-welcome-list">
-            <li>
-              <span className="ig-welcome-num">1</span>
-              <span>
-                <strong>Trainingsplan</strong> anlegen oder Vorlage anpassen
-                (Übungen, Sätze, Tage)
-              </span>
-            </li>
-            <li>
-              <span className="ig-welcome-num">2</span>
-              <span>
-                Unter <strong>Train</strong> Dauer wählen und Workout starten
-              </span>
-            </li>
-            <li>
-              <span className="ig-welcome-num">3</span>
-              <span>
-                Fortschritt siehst du unter <strong>Stats</strong>
-              </span>
-            </li>
-          </ol>
-        </div>
-
-        {plans.length > 0 && (
-          <div className="ig-card">
-            <div className="ig-field-label">Deine Pläne</div>
-            <div className="ig-welcome-plans">
-              {plans.map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  className={
-                    "ig-chip" + (p.id === plan?.id ? " active" : "")
-                  }
-                  onClick={() => {
-                    update((prev) => ({ ...prev, activePlanId: p.id }));
-                    goTo("plan");
-                  }}
-                >
-                  {p.icon} {p.name}
-                  <span className="ig-welcome-plan-meta mono">
-                    {(p.exercises || []).length}
-                  </span>
-                </button>
-              ))}
-            </div>
-            <p className="ig-plan-text" style={{ margin: 0 }}>
-              Tippe einen Plan an, um Übungen zu prüfen oder zu ändern.
-            </p>
-          </div>
-        )}
-
         <button
-          type="button"
           className="ig-btn-primary wide xl ig-home-cta"
-          onClick={() => goTo("plan")}
+          onClick={() => (plan ? onStart() : goTo("plan"))}
         >
-          <ClipboardList size={20} />
-          {plans.length ? "Plan bearbeiten" : "Trainingsplan erstellen"}
+          <Play size={20} />
+          {plan ? "Erstes Workout starten" : "Plan anlegen"}
         </button>
-
-        {hasPlanWithExercises && (
-          <button
-            type="button"
-            className="ig-btn-primary wide ghosted ig-home-cta"
-            onClick={() => onStart()}
-          >
-            <Play size={18} />
-            Erstes Workout starten
-            {plan ? ` · ${plan.name}` : ""}
-          </button>
-        )}
-
-        {!hasPlanWithExercises && (
-          <button
-            type="button"
-            className="ig-btn-primary wide ghosted ig-home-cta"
-            onClick={() => goTo("plan")}
-          >
-            <ListPlus size={18} />
-            Übungen zum Plan hinzufügen
-            <ChevronRight size={16} style={{ marginLeft: "auto" }} />
-          </button>
-        )}
       </div>
     );
   }
