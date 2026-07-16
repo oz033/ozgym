@@ -1,4 +1,4 @@
-/* OZGYM Mark — black brush O + black Z on subtle gray (iOS full-bleed) */
+/* OZGYM Mark — black brush O + black Z on white (iOS full-bleed) */
 
 import React from "react";
 
@@ -40,7 +40,7 @@ export function OzGymMark({
         display: "block",
         flexShrink: 0,
         filter,
-        background: "#b0b4b8",
+        background: "#ffffff",
         WebkitUserDrag: "none",
         userSelect: "none",
       }}

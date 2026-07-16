@@ -18,8 +18,8 @@ if (!existsSync(SRC)) {
   process.exit(1);
 }
 
-// Match current master tile (subtle cool gray)
-const CREAM = { r: 176, g: 180, b: 184, alpha: 1 };
+// White tile — black brush O+Z on pure white (iOS full-bleed)
+const CREAM = { r: 255, g: 255, b: 255, alpha: 1 };
 
 async function squareFullBleed(name, size) {
   // Cover + center crop to exact square (strips accidental letterboxing)
@@ -75,7 +75,7 @@ writeFileSync(
   join(outDir, "favicon.svg"),
   `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <rect width="32" height="32" fill="#b0b4b8"/>
+  <rect width="32" height="32" fill="#ffffff"/>
   <image width="32" height="32" href="data:image/png;base64,${b64}"/>
 </svg>
 `,
