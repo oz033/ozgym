@@ -2,15 +2,15 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
-import { AlertTriangle, Check } from "lucide-react";
+import { AlertTriangle, Check, Info, Trash2 } from "lucide-react";
 import { REDUCED_MOTION, buzz } from "../lib/utils.js";
 
 /* Leichter Toast-Bus: showToast() feuert ein CustomEvent, das der ToastHost in
    der App-Shell rendert. Kein Prop-Drilling, kein Context — Fehlertexte dürfen
    aus jedem Tab kommen. Ersetzt window.alert() (bricht Premium-Gefühl). */
-export function showToast(message, type = "error") {
+export function showToast(message, type = "error", opts = {}) {
   window.dispatchEvent(
-    new CustomEvent("ozgym:toast", { detail: { message, type } }),
+    new CustomEvent("ozgym:toast", { detail: { message, type, ...opts } }),
   );
 }
 
@@ -111,13 +111,14 @@ export function ToastHost({ hapticsOn = true }) {
   }, [hapticsOn]);
   useEffect(() => {
     const onToast = (e) => {
-      const { message, type = "error" } = e.detail || {};
+      const { message, type = "error", sticky, actionLabel, onAction } =
+        e.detail || {};
       if (!message) return;
       clearTimeout(timer.current);
       // key erzwingt Remount → Ein-Animation (inkl. Shake) spielt erneut
-      setToast({ message, type, key: Date.now() });
+      setToast({ message, type, sticky, actionLabel, onAction, key: Date.now() });
       if (type === "error") buzz([30, 40, 30], hapticsRef.current);
-      timer.current = setTimeout(() => setToast(null), 3600);
+      if (!sticky) timer.current = setTimeout(() => setToast(null), 3600);
     };
     window.addEventListener("ozgym:toast", onToast);
     return () => {
@@ -126,20 +127,40 @@ export function ToastHost({ hapticsOn = true }) {
     };
   }, []);
   if (!toast) return null;
+  const dismiss = () => {
+    clearTimeout(timer.current);
+    setToast(null);
+  };
   return (
     <div
       key={toast.key}
       className={"ig-toast " + toast.type}
       role="alert"
-      onClick={() => {
-        clearTimeout(timer.current);
-        setToast(null);
-      }}
+      onClick={dismiss}
     >
       <span className="ig-toast-icon" aria-hidden="true">
-        {toast.type === "error" ? <AlertTriangle size={16} /> : <Check size={16} />}
+        {toast.type === "error" ? (
+          <AlertTriangle size={16} />
+        ) : toast.type === "info" ? (
+          <Info size={16} />
+        ) : (
+          <Check size={16} />
+        )}
       </span>
       <span className="ig-toast-msg">{toast.message}</span>
+      {toast.actionLabel && (
+        <button
+          type="button"
+          className="ig-toast-action"
+          onClick={(e) => {
+            e.stopPropagation();
+            dismiss();
+            toast.onAction?.();
+          }}
+        >
+          {toast.actionLabel}
+        </button>
+      )}
     </div>
   );
 }
@@ -363,6 +384,143 @@ export function TabBtn({ active, onClick, icon, label }) {
       <span className="ig-tab-icon">{icon}</span>
       <span className="ig-tab-label">{label}</span>
     </button>
+  );
+}
+
+/* Swipe-to-Delete: Zeile nach links ziehen legt roten Löschen-Button frei.
+   Nur eine Geste-Abkürzung — die sichtbaren Buttons bleiben als Fallback,
+   keine Funktion hängt allein am Swipe. */
+export function SwipeRow({
+  onDelete,
+  deleteLabel = "Löschen",
+  contentClassName = "",
+  style,
+  children,
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className={"ig-swipe" + (open ? " open" : "")} style={style}>
+      <button
+        type="button"
+        className="ig-swipe-del"
+        tabIndex={open ? 0 : -1}
+        aria-hidden={!open}
+        aria-label={deleteLabel}
+        onClick={() => {
+          setOpen(false);
+          onDelete();
+        }}
+      >
+        <Trash2 size={18} />
+      </button>
+      <motion.div
+        className={"ig-swipe-content " + contentClassName}
+        drag="x"
+        dragConstraints={{ left: -84, right: 0 }}
+        dragElastic={0.04}
+        dragMomentum={false}
+        animate={{ x: open ? -84 : 0 }}
+        transition={
+          REDUCED_MOTION
+            ? { duration: 0 }
+            : { type: "spring", stiffness: 500, damping: 40 }
+        }
+        onDragEnd={(_, info) =>
+          setOpen(info.offset.x < -40 || info.velocity.x < -300)
+        }
+        onClickCapture={(e) => {
+          // Offene Zeile: erster Tap schließt nur (iOS-Verhalten), löst nichts aus
+          if (open) {
+            e.preventDefault();
+            e.stopPropagation();
+            setOpen(false);
+          }
+        }}
+        style={{ touchAction: "pan-y" }}
+      >
+        {children}
+      </motion.div>
+    </div>
+  );
+}
+
+/* Action-Sheet (Quick-Menü, z. B. Long-Press auf Plan-Karte):
+   Promise<string|null> — id der gewählten Aktion, null bei Abbruch. */
+export function showActionSheet({ title, actions }) {
+  return new Promise((resolve) => {
+    window.dispatchEvent(
+      new CustomEvent("ozgym:actionsheet", { detail: { title, actions, resolve } }),
+    );
+  });
+}
+
+export function ActionSheetHost({ hapticsOn = true }) {
+  const [req, setReq] = useState(null);
+  const hapticsRef = useRef(hapticsOn);
+  useEffect(() => {
+    hapticsRef.current = hapticsOn;
+  }, [hapticsOn]);
+  useEffect(() => {
+    const onOpen = (e) => {
+      if (!e.detail?.resolve) return;
+      buzz(15, hapticsRef.current);
+      setReq(e.detail);
+    };
+    window.addEventListener("ozgym:actionsheet", onOpen);
+    return () => window.removeEventListener("ozgym:actionsheet", onOpen);
+  }, []);
+  useEffect(() => {
+    if (!req) return;
+    const onKey = (e) => {
+      if (e.key === "Escape") {
+        req.resolve(null);
+        setReq(null);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [req]);
+  if (!req) return null;
+  const close = (id) => {
+    req.resolve(id);
+    setReq(null);
+  };
+  return (
+    <div
+      className="ig-confirm-backdrop"
+      onClick={() => close(null)}
+      role="presentation"
+    >
+      <div
+        className="ig-confirm ig-action-sheet"
+        role="menu"
+        aria-label={req.title || "Aktionen"}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {req.title && <h3 className="ig-confirm-title">{req.title}</h3>}
+        <div className="ig-action-list">
+          {(req.actions || []).map((a) => (
+            <button
+              key={a.id}
+              type="button"
+              role="menuitem"
+              className={"ig-action-item" + (a.destructive ? " destructive" : "")}
+              onClick={() => close(a.id)}
+            >
+              {a.icon}
+              <span>{a.label}</span>
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          className="ig-btn-primary wide ghosted"
+          onClick={() => close(null)}
+        >
+          Abbrechen
+        </button>
+      </div>
+    </div>
   );
 }
 

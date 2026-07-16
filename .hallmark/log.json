@@ -5,6 +5,14 @@
     "theme": "modern-minimal / mono-premium dark",
     "enrichment": "none",
     "scope": "app",
+    "brief": "OZGYM v2.3: SwipeRow (Plan-Liste+Editor), Long-Press-ActionSheet, Verlauf-Karten klickbar, Update-Toast (SW prompt), Backup-Erinnerung, Trainingszeit-Karte"
+  },
+  {
+    "date": "2026-07-16",
+    "macrostructure": "Workbench-lite (app shell)",
+    "theme": "modern-minimal / mono-premium dark",
+    "enrichment": "none",
+    "scope": "app",
     "brief": "OZGYM v2.2: Toast+Confirm-Sheet statt native Dialoge, Session-Persistierung (Dauer/≈kcal), PWA-SW + GIF-Offline-Cache, Manifest-Shortcuts, Chart ohne recharts (−340KB), Balken-Mount-Animationen"
   },
   {

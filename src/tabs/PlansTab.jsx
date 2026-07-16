@@ -1,6 +1,6 @@
 /* Pläne: Manager + Editor + Übungsbibliothek */
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Plus, Check, ChevronLeft, Search, Sparkles, Pencil, Copy, Trash2, X, ClipboardList } from "lucide-react";
 import {
   PLAN_COLORS,
@@ -11,9 +11,15 @@ import {
   MUSCLE_ZONE,
   blankPlan,
 } from "../lib/constants.js";
-import { uid, planStats, relativeDay, todayISO, round1 } from "../lib/utils.js";
+import { uid, planStats, relativeDay, todayISO, round1, buzz } from "../lib/utils.js";
 import { generatePlans } from "../lib/planGenerator.js";
-import { EmptyState, showToast, showConfirm } from "../components/ui.jsx";
+import {
+  EmptyState,
+  showToast,
+  showConfirm,
+  showActionSheet,
+  SwipeRow,
+} from "../components/ui.jsx";
 
 export default function PlansTab({ data, update, goTo, autoOpenPlanId, onAutoOpenHandled }) {
   const [editingId, setEditingId] = useState(null);
@@ -38,6 +44,62 @@ export default function PlansTab({ data, update, goTo, autoOpenPlanId, onAutoOpe
   }, [data.library]);
 
   const setActive = (id) => update((prev) => ({ ...prev, activePlanId: id }));
+
+  // Long-Press auf Plan-Karte → Quick-Menü. Timer feuert nach 500 ms ohne
+  // Bewegung; der nachfolgende Click wird unterdrückt, damit die Karte nicht
+  // zusätzlich aktiviert.
+  const lpTimer = useRef(null);
+  const lpPos = useRef(null);
+  const lpFired = useRef(false);
+
+  const openPlanMenu = async (p) => {
+    buzz(30, data.settings?.haptics !== false);
+    const choice = await showActionSheet({
+      title: `${p.icon} ${p.name}`,
+      actions: [
+        { id: "activate", label: "Aktivieren", icon: <Check size={16} /> },
+        { id: "edit", label: "Bearbeiten", icon: <Pencil size={16} /> },
+        { id: "duplicate", label: "Duplizieren", icon: <Copy size={16} /> },
+        { id: "delete", label: "Löschen", icon: <Trash2 size={16} />, destructive: true },
+      ],
+    });
+    if (choice === "activate") setActive(p.id);
+    else if (choice === "edit") setEditingId(p.id);
+    else if (choice === "duplicate") duplicatePlan(p);
+    else if (choice === "delete") deletePlan(p);
+  };
+
+  const withLongPress = (p, onTap) => ({
+    onPointerDown: (e) => {
+      lpFired.current = false;
+      lpPos.current = { x: e.clientX, y: e.clientY };
+      clearTimeout(lpTimer.current);
+      lpTimer.current = setTimeout(() => {
+        lpFired.current = true;
+        openPlanMenu(p);
+      }, 500);
+    },
+    onPointerMove: (e) => {
+      const s = lpPos.current;
+      if (s && Math.hypot(e.clientX - s.x, e.clientY - s.y) > 12) {
+        clearTimeout(lpTimer.current);
+      }
+    },
+    onPointerUp: () => clearTimeout(lpTimer.current),
+    onPointerCancel: () => clearTimeout(lpTimer.current),
+    onPointerLeave: () => clearTimeout(lpTimer.current),
+    // Mobiles Kontextmenü (Text markieren etc.) beim Long-Press unterdrücken
+    onContextMenu: (e) => e.preventDefault(),
+    onClick: (e) => {
+      if (lpFired.current) {
+        e.preventDefault();
+        e.stopPropagation();
+        lpFired.current = false;
+        return;
+      }
+      onTap();
+    },
+  });
 
   const createPlan = () => {
     const plan = blankPlan(plans.length);
@@ -247,11 +309,17 @@ export default function PlansTab({ data, update, goTo, autoOpenPlanId, onAutoOpe
           <div className="ig-field-label">Weitere Pläne</div>
           <div className="ig-plan-list">
             {otherPlans.map((p) => (
-              <div key={p.id} className="ig-plan-card" style={{ "--plan-color": p.color }}>
+              <SwipeRow
+                key={p.id}
+                contentClassName="ig-plan-card"
+                style={{ "--plan-color": p.color }}
+                deleteLabel={`Plan ${p.name} löschen`}
+                onDelete={() => deletePlan(p)}
+              >
                 <button
                   className="ig-plan-main"
-                  onClick={() => setActive(p.id)}
-                  aria-label={`Plan ${p.name} aktivieren`}
+                  {...withLongPress(p, () => setActive(p.id))}
+                  aria-label={`Plan ${p.name} aktivieren — halten für Menü`}
                 >
                   <span className="ig-plan-icon">{p.icon}</span>
                   <span className="ig-plan-info">
@@ -281,7 +349,7 @@ export default function PlansTab({ data, update, goTo, autoOpenPlanId, onAutoOpe
                     <Trash2 size={14} />
                   </button>
                 </div>
-              </div>
+              </SwipeRow>
             ))}
           </div>
         </div>
@@ -429,7 +497,12 @@ function PlanEditor({ plan, data, update, onClose }) {
             {plan.exercises.map((e, i) => {
               const entry = byId[e.exerciseId];
               return (
-                <div key={e.exerciseId + i} className="ig-pe-row">
+                <SwipeRow
+                  key={e.exerciseId + i}
+                  contentClassName="ig-pe-row"
+                  deleteLabel={`${entry?.name || "Übung"} entfernen`}
+                  onDelete={() => removeExercise(i)}
+                >
                   <div className="ig-pe-head">
                     <span className="ig-pe-num mono">{i + 1}</span>
                     <span className="ig-pe-name">
@@ -555,7 +628,7 @@ function PlanEditor({ plan, data, update, onClose }) {
                     value={e.note || ""}
                     onChange={(ev) => patchExercise(i, { note: ev.target.value })}
                   />
-                </div>
+                </SwipeRow>
               );
             })}
           </div>

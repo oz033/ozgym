@@ -2839,6 +2839,78 @@ button.ig-active-plan-btn:active {
   color: #fff;
 }
 
+/* ---- Toast-Action (z. B. "Neu laden" beim Update) ---- */
+.ig-toast-action {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 4px 2px 4px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ig-toast.info { border-color: color-mix(in srgb, var(--info) 45%, var(--border)); }
+.ig-toast.info .ig-toast-icon { color: var(--info); }
+
+/* ---- Swipe-to-Delete ---- */
+.ig-swipe {
+  position: relative;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.ig-swipe-del {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 84px;
+  border: none;
+  background: var(--danger);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+}
+.ig-swipe-del:active { filter: brightness(0.9); }
+.ig-swipe-content {
+  position: relative;
+  z-index: 1;
+  background: var(--surface-2);
+}
+
+/* ---- Action-Sheet (Quick-Menü) ---- */
+.ig-action-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.ig-action-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 13px 14px;
+  cursor: pointer;
+  text-align: left;
+  transition: transform var(--dur-fast) var(--ease-out),
+    background-color var(--dur-med) var(--ease-out);
+}
+.ig-action-item:active { transform: scale(0.97); }
+.ig-action-item.destructive { color: var(--danger); }
+
 /* ---- Gewichts-Chart (eigene SVG-Linie statt recharts) ---- */
 .ig-wchart { width: 100%; }
 .ig-wchart-tick {
@@ -2851,6 +2923,19 @@ button.ig-active-plan-btn:active {
   font-size: 12px;
   font-weight: 700;
 }
+
+/* ---- Verlauf: Übungs-Statistik-Karten sind Buttons (→ Plan-Editor) ---- */
+button.ig-ex-stat-btn {
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+  color: inherit;
+  font-size: inherit;
+  cursor: pointer;
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+button.ig-ex-stat-btn:active { transform: scale(0.985); }
+.ig-ex-stat-chev { color: var(--text-dim); flex-shrink: 0; margin-left: 2px; }
 
 /* ---- Statistik-Balken bauen sich beim Einblenden auf ---- */
 @keyframes ig-fill-up {

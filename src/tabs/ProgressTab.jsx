@@ -3,7 +3,15 @@
    nichts dupliziert die Overview-Zahlen von Home. */
 
 import React, { useState, useMemo } from "react";
-import { CalendarDays, Scale, Trophy, Award, TrendingUp } from "lucide-react";
+import {
+  CalendarDays,
+  Scale,
+  Trophy,
+  Award,
+  TrendingUp,
+  Timer,
+  ChevronRight,
+} from "lucide-react";
 import { CountUp, Sparkline, EmptyState } from "../components/ui.jsx";
 import WeightChart from "../components/WeightChart.jsx";
 import StreakCalendar from "../components/StreakCalendar.jsx";
@@ -19,7 +27,7 @@ import {
 } from "../lib/utils.js";
 import { BADGE_DEFS, MUSCLE_NAME } from "../lib/constants.js";
 
-export default function ProgressTab({ data, onStart }) {
+export default function ProgressTab({ data, onStart, onEditPlan }) {
   const plans = data.plans || [];
   const [planId, setPlanId] = useState(
     () => getTodayPlan(data)?.id || plans[0]?.id || null,
@@ -47,6 +55,24 @@ export default function ProgressTab({ data, onStart }) {
 
   const frequency = useMemo(() => weeklyFrequency(data.logs, 8), [data.logs]);
   const maxFreqDays = Math.max(1, ...frequency.map((f) => f.days));
+
+  // Trainingszeit aus persistierten Sessions (seit v2.2 beim Abschluss gespeichert)
+  const timeStats = useMemo(() => {
+    const ss = data.sessions || [];
+    if (!ss.length) return null;
+    const monday = new Date();
+    monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+    monday.setHours(0, 0, 0, 0);
+    const weekSec = ss
+      .filter((x) => new Date(x.date + "T12:00:00") >= monday)
+      .reduce((a, x) => a + (x.seconds || 0), 0);
+    const totalSec = ss.reduce((a, x) => a + (x.seconds || 0), 0);
+    return {
+      weekMin: Math.round(weekSec / 60),
+      avgMin: Math.round(totalSec / ss.length / 60),
+      totalH: round1(totalSec / 3600),
+    };
+  }, [data.sessions]);
 
   const weightChart = (data.profile.weightLog || []).map((e) => ({
     label: fmtDate(e.date),
@@ -107,6 +133,35 @@ export default function ProgressTab({ data, onStart }) {
           </div>
         </div>
       </div>
+
+      {/* Trainingszeit: aus den persistierten Sessions — Woche, Ø, gesamt */}
+      {timeStats && (
+        <div className="ig-card ig-overview">
+          <div className="ig-overview-row">
+            <div className="ig-overview-col">
+              <Timer size={17} className="ig-dash-icon" />
+              <span className="ig-overview-num mono">
+                <CountUp value={timeStats.weekMin} />
+              </span>
+              <span className="ig-overview-label">Min diese Woche</span>
+            </div>
+            <div className="ig-overview-divider" />
+            <div className="ig-overview-col">
+              <Timer size={17} className="ig-dash-icon" />
+              <span className="ig-overview-num mono">
+                <CountUp value={timeStats.avgMin} />
+              </span>
+              <span className="ig-overview-label">Ø Min / Einheit</span>
+            </div>
+            <div className="ig-overview-divider" />
+            <div className="ig-overview-col">
+              <Timer size={17} className="ig-dash-icon" />
+              <span className="ig-overview-num mono">{timeStats.totalH}</span>
+              <span className="ig-overview-label">Std gesamt</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Trainingskalender: der eigentliche Verlauf, hier immer sichtbar statt versteckt */}
       <StreakCalendar logs={data.logs} today={today} />
@@ -184,7 +239,13 @@ export default function ProgressTab({ data, onStart }) {
       )}
 
       {rows.map(({ name, s }) => (
-        <div className="ig-card ig-ex-stat" key={name}>
+        <button
+          type="button"
+          className="ig-card ig-ex-stat ig-ex-stat-btn"
+          key={name}
+          onClick={() => onEditPlan && plan && onEditPlan(plan.id)}
+          aria-label={`${name} im Plan-Editor öffnen`}
+        >
           <div className="ig-ex-stat-head">
             <span className="ig-ex-stat-name">{name}</span>
             {s && (
@@ -193,6 +254,7 @@ export default function ProgressTab({ data, onStart }) {
                 {s.diff} kg
               </span>
             )}
+            <ChevronRight size={15} className="ig-ex-stat-chev" aria-hidden="true" />
           </div>
           {!s ? (
             <p className="ig-empty">Noch keine Daten — nach dem ersten Training geht's hier los.</p>
@@ -206,7 +268,7 @@ export default function ProgressTab({ data, onStart }) {
               </div>
             </div>
           )}
-        </div>
+        </button>
       ))}
 
       {/* Abzeichen: Motivation, kein Pflichtprogramm — deshalb ganz unten */}

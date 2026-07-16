@@ -116,9 +116,27 @@ Lives at the end of `src/index.css` ("Interaction Consistency Layer"). Rules:
 - **Sessions-Datenmodell:** `data.sessions[] = { date, seconds, sets, volume, prs }`,
   geschrieben beim Workout-Abschluss. Dashboard zeigt daraus Dauer + ≈kcal
   (MET 5,0 × kg × h — nur mit echtem Körpergewicht, sonst keine Zahl).
-- **PWA:** Service Worker aktiv (autoUpdate + skipWaiting), Übungs-GIFs
-  CacheFirst (offline im Gym). Manifest-Shortcuts: Workout/Pläne/Verlauf via
+- **PWA:** Service Worker aktiv (registerType "prompt" — Update-Toast „Neu
+  laden", nie Auto-Reload mitten im Workout), Übungs-GIFs CacheFirst (offline
+  im Gym). Manifest-Shortcuts: Workout/Pläne/Verlauf via
   `?quick=start|plan|progress`.
+
+## Gesten & Kontextaktionen (v2.3 — 2026-07-16)
+
+- **SwipeRow** (`ui.jsx`) — Zeile nach links = roter Löschen-Reveal (84px,
+  framer-motion drag="x"). Nur Abkürzung: sichtbare Buttons bleiben immer als
+  Fallback. Eingesetzt: Plan-Liste + Übungszeilen im Editor.
+- **ActionSheet** (`showActionSheet`, Promise<id|null>) — Quick-Menü, gleiche
+  Optik wie Confirm-Sheet. Long-Press (500 ms, 12px-Toleranz) auf Plan-Karte:
+  Aktivieren · Bearbeiten · Duplizieren · Löschen.
+- **Toast-Actions** — `showToast(msg, type, { sticky, actionLabel, onAction })`;
+  Typ `info` (blaue Border). Nutzer: Update-Toast, Backup-Erinnerung.
+- **Backup-Erinnerung:** ab 10 Logs, >30 Tage ohne Backup, Nag max. alle
+  14 Tage (`settings.lastBackup` / `settings.lastBackupNag`).
+- **Verlauf → Editor:** Übungs-Statistik-Karten sind Buttons (Chevron rechts),
+  öffnen den Plan im Editor.
+- **Trainingszeit-Karte** im Verlauf: Min diese Woche · Ø Min/Einheit ·
+  Std gesamt (aus `data.sessions`).
 
 ## Copy voice
 

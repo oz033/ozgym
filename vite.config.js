@@ -3,21 +3,20 @@ import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 
 // PWA wieder aktiv. Der alte Vorfall (SW servierte den entfernten
-// Onboarding-Wizard) ist mit autoUpdate + skipWaiting + clientsClaim +
-// cleanupOutdatedCaches gelöst: neue Deploys übernehmen sofort.
+// Onboarding-Wizard) ist gelöst: registerType "prompt" + Update-Toast in
+// main.jsx — der Nutzer entscheidet, WANN die neue Version übernimmt
+// (nie mitten im Workout), cleanupOutdatedCaches räumt Altlasten weg.
 export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: "autoUpdate",
+      registerType: "prompt",
       // public/manifest.webmanifest bleibt die eine Quelle (inkl. shortcuts)
       manifest: false,
       workbox: {
         globPatterns: ["**/*.{js,css,html,svg,png,ico,webmanifest}"],
         navigateFallback: "/index.html",
         cleanupOutdatedCaches: true,
-        clientsClaim: true,
-        skipWaiting: true,
         runtimeCaching: [
           {
             // Übungs-GIFs/Bilder (jsDelivr-CDN): einmal gesehen = offline da.

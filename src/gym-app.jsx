@@ -29,7 +29,14 @@ import {
 } from "./lib/utils.js";
 import { hydrate, freshState, prepareForStorage } from "./lib/migrate.js";
 import { generatePlans } from "./lib/planGenerator.js";
-import { TabBtn, TabSkeleton, ToastHost, ConfirmHost } from "./components/ui.jsx";
+import {
+  TabBtn,
+  TabSkeleton,
+  ToastHost,
+  ConfirmHost,
+  ActionSheetHost,
+  showToast,
+} from "./components/ui.jsx";
 // Home ist der erste Screen nach dem Laden — sofort verfügbar statt nachgeladen.
 import DashboardTab from "./tabs/DashboardTab.jsx";
 // Alles andere (inkl. recharts in ProgressTab) erst bei Bedarf laden, damit der
@@ -275,6 +282,34 @@ export default function App() {
     else if (q === "start") startWorkoutRef.current?.();
   }, [loaded]);
 
+  // Backup-Erinnerung: alles liegt nur in localStorage — Gerätewechsel oder
+  // Browser-Datenlöschung = Totalverlust. Ab 10 Einheiten alle 30 Tage ohne
+  // Backup erinnern (Nag selbst max. alle 14 Tage).
+  useEffect(() => {
+    if (!loaded) return;
+    const t = setTimeout(() => {
+      const days = (iso) =>
+        iso ? (Date.now() - new Date(iso + "T00:00:00").getTime()) / 86400000 : Infinity;
+      const s = data.settings || {};
+      if (
+        (data.logs || []).length >= 10 &&
+        days(s.lastBackup) > 30 &&
+        days(s.lastBackupNag) > 14
+      ) {
+        showToast("Lange kein Backup — sichere deine Daten.", "info", {
+          actionLabel: "Zum Profil",
+          onAction: () => setTab("profile"),
+        });
+        update((prev) => ({
+          ...prev,
+          settings: { ...prev.settings, lastBackupNag: todayISO() },
+        }));
+      }
+    }, 2500);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loaded]);
+
   if (!loaded) {
     return (
       <div className="ig-app" {...themeAttrs} style={accentStyle}>
@@ -438,7 +473,9 @@ export default function App() {
                     onAutoOpenHandled={() => setAutoEditPlanId(null)}
                   />
                 )}
-                {tab === "progress" && <ProgressTab data={data} onStart={startWorkout} />}
+                {tab === "progress" && (
+                  <ProgressTab data={data} onStart={startWorkout} onEditPlan={editPlan} />
+                )}
                 {tab === "profile" && <ProfileTab data={data} update={update} goTo={goTo} />}
               </Suspense>
             </motion.div>
@@ -473,6 +510,7 @@ export default function App() {
 
         <ToastHost hapticsOn={data.settings?.haptics !== false} />
         <ConfirmHost hapticsOn={data.settings?.haptics !== false} />
+        <ActionSheetHost hapticsOn={data.settings?.haptics !== false} />
 
         {/* Dock shell paints app bg into home-indicator zone; pill floats above */}
         {!workoutOpen && (

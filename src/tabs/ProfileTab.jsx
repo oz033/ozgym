@@ -105,6 +105,11 @@ export default function ProfileTab({ data, update, goTo }) {
     a.download = `ozgym-backup-${todayISO()}.json`;
     a.click();
     URL.revokeObjectURL(url);
+    // Backup-Erinnerung (App-Shell) zurücksetzen
+    update((prev) => ({
+      ...prev,
+      settings: { ...prev.settings, lastBackup: todayISO() },
+    }));
   };
 
   const importData = (file) => {
