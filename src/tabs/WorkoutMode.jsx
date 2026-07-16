@@ -41,7 +41,13 @@ import {
 import { setWorkoutWakeLock } from "../lib/wakeLock.js";
 import { ZONE_LABEL, MUSCLE_NAME, MOTIVATION_POOL } from "../lib/constants.js";
 import { smartSuggest } from "../lib/planGenerator.js";
-import { buildWarmup, buildCooldown } from "../lib/stretches.js";
+import {
+  resolveWarmupItems,
+  resolveCooldownItems,
+  resolveCardioItems,
+  formatPrepMeta,
+  CARDIO_INTENSITIES,
+} from "../lib/stretches.js";
 
 /** Truncate cleanly at word boundary. */
 function shortTip(text, max = 72) {
@@ -78,10 +84,8 @@ function liftTipFromMeta(meta) {
   return { setup, cue };
 }
 
-/* Warm-up / Cool-down: geführte Abfolge aus Mobilisation bzw. statischen
-   Dehnungen. Jede Übung: erledigen, überspringen oder (bei Zeitangabe) per
-   Countdown-Timer laufen lassen. Alles ist überspringbar — die Abfolge
-   blockiert nie das eigentliche Training. */
+/* Cardio / Warm-up / Cool-down: geführte Abfolge. Jede Übung erledigen,
+   überspringen oder (bei Zeitangabe) per Countdown. Alles überspringbar. */
 function StretchFlow({ mode, items, soundOn, hapticsOn, onDone }) {
   const [idx, setIdx] = useState(0);
   const [status, setStatus] = useState(() => items.map(() => "open"));
@@ -89,7 +93,19 @@ function StretchFlow({ mode, items, soundOn, hapticsOn, onDone }) {
   const [running, setRunning] = useState(false);
   const item = items[idx];
   const isWarmup = mode === "warmup";
+  const isCardio = mode === "cardio";
   const doneCount = status.filter((s) => s !== "open").length;
+
+  const titles = {
+    cardio: "Cardio",
+    warmup: "Warm-up",
+    cooldown: "Cool-down",
+  };
+  const skipAllLabel = {
+    cardio: "Cardio überspringen — weiter",
+    warmup: "Warm-up überspringen — direkt trainieren",
+    cooldown: "Cool-down beenden",
+  };
 
   const finishWith = (finalStatus) => {
     const stretched = finalStatus.filter((s) => s === "done").length;
@@ -117,7 +133,6 @@ function StretchFlow({ mode, items, soundOn, hapticsOn, onDone }) {
     advance(nextStatus);
   };
 
-  // Countdown (nur Übungen mit Zeitangabe)
   useEffect(() => {
     if (!running || !item?.seconds) return;
     const iv = setInterval(() => setTimeLeft((t) => Math.max(0, t - 1)), 1000);
@@ -135,6 +150,9 @@ function StretchFlow({ mode, items, soundOn, hapticsOn, onDone }) {
   if (!item) return null;
   const mm = String(Math.floor(timeLeft / 60)).padStart(2, "0");
   const ss = String(timeLeft % 60).padStart(2, "0");
+  const intensityLabel =
+    CARDIO_INTENSITIES.find((x) => x.id === item.intensity)?.label ||
+    item.intensity;
 
   return (
     <div className="ig-wo ig-wo-stretch">
@@ -142,14 +160,12 @@ function StretchFlow({ mode, items, soundOn, hapticsOn, onDone }) {
         <button
           className="ig-icon-btn ghost"
           onClick={() => finishWith(status)}
-          aria-label={isWarmup ? "Warm-up überspringen" : "Cool-down überspringen"}
+          aria-label={`${titles[mode] || "Phase"} überspringen`}
         >
           <X size={20} />
         </button>
         <div className="ig-wo-head-mid">
-          <span className="ig-wo-head-title">
-            {isWarmup ? "Warm-up" : "Cool-down"}
-          </span>
+          <span className="ig-wo-head-title">{titles[mode] || mode}</span>
           <span className="ig-wo-stretch-count mono">
             {Math.min(doneCount + 1, items.length)}/{items.length}
           </span>
@@ -175,13 +191,36 @@ function StretchFlow({ mode, items, soundOn, hapticsOn, onDone }) {
             {item.zone && (
               <span className="ig-badge">{ZONE_LABEL[item.zone] || item.zone}</span>
             )}
-            <span className="ig-badge dim">
-              {item.seconds ? `${item.seconds}s halten` : `${item.reps} Wdh. je Seite`}
-            </span>
+            {isCardio ? (
+              <>
+                {item.seconds ? (
+                  <span className="ig-badge dim">
+                    {Math.round(item.seconds / 60)} Min
+                  </span>
+                ) : null}
+                {item.distanceKm != null && item.distanceKm > 0 ? (
+                  <span className="ig-badge dim">{item.distanceKm} km</span>
+                ) : null}
+                {intensityLabel ? (
+                  <span className="ig-badge dim">{intensityLabel}</span>
+                ) : null}
+              </>
+            ) : (
+              <span className="ig-badge dim">
+                {item.seconds
+                  ? `${item.seconds}s halten`
+                  : `${item.reps || "–"} Wdh.`}
+              </span>
+            )}
           </div>
           <h3 className="ig-wo-ex-name">{item.name}</h3>
-          <ExerciseDemo exerciseName={item.mediaName} />
+          {item.mediaName ? (
+            <ExerciseDemo exerciseName={item.mediaName} />
+          ) : null}
           {item.note && <p className="ig-wo-hint dim">{item.note}</p>}
+          {!isCardio && formatPrepMeta(item) ? (
+            <p className="ig-wo-hint dim mono">{formatPrepMeta(item)}</p>
+          ) : null}
           {item.seconds ? (
             <div className="ig-wo-stretch-timer mono" aria-live="polite">
               {mm}:{ss}
@@ -225,7 +264,7 @@ function StretchFlow({ mode, items, soundOn, hapticsOn, onDone }) {
         className="ig-wo-stretch-skipall"
         onClick={() => finishWith(status)}
       >
-        {isWarmup ? "Warm-up überspringen — direkt trainieren" : "Cool-down beenden"}
+        {skipAllLabel[mode] || "Überspringen"}
       </button>
     </div>
   );
@@ -525,26 +564,37 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
     stretches: 0,
   });
 
-  /* ---- Warm-up / Cool-down / Übung ersetzen ---- */
+  /* ---- Cardio / Warm-up / Cool-down / Übung ersetzen ---- */
+  const plan = useMemo(() => getTodayPlan(data), [data]);
   const warmupEnabled = data.settings?.warmup !== false;
   const cooldownEnabled = data.settings?.cooldown !== false;
-  const warmupItems = useMemo(() => buildWarmup(queue), [queue]);
-  // Warm-up nur beim frischen Einstieg — nicht beim Fortsetzen einer Session
+  const cardioItems = useMemo(() => resolveCardioItems(plan), [plan]);
+  const warmupItems = useMemo(
+    () => (warmupEnabled ? resolveWarmupItems(plan, queue) : []),
+    [plan, queue, warmupEnabled],
+  );
+  // Cardio → Warm-up → Main; nur beim frischen Einstieg (nicht Resume)
   const [flowPhase, setFlowPhase] = useState(() => {
-    if (!warmupEnabled || firstOpen === -1) return "main";
+    if (firstOpen === -1) return "main";
     const logged = queue.some((it) =>
       data.logs.some(
         (l) => l.date === today && l.exercise === it.name && l.sets.length > 0,
       ),
     );
-    return logged || buildWarmup(queue).length === 0 ? "main" : "warmup";
+    if (logged) return "main";
+    const cardio = resolveCardioItems(getTodayPlan(data));
+    if (cardio.length) return "cardio";
+    if (warmupEnabled && resolveWarmupItems(getTodayPlan(data), queue).length) {
+      return "warmup";
+    }
+    return "main";
   });
   const [cooldownItems, setCooldownItems] = useState(null);
   const [cooldownDone, setCooldownDone] = useState(false);
   const [replaceOpen, setReplaceOpen] = useState(false);
   const queueNames = useMemo(() => new Set(queue.map((it) => it.name)), [queue]);
 
-  // Nach dem letzten Satz: Cool-down für die tatsächlich trainierten Zonen
+  // Nach dem letzten Satz: Cool-down (Plan-Override oder trainierte Zonen)
   useEffect(() => {
     if (phase !== "done" || cooldownItems !== null) return;
     const s = sessionRef.current;
@@ -553,10 +603,10 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
       setCooldownDone(true);
       return;
     }
-    const items = buildCooldown(s.zones);
+    const items = resolveCooldownItems(plan, s.zones);
     setCooldownItems(items);
     if (!items.length) setCooldownDone(true);
-  }, [phase, cooldownEnabled, cooldownItems]);
+  }, [phase, cooldownEnabled, cooldownItems, plan]);
 
   // Einheit beim Abschluss einmalig persistieren (Dauer, Sätze, Volumen, PRs)
   // — Grundlage für Trainingszeit + ≈kcal auf dem Dashboard und im Verlauf.
@@ -1418,6 +1468,28 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
 
   const mm = String(Math.floor(elapsed / 60)).padStart(2, "0");
   const ss = String(elapsed % 60).padStart(2, "0");
+
+  /* ---- Cardio vor Warm-up / Training ---- */
+  if (flowPhase === "cardio" && phase !== "done") {
+    return (
+      <StretchFlow
+        mode="cardio"
+        items={cardioItems}
+        soundOn={soundOn}
+        hapticsOn={hapticsOn}
+        onDone={(n) => {
+          sessionRef.current.stretches += n;
+          if (warmupEnabled && warmupItems.length) {
+            setFlowPhase("warmup");
+          } else {
+            setFlowPhase("main");
+          }
+          playSound("pr", soundOn);
+          buzz(40, hapticsOn);
+        }}
+      />
+    );
+  }
 
   /* ---- Warm-up vor dem Training ---- */
   if (flowPhase === "warmup" && phase !== "done") {

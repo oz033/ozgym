@@ -2431,6 +2431,67 @@ button.ig-active-plan-btn:active {
 .ig-pe-config input { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); padding: 7px 6px; font-size: 13px; font-family: inherit; text-align: center; width: 100%; }
 .ig-pe-config input:focus { outline: none; border-color: var(--accent); }
 
+/* Prep: Cardio / Warm-up / Cool-down im Plan-Editor */
+.ig-prep-focus-text {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  font-size: 13px;
+}
+.ig-prep-focus-zones {
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.35;
+}
+.ig-prep-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ig-prep-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.ig-prep-section-head .ig-field-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.ig-prep-section-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.ig-prep-count { color: var(--text-dim); font-weight: 600; }
+.ig-prep-empty { margin: 0; font-size: 12.5px; }
+.ig-prep-meta { margin: 0; font-size: 11px; }
+.ig-prep-cardio-config {
+  grid-template-columns: 1fr 1fr;
+  align-items: end;
+}
+.ig-prep-intensity {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.ig-prep-smart-bar {
+  display: flex;
+  gap: 6px;
+  padding: 10px 16px 0;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+.ig-prep-note-line {
+  display: block;
+  margin-top: 2px;
+  opacity: 0.85;
+}
+
 .ig-picker-chips { display: flex; gap: 6px; padding: 10px 16px 0; overflow-x: auto; flex-shrink: 0; scrollbar-width: none; }
 .ig-picker-chips::-webkit-scrollbar { display: none; }
 .ig-picker-chips.wrap { flex-wrap: wrap; padding: 0; overflow: visible; }
