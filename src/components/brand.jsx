@@ -2,7 +2,8 @@
 
 import React from "react";
 
-const MARK_SRC = "/oz-mark.png";
+/* ?v= busts CDN/browser when mark art changes */
+const MARK_SRC = "/oz-mark.png?v=20260717g";
 
 /**
  * @param {"glass" | "color" | "mono" | "onDark" | "onLight"} variant
