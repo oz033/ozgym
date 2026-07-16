@@ -1408,12 +1408,34 @@ button.ig-overview-col { cursor: pointer; }
   border: 1px dashed var(--border);
   cursor: pointer;
   font-family: inherit;
-  text-align: center;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 .ig-wo-hint-btn:active {
   border-color: var(--accent);
   color: var(--text);
+}
+.ig-wo-hint-text {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  line-height: 1.35;
+}
+.ig-wo-hint-info {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  color: var(--accent);
 }
 /* Fullscreen machine guide */
 .ig-wo-guide {

@@ -1037,8 +1037,12 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
                     setGuideOpen(true);
                     playSound("tap", soundOn);
                   }}
+                  aria-label={`Anleitung: ${m.hint}`}
                 >
-                  {shortTip(m.hint, 56)} · Info
+                  <span className="ig-wo-hint-text">{shortTip(m.hint, 64)}</span>
+                  <span className="ig-wo-hint-info" aria-hidden="true">
+                    <Info size={16} strokeWidth={2.25} />
+                  </span>
                 </button>
               )}
               {active && noteDraft.trim() && (
