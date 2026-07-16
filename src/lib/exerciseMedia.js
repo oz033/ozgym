@@ -1,11 +1,17 @@
 /**
  * Lookup against hasaneyldrm/exercises-dataset (slim local index + CDN media).
  * Media © Gym visual — attribution must stay visible.
+ *
+ * WICHTIG: Kein Fuzzy-Matching. Nur exakter Name oder kuratierter Alias.
+ * Lieber kein GIF als das falsche.
  */
 import index from "../data/exercisesIndex.json";
 
-const MEDIA_BASE = index.mediaBase || "https://cdn.jsdelivr.net/gh/hasaneyldrm/exercises-dataset@main/";
-const ATTRIBUTION = index.attribution || "© Gym visual — https://gymvisual.com/";
+const MEDIA_BASE =
+  index.mediaBase ||
+  "https://cdn.jsdelivr.net/gh/hasaneyldrm/exercises-dataset@main/";
+const ATTRIBUTION =
+  index.attribution || "© Gym visual — https://gymvisual.com/";
 
 const byId = new Map();
 const byNormName = new Map();
@@ -15,8 +21,25 @@ for (const ex of index.exercises || []) {
   byNormName.set(norm(ex.name), ex);
 }
 
-// Preferred id aliases for our library names
-const aliasIds = index.aliases || {};
+// Nur explizite, geprüfte Zuordnungen — keine „ähnlich genug“-Tricks.
+// keys = norm(name)
+const STRICT_ALIASES = {
+  // index.aliases (Maschinen / Klassiker)
+  ...(Object.fromEntries(
+    Object.entries(index.aliases || {}).map(([k, v]) => [norm(k), v]),
+  )),
+  // Cardio / Warm-up: nur exakte Dataset-Namen
+  "stationary bike walk": "0798",
+  "walk elliptical cross trainer": "2141",
+  "walking on incline treadmill": "3666",
+  "walking on stepmill": "2311",
+  "jump rope": "2612",
+  "short stride run": "3656",
+  run: "0685",
+  "high knee against wall": "3636",
+  "squat to overhead reach": "1685",
+  "farmers walk": "2133",
+};
 
 export function norm(s) {
   return String(s || "")
@@ -32,43 +55,33 @@ function mediaUrl(rel) {
 }
 
 /**
- * Find best exercise record for a display name.
+ * Strict media lookup: alias → id, or exact normalized name only.
  * @returns {{ id, name, body_part, equipment, target, secondary, gifUrl, imageUrl, attribution } | null}
  */
 export function findExerciseMedia(exerciseName) {
   if (!exerciseName) return null;
   const n = norm(exerciseName);
+  if (!n) return null;
 
-  // 1) curated alias → id
-  const aliasId = aliasIds[n];
+  const aliasId = STRICT_ALIASES[n];
   if (aliasId && byId.has(aliasId)) {
     return shape(byId.get(aliasId));
   }
 
-  // 2) exact name
-  if (byNormName.has(n)) return shape(byNormName.get(n));
-
-  // 3) fuzzy: token overlap, prefer non-band short matches
-  const tokens = n.split(" ").filter(Boolean);
-  if (!tokens.length) return null;
-
-  let best = null;
-  let bestScore = -1e9;
-  for (const ex of index.exercises || []) {
-    const en = norm(ex.name);
-    const hit = tokens.filter((t) => en.includes(t)).length;
-    if (hit < Math.ceil(tokens.length * 0.6)) continue;
-
-    let s = hit * 3;
-    if (tokens.length <= 3 && (en.startsWith("band ") || en.includes(" female"))) s -= 5;
-    if (en === n) s += 20;
-    s -= Math.abs(en.split(" ").length - tokens.length) * 0.25;
-    if (s > bestScore) {
-      bestScore = s;
-      best = ex;
-    }
+  if (byNormName.has(n)) {
+    return shape(byNormName.get(n));
   }
-  return best ? shape(best) : null;
+
+  // Kein Fuzzy — lieber nichts anzeigen
+  return null;
+}
+
+/**
+ * Nur wenn mediaName/name exakt im Dataset liegt (oder Alias).
+ * Für Listen-Thumbs: false → kein Platzhalter-„Zaubern“.
+ */
+export function hasExactExerciseMedia(exerciseName) {
+  return findExerciseMedia(exerciseName) != null;
 }
 
 function shape(ex) {

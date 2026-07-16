@@ -1,7 +1,7 @@
 /* Train-Tab: Session heute — Sätze, Fortschritt, Start (Ausführung) */
 
 import React, { useState, useEffect, useMemo } from "react";
-import { Play, Moon, ChevronRight, Check, Dumbbell, ListPlus, CalendarDays } from "lucide-react";
+import { Play, Moon, Check, Dumbbell, ListPlus, CalendarDays } from "lucide-react";
 import { Sparkline, EmptyState } from "../components/ui.jsx";
 import StreakCalendar from "../components/StreakCalendar.jsx";
 import {

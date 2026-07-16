@@ -98,7 +98,8 @@ const PREP_CATALOG = [
   {
     id: "wu-jumping-jacks",
     name: "Hampelmänner",
-    mediaName: "jumping jacks",
+    // Kein treffendes Dataset-GIF → kein Bild
+    mediaName: null,
     kind: "warmup",
     zones: [],
     equipment: "Körpergewicht",
@@ -436,11 +437,11 @@ const PREP_CATALOG = [
     note: "Entspannen, Arme lang, Atmung tief.",
   },
 
-  /* ── Cardio-Geräte / Elemente ── */
+  /* ── Cardio: mediaName nur wenn exakt im Dataset (kein Fuzzy) ── */
   {
     id: "cardio-treadmill",
     name: "Laufband",
-    mediaName: "walking on treadmill",
+    mediaName: "walking on incline treadmill",
     kind: "cardio",
     zones: [],
     equipment: "Maschine",
@@ -462,7 +463,7 @@ const PREP_CATALOG = [
   {
     id: "cardio-elliptical",
     name: "Crosstrainer",
-    mediaName: "elliptical machine walk",
+    mediaName: "walk elliptical cross trainer",
     kind: "cardio",
     zones: [],
     equipment: "Maschine",
@@ -473,7 +474,8 @@ const PREP_CATALOG = [
   {
     id: "cardio-rower",
     name: "Rudergerät",
-    mediaName: "row",
+    // Kein echtes Ruder-GIF im Dataset → kein Bild
+    mediaName: null,
     kind: "cardio",
     zones: ["back", "legs", "arms"],
     equipment: "Maschine",
@@ -506,7 +508,8 @@ const PREP_CATALOG = [
   {
     id: "cardio-walk",
     name: "Gehen",
-    mediaName: "walking",
+    // Kein reines Gehen-ohne-Geräte im Dataset → kein Bild (kein Farmers Walk)
+    mediaName: null,
     kind: "cardio",
     zones: [],
     equipment: "Körpergewicht",
@@ -517,7 +520,7 @@ const PREP_CATALOG = [
   {
     id: "cardio-jog",
     name: "Joggen",
-    mediaName: "run",
+    mediaName: "short stride run",
     kind: "cardio",
     zones: ["legs"],
     equipment: "Körpergewicht",
@@ -529,6 +532,31 @@ const PREP_CATALOG = [
 
 export function getPrepCatalog() {
   return PREP_CATALOG;
+}
+
+/**
+ * Immer ganz oben im Warm-up-Picker — Cardio-Aufwärmen (nur mit
+ * sauberem Dataset-GIF bzw. ohne Bild).
+ * Reihenfolge = Anzeige-Reihenfolge.
+ */
+export const ALWAYS_TOP_WARMUP_IDS = [
+  "cardio-elliptical", // Crosstrainer
+  "cardio-bike", // Fahrrad
+  "cardio-walk", // Gehen
+  "cardio-treadmill", // Laufband
+  "cardio-rower", // Rudergerät
+  "cardio-jog", // Joggen
+  "cardio-jump-rope", // Seilspringen
+  "cardio-stair", // Treppensteiger
+  "wu-jumping-jacks", // Hampelmänner (ohne GIF)
+];
+
+export function getAlwaysTopWarmupItems(excludeIds = []) {
+  const exclude = new Set(excludeIds);
+  const byId = Object.fromEntries(PREP_CATALOG.map((e) => [e.id, e]));
+  return ALWAYS_TOP_WARMUP_IDS.map((id) => byId[id]).filter(
+    (e) => e && !exclude.has(e.id),
+  );
 }
 
 /** Zonen aus der heutigen Queue ableiten (zone + zone2 der Übungen) */
@@ -657,8 +685,8 @@ export function prepItemFromCatalog(entry, overrides = {}) {
     id: entry.id,
     catalogId: entry.id,
     name: entry.name,
-    mediaName: entry.mediaName,
-    kind: entry.kind,
+    mediaName: entry.mediaName || entry.name || null,
+    kind: entry.kind || "warmup",
     zones: [...(entry.zones || [])],
     equipment: entry.equipment || "Körpergewicht",
     seconds: overrides.seconds ?? entry.seconds ?? null,
@@ -666,6 +694,59 @@ export function prepItemFromCatalog(entry, overrides = {}) {
     note: overrides.note ?? entry.note ?? "",
     distanceKm: overrides.distanceKm ?? null,
     intensity: overrides.intensity ?? entry.intensity ?? null,
+    // Optional: direkte CDN-URLs (Bibliothek / Dataset)
+    gif: entry.gif || null,
+    image: entry.image || null,
+  };
+}
+
+/** Bibliotheks-Übung → Prep-Eintrag (für Suche mit GIF) */
+export function prepItemFromLibrary(libEntry, kind = "warmup") {
+  const zone = libEntry.zone || null;
+  return prepItemFromCatalog(
+    {
+      id: libEntry.id,
+      name: libEntry.name,
+      mediaName: libEntry.name,
+      kind,
+      zones: zone ? [zone] : [],
+      equipment: libEntry.equipment || "",
+      seconds: kind === "cardio" ? 300 : 30,
+      reps: null,
+      gif: libEntry.gif || null,
+      image: libEntry.image || null,
+    },
+  );
+}
+
+/** Eigene Übung (nicht im Katalog) — manuell vom Nutzer angelegt */
+export function prepItemFromCustom({
+  name,
+  kind = "warmup",
+  zone = null,
+  seconds = null,
+  reps = null,
+  note = "",
+  equipment = "Körpergewicht",
+  intensity = null,
+  distanceKm = null,
+}) {
+  const id = "custom-prep-" + uid();
+  const zones = zone ? [zone] : [];
+  return {
+    id,
+    catalogId: id,
+    name: String(name || "").trim(),
+    mediaName: null,
+    kind,
+    zones,
+    equipment,
+    seconds: seconds != null && seconds !== "" ? Number(seconds) : null,
+    reps: reps != null && reps !== "" ? Number(reps) : null,
+    note: note || "",
+    distanceKm: distanceKm != null && distanceKm !== "" ? Number(distanceKm) : null,
+    intensity: intensity || null,
+    custom: true,
   };
 }
 

@@ -63,7 +63,7 @@ export function playSound(type, enabled = true) {
     } else if (type === "tap") {
       tone(440, 0, 0.05, "sine", 0.06);
     }
-  } catch (e) {
+  } catch {
     /* Audio nicht verfügbar */
   }
 }

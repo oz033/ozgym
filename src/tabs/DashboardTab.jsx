@@ -33,7 +33,7 @@ import { weeklyAdherence, catchUpDay } from "../lib/planGenerator.js";
 
 const WEEKDAYS_DE = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
 
-export default function DashboardTab({ data, update, goTo, onStart }) {
+export default function DashboardTab({ data, update: _update, goTo, onStart }) {
   const [showCal, setShowCal] = useState(false);
   const stats = useMemo(
     () => calcStats(data.logs, data.settings?.weeklyGoal || 3),

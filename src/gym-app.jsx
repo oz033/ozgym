@@ -86,6 +86,8 @@ export default function App() {
   // zu zeigen), merkt sich das die App hier und reicht es an PlansTab durch.
   const [autoEditPlanId, setAutoEditPlanId] = useState(null);
   const saveTimer = useRef(null);
+  const dataRef = useRef(data);
+  dataRef.current = data;
   const mainRef = useRef(null);
 
   // Reset scroll when switching tabs so iOS doesn't keep a stuck offset
@@ -108,7 +110,7 @@ export default function App() {
         const hydrated = hydrate(JSON.parse(raw));
         setData((prev) => ({ ...prev, ...hydrated }));
       }
-    } catch (e) {
+    } catch {
       /* keine gespeicherten Daten vorhanden */
     }
     setLoaded(true);
@@ -142,23 +144,67 @@ export default function App() {
     return () => window.removeEventListener("pointerdown", onPointerDown);
   }, []);
 
-  const persist = useCallback((next) => {
-    clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => {
-      try {
-        // Full catalog is static — only store customs + favorites.
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(prepareForStorage(next)));
-      } catch (e) {
-        console.error("Speichern fehlgeschlagen", e);
-      }
-    }, 250);
+  const writeStorage = useCallback((next) => {
+    try {
+      // Full catalog is static — only store customs + favorites.
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(prepareForStorage(next)));
+      return true;
+    } catch (e) {
+      console.error("Speichern fehlgeschlagen", e);
+      // User-sichtbar: sonst wirkt es, als würde nichts gespeichert
+      const quota =
+        e?.name === "QuotaExceededError" ||
+        /quota|storage/i.test(String(e?.message || e));
+      showToast(
+        quota
+          ? "Speicher voll — Backup exportieren oder alte Logs löschen."
+          : "Speichern fehlgeschlagen. Bitte erneut versuchen.",
+        "error",
+      );
+      return false;
+    }
   }, []);
 
+  const persist = useCallback(
+    (next, { immediate = false } = {}) => {
+      dataRef.current = next;
+      clearTimeout(saveTimer.current);
+      if (immediate) {
+        writeStorage(next);
+        return;
+      }
+      saveTimer.current = setTimeout(() => {
+        writeStorage(next);
+      }, 250);
+    },
+    [writeStorage],
+  );
+
+  // Tab schließen / App in Hintergrund: pending Debounce sofort flushen
+  useEffect(() => {
+    const flush = () => {
+      clearTimeout(saveTimer.current);
+      writeStorage(dataRef.current);
+    };
+    const onVis = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    window.addEventListener("pagehide", flush);
+    window.addEventListener("beforeunload", flush);
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      window.removeEventListener("beforeunload", flush);
+      document.removeEventListener("visibilitychange", onVis);
+      flush();
+    };
+  }, [writeStorage]);
+
   const update = useCallback(
-    (fn) => {
+    (fn, opts) => {
       setData((prev) => {
         const next = typeof fn === "function" ? fn(prev) : fn;
-        persist(next);
+        persist(next, opts);
         return next;
       });
     },
@@ -210,7 +256,7 @@ export default function App() {
   const reduced = cfg.motion === "reduced";
 
   // Heutiger Plan: full → trim by Dauer; optional Carry-Over anhängen
-  const { queue, fullQueue, deferredQueue, carryHydrated } = useMemo(() => {
+  const { queue, deferredQueue, carryHydrated } = useMemo(() => {
     const plan = getTodayPlan(data);
     const byId = {};
     (data.library || []).forEach((e) => {
@@ -219,7 +265,6 @@ export default function App() {
     const rest = data.settings?.restSeconds ?? 90;
     const empty = {
       queue: [],
-      fullQueue: [],
       deferredQueue: [],
       carryHydrated: [],
     };
@@ -258,7 +303,6 @@ export default function App() {
 
     return {
       queue: session,
-      fullQueue: full,
       deferredQueue: deferred,
       carryHydrated,
     };

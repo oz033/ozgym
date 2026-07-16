@@ -22,6 +22,7 @@ import {
   TrendingUp,
   Info,
   Repeat,
+  Undo2,
   SkipForward,
   Play,
   Pause,
@@ -122,14 +123,22 @@ function PrepGate({ mode, count, planName, onStart, onSkip, onFinish }) {
   );
 }
 
-/* Warm-up / Cool-down: geführte Abfolge. Cardio-Items im Warm-up mit Zeit/Intensität. */
+/* Warm-up / Cool-down: geführte Abfolge. Timer live einstellbar. */
 function StretchFlow({ mode, items, soundOn, hapticsOn, onDone }) {
   const [idx, setIdx] = useState(0);
   const [status, setStatus] = useState(() => items.map(() => "open"));
-  const [timeLeft, setTimeLeft] = useState(items[0]?.seconds || 0);
+  // Pro-Übung Dauer (s) — darf live angepasst werden
+  const [durations, setDurations] = useState(() =>
+    items.map((it) => Math.max(0, Number(it?.seconds) || 0)),
+  );
+  const [timeLeft, setTimeLeft] = useState(() =>
+    Math.max(0, Number(items[0]?.seconds) || 0),
+  );
   const [running, setRunning] = useState(false);
   const item = items[idx];
+  const duration = durations[idx] || 0;
   const isCardio = item?.kind === "cardio" || mode === "cardio";
+  const hasTimer = duration > 0;
   const doneCount = status.filter((s) => s !== "open").length;
 
   const titles = {
@@ -156,7 +165,7 @@ function StretchFlow({ mode, items, soundOn, hapticsOn, onDone }) {
       return;
     }
     setIdx(next);
-    setTimeLeft(items[next]?.seconds || 0);
+    setTimeLeft(durations[next] || Number(items[next]?.seconds) || 0);
     setRunning(false);
   };
 
@@ -169,13 +178,40 @@ function StretchFlow({ mode, items, soundOn, hapticsOn, onDone }) {
     advance(nextStatus);
   };
 
+  const adjustTimer = (deltaSec) => {
+    setRunning(false);
+    // Cardio: mind. 30s, max 90 Min; Stretch: mind. 10s, max 10 Min
+    const min = isCardio ? 30 : 10;
+    const max = isCardio ? 90 * 60 : 10 * 60;
+    const nextDur = Math.min(max, Math.max(min, Math.max(0, duration + deltaSec)));
+    setDurations((prev) => {
+      const next = [...prev];
+      next[idx] = nextDur;
+      return next;
+    });
+    // Volle Dauer neu setzen (nicht Restzeit + delta)
+    setTimeLeft(nextDur);
+    playSound("tap", soundOn);
+  };
+
+  const setTimerMinutes = (mins) => {
+    setRunning(false);
+    const sec = Math.min(90 * 60, Math.max(30, Math.round(mins) * 60));
+    setDurations((prev) => {
+      const next = [...prev];
+      next[idx] = sec;
+      return next;
+    });
+    setTimeLeft(sec);
+  };
+
   useEffect(() => {
-    if (!running || !item?.seconds) return;
+    if (!running || !hasTimer) return;
     const iv = setInterval(() => setTimeLeft((t) => Math.max(0, t - 1)), 1000);
     return () => clearInterval(iv);
-  }, [running, idx, item?.seconds]);
+  }, [running, idx, hasTimer]);
   useEffect(() => {
-    if (!running || !item?.seconds || timeLeft > 0) return;
+    if (!running || !hasTimer || timeLeft > 0) return;
     setRunning(false);
     playSound("timer", soundOn);
     buzz([120, 80, 120], hapticsOn);
@@ -189,6 +225,7 @@ function StretchFlow({ mode, items, soundOn, hapticsOn, onDone }) {
   const intensityLabel =
     CARDIO_INTENSITIES.find((x) => x.id === item.intensity)?.label ||
     item.intensity;
+  const minsDisplay = Math.max(1, Math.round(duration / 60));
 
   return (
     <div className="ig-wo ig-wo-stretch">
@@ -229,10 +266,8 @@ function StretchFlow({ mode, items, soundOn, hapticsOn, onDone }) {
             )}
             {isCardio ? (
               <>
-                {item.seconds ? (
-                  <span className="ig-badge dim">
-                    {Math.round(item.seconds / 60)} Min
-                  </span>
+                {duration ? (
+                  <span className="ig-badge dim">{minsDisplay} Min</span>
                 ) : null}
                 {item.distanceKm != null && item.distanceKm > 0 ? (
                   <span className="ig-badge dim">{item.distanceKm} km</span>
@@ -243,8 +278,8 @@ function StretchFlow({ mode, items, soundOn, hapticsOn, onDone }) {
               </>
             ) : (
               <span className="ig-badge dim">
-                {item.seconds
-                  ? `${item.seconds}s halten`
+                {duration
+                  ? `${duration}s halten`
                   : `${item.reps || "–"} Wdh.`}
               </span>
             )}
@@ -257,16 +292,72 @@ function StretchFlow({ mode, items, soundOn, hapticsOn, onDone }) {
           {!isCardio && formatPrepMeta(item) ? (
             <p className="ig-wo-hint dim mono">{formatPrepMeta(item)}</p>
           ) : null}
-          {item.seconds ? (
-            <div className="ig-wo-stretch-timer mono" aria-live="polite">
-              {mm}:{ss}
+
+          {hasTimer ? (
+            <div className="ig-wo-stretch-timer-block">
+              <div className="ig-wo-stretch-timer mono" aria-live="polite">
+                {mm}:{ss}
+              </div>
+              {/* Timer live einstellen — Pause beim Anpassen */}
+              <div className="ig-wo-timer-adjust" role="group" aria-label="Timer einstellen">
+                <button
+                  type="button"
+                  className="ig-wo-timer-btn"
+                  onClick={() => adjustTimer(isCardio ? -60 : -15)}
+                  aria-label={isCardio ? "Eine Minute weniger" : "15 Sekunden weniger"}
+                >
+                  −
+                </button>
+                {isCardio ? (
+                  <label className="ig-wo-timer-mins mono">
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min="1"
+                      max="90"
+                      value={minsDisplay}
+                      onChange={(e) =>
+                        setTimerMinutes(Math.max(1, Number(e.target.value) || 1))
+                      }
+                      aria-label="Minuten"
+                    />
+                    <span>min</span>
+                  </label>
+                ) : (
+                  <span className="ig-wo-timer-secs mono">{duration}s</span>
+                )}
+                <button
+                  type="button"
+                  className="ig-wo-timer-btn"
+                  onClick={() => adjustTimer(isCardio ? 60 : 15)}
+                  aria-label={isCardio ? "Eine Minute mehr" : "15 Sekunden mehr"}
+                >
+                  +
+                </button>
+              </div>
+              {isCardio && (
+                <div className="ig-wo-timer-presets" role="group" aria-label="Schnellwahl">
+                  {[3, 5, 8, 10].map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      className={
+                        "ig-chip sm" + (minsDisplay === m ? " active" : "")
+                      }
+                      onClick={() => setTimerMinutes(m)}
+                    >
+                      {m} Min
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           ) : null}
         </div>
       </div>
 
       <div className="ig-wo-stretch-actions">
-        {item.seconds ? (
+        {hasTimer ? (
           <button
             type="button"
             className="ig-btn-secondary"
@@ -276,7 +367,7 @@ function StretchFlow({ mode, items, soundOn, hapticsOn, onDone }) {
             }}
           >
             {running ? <Pause size={16} /> : <Play size={16} />}
-            {running ? "Pause" : timeLeft < item.seconds ? "Weiter" : "Timer starten"}
+            {running ? "Pause" : timeLeft < duration ? "Weiter" : "Timer starten"}
           </button>
         ) : null}
         <button
@@ -312,6 +403,18 @@ function ReplacePanel({ current, library, queueNames, onPick, onClose }) {
   const [equip, setEquip] = useState(null);
   const [query, setQuery] = useState("");
   const EQUIPS = ["Maschine", "Kurzhantel", "Langhantel", "Kabelzug", "Körpergewicht"];
+  const sheetRef = useRef(null);
+  const listRef = useRef(null);
+  const backdropRef = useRef(null);
+  const dragRef = useRef({
+    active: false,
+    fromHandle: false,
+    y0: 0,
+    dy: 0,
+    lastY: 0,
+    lastT: 0,
+    vy: 0,
+  });
 
   const alternatives = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -337,29 +440,174 @@ function ReplacePanel({ current, library, queueNames, onPick, onClose }) {
       .slice(0, 40);
   }, [library, current, equip, queueNames, query]);
 
+  const applyDrag = useCallback((dy) => {
+    const y = Math.max(0, dy);
+    const sheet = sheetRef.current;
+    const bg = backdropRef.current;
+    if (sheet) {
+      sheet.style.transform = `translateY(${y}px)`;
+      sheet.style.transition = "none";
+    }
+    if (bg) {
+      const fade = Math.max(0.12, 1 - y / 320);
+      bg.style.opacity = String(fade);
+      bg.style.transition = "none";
+    }
+  }, []);
+
+  const resetDrag = useCallback(() => {
+    const sheet = sheetRef.current;
+    const bg = backdropRef.current;
+    if (sheet) {
+      sheet.style.transition = "transform 0.28s var(--ease-out, cubic-bezier(0.16,1,0.3,1))";
+      sheet.style.transform = "translateY(0)";
+    }
+    if (bg) {
+      bg.style.transition = "opacity 0.28s var(--ease-out, cubic-bezier(0.16,1,0.3,1))";
+      bg.style.opacity = "1";
+    }
+  }, []);
+
+  const dismissDrag = useCallback(() => {
+    const sheet = sheetRef.current;
+    const bg = backdropRef.current;
+    if (sheet) {
+      sheet.style.transition = "transform 0.22s var(--ease-out, cubic-bezier(0.16,1,0.3,1))";
+      sheet.style.transform = "translateY(110%)";
+    }
+    if (bg) {
+      bg.style.transition = "opacity 0.2s ease";
+      bg.style.opacity = "0";
+    }
+    window.setTimeout(() => onClose(), 200);
+  }, [onClose]);
+
+  // Pull-down: Handle/Header immer · Liste nur bei scrollTop === 0
+  useEffect(() => {
+    const sheet = sheetRef.current;
+    if (!sheet) return;
+    const d = dragRef.current;
+
+    const onDown = (e) => {
+      if (e.button != null && e.button !== 0) return;
+      const t = e.target;
+      // Keine Drag-Interferenz bei Inputs / Buttons / Zeilen
+      if (t.closest("input, textarea, button, a, .ig-wo-replace-row")) return;
+      const onHandle = !!t.closest(".ig-wo-replace-grab");
+      const list = listRef.current;
+      const listAtTop = !list || list.scrollTop <= 0;
+      // In der Liste nur starten wenn ganz oben und nach unten gezogen wird
+      if (!onHandle && t.closest(".ig-wo-replace-list") && !listAtTop) return;
+      if (!onHandle && !t.closest(".ig-wo-replace-list") && !t.closest(".ig-wo-replace-grab")) {
+        // Chips / Search: kein Drag
+        if (t.closest(".ig-wo-replace-search, .ig-wo-replace-chips")) return;
+      }
+      d.active = true;
+      d.fromHandle = onHandle || !!t.closest(".ig-wo-replace-head");
+      d.y0 = e.clientY;
+      d.dy = 0;
+      d.lastY = e.clientY;
+      d.lastT = performance.now();
+      d.vy = 0;
+      try {
+        sheet.setPointerCapture(e.pointerId);
+      } catch {
+        /* ignore */
+      }
+    };
+
+    const onMove = (e) => {
+      if (!d.active) return;
+      const dy = e.clientY - d.y0;
+      const now = performance.now();
+      const dt = Math.max(1, now - d.lastT);
+      d.vy = (e.clientY - d.lastY) / dt;
+      d.lastY = e.clientY;
+      d.lastT = now;
+
+      // Liste: erst nach ~8px nach unten „claimen“, sonst Scroll erlauben
+      if (!d.fromHandle && dy < 8) {
+        if (dy < -4) {
+          // nach oben = normales Scrollen
+          d.active = false;
+          return;
+        }
+        return;
+      }
+      // Nach Claim: Scroll der Liste sperren
+      if (listRef.current) listRef.current.style.overflowY = "hidden";
+      d.dy = dy;
+      applyDrag(dy);
+      e.preventDefault();
+    };
+
+    const onUp = () => {
+      if (!d.active) return;
+      d.active = false;
+      if (listRef.current) listRef.current.style.overflowY = "";
+      const dy = d.dy;
+      const fast = d.vy > 0.55; // px/ms nach unten
+      if (dy > 96 || (dy > 48 && fast)) {
+        dismissDrag();
+      } else {
+        resetDrag();
+      }
+      d.dy = 0;
+    };
+
+    sheet.addEventListener("pointerdown", onDown);
+    sheet.addEventListener("pointermove", onMove, { passive: false });
+    sheet.addEventListener("pointerup", onUp);
+    sheet.addEventListener("pointercancel", onUp);
+    return () => {
+      sheet.removeEventListener("pointerdown", onDown);
+      sheet.removeEventListener("pointermove", onMove);
+      sheet.removeEventListener("pointerup", onUp);
+      sheet.removeEventListener("pointercancel", onUp);
+    };
+  }, [applyDrag, dismissDrag, resetDrag]);
+
   return (
-    <div className="ig-wo-replace-backdrop" onClick={onClose} role="presentation">
+    <div
+      ref={backdropRef}
+      className="ig-wo-replace-backdrop"
+      onClick={onClose}
+      role="presentation"
+    >
       <div
+        ref={sheetRef}
         className="ig-wo-replace"
         role="dialog"
         aria-modal="true"
         aria-label={`Alternative zu ${current.name}`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="ig-wo-replace-head">
+        <div
+          className="ig-wo-replace-grab"
+          aria-hidden="true"
+          title="Zum Schließen nach unten ziehen"
+        />
+        <div className="ig-wo-replace-head ig-wo-replace-grab">
           <div className="ig-wo-replace-title">
             <span className="ig-field-label">Übung ersetzen</span>
-            <strong>
-              Alternativen zu {current.name}
-              {current.muscle ? ` · ${MUSCLE_NAME[current.muscle] || ""}` : ""}
+            <strong title={current.name}>
+              {current.name}
+              {current.muscle
+                ? ` · ${MUSCLE_NAME[current.muscle] || ""}`
+                : ""}
             </strong>
           </div>
-          <button className="ig-icon-btn ghost" onClick={onClose} aria-label="Schließen">
-            <X size={20} />
+          <button
+            type="button"
+            className="ig-icon-btn ghost sm"
+            onClick={onClose}
+            aria-label="Schließen"
+          >
+            <X size={18} />
           </button>
         </div>
         <div className="ig-wo-replace-search">
-          <Search size={15} className="ig-wo-replace-search-icon" aria-hidden="true" />
+          <Search size={14} className="ig-wo-replace-search-icon" aria-hidden="true" />
           <input
             className="ig-input"
             type="search"
@@ -388,10 +636,10 @@ function ReplacePanel({ current, library, queueNames, onPick, onClose }) {
             </button>
           ))}
         </div>
-        <div className="ig-wo-replace-list">
+        <div ref={listRef} className="ig-wo-replace-list">
           {alternatives.length === 0 && (
             <p className="ig-empty">
-              Keine Alternative mit diesem Filter — wähle ein anderes Equipment.
+              Keine Alternative — anderes Equipment wählen.
             </p>
           )}
           {alternatives.map((e) => (
@@ -401,18 +649,20 @@ function ReplacePanel({ current, library, queueNames, onPick, onClose }) {
               className="ig-wo-replace-row"
               onClick={() => onPick(e)}
             >
-              <ExerciseDemo exerciseName={e.name} gif={e.gif} image={e.image} compact />
+              <ExerciseDemo
+                exerciseName={e.name}
+                gif={e.gif}
+                image={e.image}
+                compact
+              />
               <span className="ig-wo-replace-info">
                 <span className="ig-wo-replace-name">{e.name}</span>
                 <span className="ig-wo-replace-meta">
                   {MUSCLE_NAME[e.muscle] || e.muscle}
                   {e.equipment ? ` · ${e.equipment}` : ""}
                 </span>
-                {e.hint && (
-                  <span className="ig-wo-replace-hint">{shortTip(e.hint, 64)}</span>
-                )}
               </span>
-              <Repeat size={15} className="ig-wo-replace-chev" aria-hidden="true" />
+              <Repeat size={14} className="ig-wo-replace-chev" aria-hidden="true" />
             </button>
           ))}
         </div>
@@ -513,7 +763,7 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
       setShowSwipeHint(false);
       try {
         localStorage.setItem("ozgym:swipehint", "1");
-      } catch (e) {
+      } catch {
         /* egal */
       }
     }, 4500);
@@ -572,7 +822,9 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
 
   /* ---- Warm-up / Cool-down (Vorlagen am Plan) ---- */
   const plan = useMemo(() => getTodayPlan(data), [data]);
-  const prepTemplates = data.prepTemplates || [];
+  // data.prepTemplates ist stabil pro Persistenz-Update — nicht `|| []` inline
+  // (sonst neue Array-Referenz jeden Render → useMemo/useEffect thrashen).
+  const prepTemplates = data.prepTemplates;
   const warmupEnabled = data.settings?.warmup !== false;
   const cooldownEnabled = data.settings?.cooldown !== false;
   const warmupItems = useMemo(
@@ -599,6 +851,8 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
   /** null = noch entscheiden, true = läuft/fertig, false = übersprungen ohne Liste */
   const [cooldownGate, setCooldownGate] = useState(null);
   const [replaceOpen, setReplaceOpen] = useState(false);
+  /** Letzter Übungs-Tausch → Undo neben Wechsel-Symbol */
+  const [replaceUndo, setReplaceUndo] = useState(null);
   const queueNames = useMemo(() => new Set(queue.map((it) => it.name)), [queue]);
 
   // Kartenbreite in px messen — %-Breiten am Track verschieben den Inhalt
@@ -647,7 +901,7 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
       setCooldownGate(false);
       return;
     }
-    const items = resolveCooldownItems(plan, prepTemplates, s.zones);
+    const items = resolveCooldownItems(plan, prepTemplates || [], s.zones);
     setCooldownItems(items);
     if (!items.length) {
       setCooldownDone(true);
@@ -890,8 +1144,7 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
 
   const [feedback, setFeedback] = useState(null);
 
-  const step = (setter, current, delta, min) =>
-    setter(round1(Math.max(min, (Number(current) || 0) + delta)));
+
 
   // Hold +/- : first step immediately, then accelerate while pressed
   const holdTimer = useRef(null);
@@ -1058,14 +1311,16 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
      smartSuggest für die neue Übung vor (Effekt auf exercise-Wechsel). */
   const replaceExercise = (newEntry) => {
     const eid = item?.entry?.id;
-    if (!eid || !newEntry) return;
+    if (!eid || !newEntry || newEntry.id === eid) return;
+    const plan = getTodayPlan(data);
+    if (!plan) return;
     update((prev) => {
-      const plan = getTodayPlan(prev);
-      if (!plan) return prev;
+      const p0 = getTodayPlan(prev);
+      if (!p0) return prev;
       return {
         ...prev,
         plans: prev.plans.map((p) =>
-          p.id !== plan.id
+          p.id !== p0.id
             ? p
             : {
                 ...p,
@@ -1076,9 +1331,47 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
         ),
       };
     });
+    setReplaceUndo({
+      planId: plan.id,
+      fromId: eid,
+      toId: newEntry.id,
+      fromName: item?.name || item?.entry?.name || "",
+      toName: newEntry.name || "",
+    });
     setReplaceOpen(false);
     playSound("tap", soundOn);
     buzz(30, hapticsOn);
+  };
+
+  /** Letzten Tausch rückgängig — nur wenn aktuelle Karte noch die neue Übung ist */
+  const undoReplace = () => {
+    const u = replaceUndo;
+    if (!u) return;
+    update((prev) => {
+      const plan = (prev.plans || []).find((p) => p.id === u.planId);
+      if (!plan) return prev;
+      // Nur tauschen wenn die neue ID noch im Plan sitzt
+      const hasTo = (plan.exercises || []).some((it) => it.exerciseId === u.toId);
+      if (!hasTo) return prev;
+      return {
+        ...prev,
+        plans: prev.plans.map((p) =>
+          p.id !== u.planId
+            ? p
+            : {
+                ...p,
+                exercises: p.exercises.map((it) =>
+                  it.exerciseId === u.toId
+                    ? { ...it, exerciseId: u.fromId }
+                    : it,
+                ),
+              },
+        ),
+      };
+    });
+    setReplaceUndo(null);
+    playSound("tap", soundOn);
+    buzz(20, hapticsOn);
   };
 
   /** Pause live ändern und im aktiven Plan speichern (pro Übung) */
@@ -1139,10 +1432,13 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
     buzz(20, hapticsOn);
   };
 
-  // Swipe between exercises — pointer + capture, DOM transform (no React mid-drag)
+  // Swipe between exercises — pointer + capture, DOM transform (no React mid-drag).
+  // WICHTIG: flowPhase in deps — nach Warm-up mountet der Track erst, sonst
+  // bleibt wrap=null und Swipe hängt nie (Shoulderpress etc.).
   useEffect(() => {
+    if (phase === "done" || flowPhase !== "main") return;
     const wrap = trackWrapRef.current;
-    if (!wrap || phase === "done") return;
+    if (!wrap) return;
 
     const d = dragRef.current;
     let pid = null;
@@ -1273,7 +1569,7 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
       wrap.removeEventListener("pointercancel", finish);
       wrap.removeEventListener("lostpointercapture", finish);
     };
-  }, [phase, applyTrackX, settleTrack, soundOn, hapticsOn]);
+  }, [phase, flowPhase, applyTrackX, settleTrack, soundOn, hapticsOn]);
 
   // Measure extras height when content changes
   const measureSheetExtras = useCallback(() => {
@@ -1812,43 +2108,69 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
               }
             >
               <div className="ig-wo-card-top">
-                <div className="ig-wo-card-info">
-                  <h3 className="ig-wo-ex-name">{e}</h3>
-                  <div className="ig-plan-badges">
-                    {m?.nr && <span className="ig-badge">Gerät {m.nr}</span>}
-                    <span className="ig-badge">{it.sets} × {it.reps} Wdh.</span>
-                    {it.weight != null && (
-                      <span className="ig-badge dim">Ziel {it.weight} kg</span>
-                    )}
-                  </div>
-                  {active && bestBefore > 0 && (
-                    <div className="ig-wo-mini-stats mono">
-                      <span>PR: {bestBefore} kg</span>
+                <h3 className="ig-wo-ex-name">{e}</h3>
+                {/* Sätze×Wdh. stehen unten in der Sheet-Bar — oben nicht doppeln */}
+                {(m?.nr || (active && bestBefore > 0)) && (
+                  <div className="ig-wo-card-info">
+                    <div className="ig-plan-badges">
+                      {m?.nr && (
+                        <span className="ig-badge">Gerät {m.nr}</span>
+                      )}
+                      {active && bestBefore > 0 && (
+                        <span className="ig-badge dim mono">
+                          PR {bestBefore} kg
+                        </span>
+                      )}
                     </div>
-                  )}
-                </div>
-                {active && (
-                  <button
-                    type="button"
-                    className="ig-wo-replace-btn"
-                    data-no-swipe
-                    onClick={() => {
-                      setReplaceOpen(true);
-                      playSound("tap", soundOn);
-                    }}
-                    aria-label={`${e} ersetzen — Alternativen zeigen`}
-                    title="Übung ersetzen"
-                  >
-                    <Repeat size={16} />
-                  </button>
+                  </div>
                 )}
               </div>
               {active && (
-                <ExerciseDemo
-                  exerciseName={e}
-                  gif={m?.gif}
-                  image={m?.image}
-                />
+                <div className="ig-wo-demo-block">
+                  <ExerciseDemo
+                    exerciseName={e}
+                    gif={m?.gif}
+                    image={m?.image}
+                  />
+                  {/* Wechsel / Undo unter dem GIF */}
+                  <div className="ig-wo-replace-actions under-gif" data-no-swipe>
+                    {replaceUndo &&
+                      (replaceUndo.toId === it.entry?.id ||
+                        replaceUndo.toName === e) && (
+                        <button
+                          type="button"
+                          className="ig-wo-replace-btn undo"
+                          data-no-swipe
+                          onClick={() => undoReplace()}
+                          aria-label={
+                            replaceUndo.fromName
+                              ? `Rückgängig: wieder ${replaceUndo.fromName}`
+                              : "Tausch rückgängig"
+                          }
+                          title={
+                            replaceUndo.fromName
+                              ? `Rückgängig → ${replaceUndo.fromName}`
+                              : "Rückgängig"
+                          }
+                        >
+                          <Undo2 size={18} strokeWidth={2.25} />
+                        </button>
+                      )}
+                    <button
+                      type="button"
+                      className="ig-wo-replace-btn"
+                      data-no-swipe
+                      onClick={() => {
+                        setReplaceOpen(true);
+                        playSound("tap", soundOn);
+                      }}
+                      aria-label={`${e} ersetzen — Alternativen zeigen`}
+                      title="Übung ersetzen"
+                    >
+                      <Repeat size={18} strokeWidth={2.25} />
+                    </button>
+                  </div>
+                </div>
               )}
               {active && !noteDraft.trim() && (() => {
                 const tip = liftTipFromMeta(m);

@@ -1,7 +1,6 @@
 /* Migration alter Speicherstände auf das aktuelle Datenmodell */
 
 import { uid } from "./utils.js";
-import { PLAN_COLORS } from "./constants.js";
 import {
   mergeUserLibrary,
   slimLibraryForStorage,
