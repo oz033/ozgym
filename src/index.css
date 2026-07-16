@@ -1299,12 +1299,13 @@ button.ig-wo-seg:active {
   min-width: 0;
   max-width: 100%;
   height: 100%;
-  padding: 10px 20px 8px;
+  /* Oben bündig: Name/GIF/Info nah an der Segment-Leiste, kein Vertikal-Zentrieren */
+  padding: 4px 16px 6px;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
   opacity: 0.4;
   transition: opacity 0.25s ease;
   overflow: hidden;
@@ -1672,32 +1673,35 @@ button.ig-wo-seg:active {
   min-height: 260px;
   flex: 1 1 72%;
 }
-/* Large demo frames ONLY on the main exercise track — never in replace/sheets */
+/* Large demo frames ONLY on the main exercise track — never in replace/sheets.
+   Etwas kompakter, damit Titel+GIF+Info oben Platz haben (nicht zentriert). */
 .ig-wo-track-wrap .ig-ex-demo {
-  max-width: 280px;
+  max-width: 240px;
 }
 .ig-wo-track-wrap .ig-ex-demo-frame {
-  width: 196px;
-  height: 196px;
-  border-radius: 18px;
+  width: 176px;
+  height: 176px;
+  border-radius: 16px;
 }
 .ig-wo-track-wrap .ig-ex-demo.empty .ig-ex-demo-fallback {
-  width: 196px;
-  min-height: 160px;
+  width: 176px;
+  min-height: 140px;
 }
 .ig-wo:has(.ig-wo-bottom.is-collapsed) .ig-wo-track-wrap .ig-ex-demo-frame {
-  width: 220px;
-  height: 220px;
+  width: 196px;
+  height: 196px;
 }
 .ig-wo .ig-wo-ex-name {
   font-size: 18px;
 }
 .ig-wo .ig-wo-card {
-  gap: 8px;
-  padding: 6px 16px 4px;
+  gap: 6px;
+  padding: 2px 14px 4px;
+  justify-content: flex-start;
 }
 .ig-wo .ig-wo-card-top {
-  gap: 4px;
+  gap: 2px;
+  padding-top: 0;
 }
 .ig-wo .ig-wo-mini-stats {
   font-size: 10.5px;
@@ -1714,19 +1718,27 @@ button.ig-wo-seg:active {
   white-space: nowrap;
   padding: 0 8px;
 }
-/* GIF + Wechsel/Undo darunter */
+/* GIF + Wechsel/Undo darunter — kompakt, nah am Titel */
 .ig-wo-demo-block {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
   width: 100%;
   flex-shrink: 0;
+  margin-top: 0;
 }
 .ig-wo-replace-actions.under-gif {
   justify-content: center;
-  gap: 10px;
-  min-height: var(--touch);
+  gap: 8px;
+  min-height: 40px;
+}
+/* Hint-Card direkt unter Replace, nicht in der Mitte schweben */
+.ig-wo-card > .ig-wo-hint,
+.ig-wo-card > .ig-wo-hint-btn {
+  margin-top: 2px;
+  width: 100%;
+  max-width: 340px;
 }
 /* Info opposite X in bottom bar (right) */
 .ig-wo-info-btn {

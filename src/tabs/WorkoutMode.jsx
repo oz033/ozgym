@@ -48,6 +48,7 @@ import {
   formatPrepMeta,
   CARDIO_INTENSITIES,
 } from "../lib/stretches.js";
+import { withGuide } from "../lib/exerciseGuides.js";
 
 /** Truncate cleanly at word boundary. */
 function shortTip(text, max = 72) {
@@ -60,25 +61,26 @@ function shortTip(text, max = 72) {
 }
 
 /**
- * Lift-Screen tip: device setup + movement cue (better than raw hint alone).
+ * Lift-Screen tip: first setup + first move line (same depth as machine tips).
+ * Dataset swaps get synthesized multi-step guides via withGuide().
  * @returns {{ setup: string, cue: string } | null}
  */
 function liftTipFromMeta(meta) {
   if (!meta) return null;
+  const m = withGuide(meta);
   const setupRaw =
-    meta.guide?.setup?.[0] ||
-    meta.hint ||
+    m.guide?.setup?.[0] ||
+    m.hint ||
     "";
   const cueRaw =
-    meta.guide?.move?.[0] ||
-    meta.benefit ||
-    meta.hint ||
+    m.guide?.move?.[0] ||
+    m.guide?.move?.[1] ||
+    m.benefit ||
     "";
-  const setup = shortTip(setupRaw, 78);
-  // Avoid repeating the same string twice
-  let cue = shortTip(cueRaw, 78);
+  let setup = shortTip(setupRaw, 90);
+  let cue = shortTip(cueRaw, 90);
   if (cue && setup && cue === setup) {
-    cue = shortTip(meta.guide?.move?.[1] || meta.benefit || "", 78);
+    cue = shortTip(m.guide?.move?.[1] || m.guide?.move?.[2] || m.benefit || "", 90);
   }
   if (!setup && !cue) return null;
   return { setup, cue };
@@ -935,7 +937,8 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
   const item = queue[idx] || null;
   const exercise = item?.name || "";
   const targetSets = item?.sets || 3;
-  const meta = item?.entry || {};
+  // withGuide: Dataset-Tausch bekommt volle 3-Schritt-Anleitung wie Clever-Fit
+  const meta = withGuide(item?.entry || {});
   const exerciseGuide = meta?.guide || null;
   const hasGuide =
     exerciseGuide &&
@@ -1325,18 +1328,27 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
             : {
                 ...p,
                 exercises: p.exercises.map((it) =>
-                  it.exerciseId === eid ? { ...it, exerciseId: newEntry.id } : it,
+                  // Nur exerciseId tauschen — Sätze/Wdh./Pause bleiben.
+                  // Notiz leeren: gehörte zur alten Übung und versteckt sonst
+                  // die Gerät/Cue-Info der neuen.
+                  it.exerciseId === eid
+                    ? { ...it, exerciseId: newEntry.id, note: "" }
+                    : it,
                 ),
               },
         ),
       };
     });
+    const prevNote = item?.note || "";
+    setNoteDraft("");
+    setGuideOpen(false);
     setReplaceUndo({
       planId: plan.id,
       fromId: eid,
       toId: newEntry.id,
       fromName: item?.name || item?.entry?.name || "",
       toName: newEntry.name || "",
+      fromNote: prevNote,
     });
     setReplaceOpen(false);
     playSound("tap", soundOn);
@@ -1362,13 +1374,19 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
                 ...p,
                 exercises: p.exercises.map((it) =>
                   it.exerciseId === u.toId
-                    ? { ...it, exerciseId: u.fromId }
+                    ? {
+                        ...it,
+                        exerciseId: u.fromId,
+                        note: u.fromNote || "",
+                      }
                     : it,
                 ),
               },
         ),
       };
     });
+    setNoteDraft(u.fromNote || "");
+    setGuideOpen(false);
     setReplaceUndo(null);
     playSound("tap", soundOn);
     buzz(20, hapticsOn);
@@ -2172,40 +2190,51 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
                   </div>
                 </div>
               )}
-              {active && !noteDraft.trim() && (() => {
+              {active && (() => {
                 const tip = liftTipFromMeta(m);
-                if (!tip) return null;
+                const hasNote = !!noteDraft.trim();
+                // Immer Tip zeigen (auch nach Replace ohne guide).
+                // Eigene Notiz zusätzlich, nicht statt der Info.
+                if (!tip && !hasNote) return null;
                 return (
-                  <button
-                    type="button"
-                    className="ig-wo-hint dim ig-wo-hint-btn ig-wo-hint-rich"
-                    data-no-swipe
-                    onClick={() => {
-                      setGuideOpen(true);
-                      playSound("tap", soundOn);
-                    }}
-                    aria-label={`Geräte-Anleitung für ${e}`}
-                  >
-                    <span className="ig-wo-hint-rich-body">
-                      {tip.setup && (
-                        <span className="ig-wo-hint-line">
-                          <span className="ig-wo-hint-kicker">Gerät</span>
-                          <span className="ig-wo-hint-text">{tip.setup}</span>
+                  <>
+                    {tip && (
+                      <button
+                        type="button"
+                        className="ig-wo-hint dim ig-wo-hint-btn ig-wo-hint-rich"
+                        data-no-swipe
+                        onClick={() => {
+                          setGuideOpen(true);
+                          playSound("tap", soundOn);
+                        }}
+                        aria-label={`Geräte-Anleitung für ${e}`}
+                      >
+                        <span className="ig-wo-hint-rich-body">
+                          {tip.setup && (
+                            <span className="ig-wo-hint-line">
+                              <span className="ig-wo-hint-kicker">Gerät</span>
+                              <span className="ig-wo-hint-text">
+                                {tip.setup}
+                              </span>
+                            </span>
+                          )}
+                          {tip.cue && (
+                            <span className="ig-wo-hint-line">
+                              <span className="ig-wo-hint-kicker">Cue</span>
+                              <span className="ig-wo-hint-text">{tip.cue}</span>
+                            </span>
+                          )}
                         </span>
-                      )}
-                      {tip.cue && (
-                        <span className="ig-wo-hint-line">
-                          <span className="ig-wo-hint-kicker">Cue</span>
-                          <span className="ig-wo-hint-text">{tip.cue}</span>
-                        </span>
-                      )}
-                    </span>
-                  </button>
+                      </button>
+                    )}
+                    {hasNote && (
+                      <p className="ig-wo-hint note">
+                        {shortTip(noteDraft, 80)}
+                      </p>
+                    )}
+                  </>
                 );
               })()}
-              {active && noteDraft.trim() && (
-                <p className="ig-wo-hint note">{shortTip(noteDraft, 80)}</p>
-              )}
             </div>
           );
         })}

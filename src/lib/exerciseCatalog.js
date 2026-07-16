@@ -4,6 +4,7 @@
  */
 import index from "../data/exercisesIndex.json";
 import { EXERCISE_META, META_MUSCLE, MUSCLE_ZONE } from "./constants.js";
+import { withGuide } from "./exerciseGuides.js";
 
 const MEDIA_BASE =
   index.mediaBase || "https://cdn.jsdelivr.net/gh/hasaneyldrm/exercises-dataset@main/";
@@ -204,7 +205,7 @@ export function buildCleverFitPlans(restSeconds = 90) {
 export function datasetLibraryEntries() {
   return (index.exercises || []).map((ex) => {
     const muscle = mapMuscle(ex.target, ex.body_part);
-    return {
+    return withGuide({
       id: "ds-" + ex.id,
       name: titleCase(ex.name),
       muscle,
@@ -214,11 +215,12 @@ export function datasetLibraryEntries() {
       equipmentRaw: ex.equipment,
       target: ex.target,
       bodyPart: ex.body_part,
+      secondary: ex.secondary || null,
       image: mediaUrl(ex.image),
       gif: mediaUrl(ex.gif),
       datasetId: ex.id,
       dataset: true,
-    };
+    });
   });
 }
 
@@ -270,7 +272,7 @@ export function getCatalog() {
     const hit = aliasId
       ? (index.exercises || []).find((e) => e.id === aliasId)
       : null;
-    return {
+    return withGuide({
       id,
       name,
       muscle,
@@ -282,7 +284,7 @@ export function getCatalog() {
       gif: hit ? mediaUrl(hit.gif) : null,
       target: hit?.target || null,
       datasetId: hit?.id || null,
-    };
+    });
   });
   const dataset = datasetLibraryEntries();
   const seen = new Set([
@@ -290,6 +292,7 @@ export function getCatalog() {
     ...classics.map((e) => e.name.toLowerCase()),
   ]);
   const extra = dataset.filter((e) => !seen.has(e.name.toLowerCase()));
+  // Machines already have authored EXERCISE_META guides; classics/dataset get synthesized ones
   _catalog = [...machines, ...classics, ...extra];
   return _catalog;
 }

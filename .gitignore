@@ -25,3 +25,5 @@ dist-ssr
 nul
 
 .vercel
+.vercel
+.env*
