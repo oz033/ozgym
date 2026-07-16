@@ -36,7 +36,7 @@ import { setWorkoutWakeLock } from "../lib/wakeLock.js";
 import { ZONE_LABEL, MOTIVATION_POOL } from "../lib/constants.js";
 import { smartSuggest } from "../lib/planGenerator.js";
 
-/** Kurz-Tipp: max. ~1 Zeile, kein Absatz-Wälzer auf dem Lift-Screen. */
+/** Truncate cleanly at word boundary. */
 function shortTip(text, max = 72) {
   const t = String(text || "").replace(/\s+/g, " ").trim();
   if (!t) return "";
@@ -44,6 +44,31 @@ function shortTip(text, max = 72) {
   const cut = t.slice(0, max - 1);
   const at = cut.lastIndexOf(" ");
   return (at > 40 ? cut.slice(0, at) : cut).trimEnd() + "…";
+}
+
+/**
+ * Lift-Screen tip: device setup + movement cue (better than raw hint alone).
+ * @returns {{ setup: string, cue: string } | null}
+ */
+function liftTipFromMeta(meta) {
+  if (!meta) return null;
+  const setupRaw =
+    meta.guide?.setup?.[0] ||
+    meta.hint ||
+    "";
+  const cueRaw =
+    meta.guide?.move?.[0] ||
+    meta.benefit ||
+    meta.hint ||
+    "";
+  const setup = shortTip(setupRaw, 78);
+  // Avoid repeating the same string twice
+  let cue = shortTip(cueRaw, 78);
+  if (cue && setup && cue === setup) {
+    cue = shortTip(meta.guide?.move?.[1] || meta.benefit || "", 78);
+  }
+  if (!setup && !cue) return null;
+  return { setup, cue };
 }
 
 export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
@@ -91,8 +116,8 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
   const [noteDraft, setNoteDraft] = useState("");
   const [noteFocused, setNoteFocused] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
-  /** Bottom sheet: swipe down to collapse, up to expand (more room for GIF) */
-  const [bottomCollapsed, setBottomCollapsed] = useState(false);
+  /** Bottom sheet: start collapsed so GIF has room; swipe up for note/last-load */
+  const [bottomCollapsed, setBottomCollapsed] = useState(true);
   /** px from layout bottom to top of keyboard (0 = no keyboard) */
   const [kbBottom, setKbBottom] = useState(0);
   const noteSaveTimer = useRef(null);
@@ -100,7 +125,7 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
   const bottomSheetRef = useRef(null);
   const bottomExtrasRef = useRef(null);
   /** 1 = fully expanded extras, 0 = collapsed (steppers+CTA always stay) */
-  const sheetRatioRef = useRef(1);
+  const sheetRatioRef = useRef(0);
   const sheetDragRef = useRef({
     active: false,
     locked: false,
@@ -858,11 +883,13 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
     }
   }, [noteFocused, measureSheetExtras, springSheetTo]);
 
-  // Keep extras measured after paint
+  // Keep extras measured after paint; default collapsed on lift
   useLayoutEffect(() => {
     if (phase !== "lift") return;
     measureSheetExtras();
-    applySheetRatio(bottomCollapsed ? 0 : 1, { animate: false });
+    const r = bottomCollapsed ? 0 : 1;
+    sheetRatioRef.current = r;
+    applySheetRatio(r, { animate: false });
   }, [phase, milestone, lastLoad, noteFocused, measureSheetExtras, applySheetRatio, bottomCollapsed]);
 
   // Vertical drag — same feel as horizontal exercise swipe (live + spring)
@@ -1249,23 +1276,40 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
                   image={m?.image}
                 />
               )}
-              {active && m?.hint && !noteDraft.trim() && (
-                <button
-                  type="button"
-                  className="ig-wo-hint dim ig-wo-hint-btn"
-                  data-no-swipe
-                  onClick={() => {
-                    setGuideOpen(true);
-                    playSound("tap", soundOn);
-                  }}
-                  aria-label={`Anleitung: ${m.hint}`}
-                >
-                  <span className="ig-wo-hint-text">{shortTip(m.hint, 64)}</span>
-                  <span className="ig-wo-hint-info" aria-hidden="true">
-                    <Info size={16} strokeWidth={2.25} />
-                  </span>
-                </button>
-              )}
+              {active && !noteDraft.trim() && (() => {
+                const tip = liftTipFromMeta(m);
+                if (!tip) return null;
+                return (
+                  <button
+                    type="button"
+                    className="ig-wo-hint dim ig-wo-hint-btn ig-wo-hint-rich"
+                    data-no-swipe
+                    onClick={() => {
+                      setGuideOpen(true);
+                      playSound("tap", soundOn);
+                    }}
+                    aria-label={`Geräte-Anleitung für ${e}`}
+                  >
+                    <span className="ig-wo-hint-rich-body">
+                      {tip.setup && (
+                        <span className="ig-wo-hint-line">
+                          <span className="ig-wo-hint-kicker">Gerät</span>
+                          <span className="ig-wo-hint-text">{tip.setup}</span>
+                        </span>
+                      )}
+                      {tip.cue && (
+                        <span className="ig-wo-hint-line">
+                          <span className="ig-wo-hint-kicker">Cue</span>
+                          <span className="ig-wo-hint-text">{tip.cue}</span>
+                        </span>
+                      )}
+                    </span>
+                    <span className="ig-wo-hint-info" aria-hidden="true">
+                      <Info size={16} strokeWidth={2.25} />
+                    </span>
+                  </button>
+                );
+              })()}
               {active && noteDraft.trim() && (
                 <p className="ig-wo-hint note">{shortTip(noteDraft, 80)}</p>
               )}
