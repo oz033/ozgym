@@ -1283,49 +1283,6 @@ button.ig-wo-seg:active {
   user-select: none;
   pointer-events: none;
 }
-.ig-ex-demo-match {
-  font-size: 10.5px;
-  color: var(--text-dim);
-  text-align: center;
-  max-width: 240px;
-  line-height: 1.3;
-}
-.ig-ex-demo-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  justify-content: center;
-  max-width: 260px;
-}
-.ig-ex-demo-chip {
-  font-size: 11px;
-  font-weight: 600;
-  padding: 3px 10px;
-  border-radius: 999px;
-  text-transform: capitalize;
-  background: color-mix(in srgb, #5b8cff 16%, transparent);
-  color: #8eb4ff;
-  border: 1px solid color-mix(in srgb, #5b8cff 28%, transparent);
-}
-.ig-ex-demo-chip.primary {
-  background: color-mix(in srgb, var(--accent) 22%, transparent);
-  color: var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
-}
-.ig-ex-demo-chip.equip {
-  background: color-mix(in srgb, var(--text) 8%, transparent);
-  color: var(--text-dim);
-  border-color: var(--border);
-}
-.ig-ex-demo-chip.secondary {
-  opacity: 0.75;
-}
-.ig-ex-demo-attr {
-  font-size: 9.5px;
-  color: var(--text-dim);
-  opacity: 0.7;
-  text-align: center;
-}
 .ig-ex-demo.empty .ig-ex-demo-fallback {
   width: 168px;
   min-height: 120px;
@@ -1705,10 +1662,6 @@ button.ig-wo-seg:active {
   align-items: center;
   justify-content: center;
   gap: 0;
-}
-.ig-wo-guide-demo .ig-ex-demo-match,
-.ig-wo-guide-demo .ig-ex-demo-chips {
-  display: none !important;
 }
 .ig-wo-guide-demo .ig-ex-demo-frame {
   /* Scales with viewport so text still fits below on short phones */

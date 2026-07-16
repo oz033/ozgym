@@ -48,58 +48,25 @@ export default function ExerciseDemo({
     );
   }
 
-  if (compact) {
-    return (
-      <div className={"ig-ex-demo compact" + (className ? ` ${className}` : "")}>
-        <div className="ig-ex-demo-frame">
-          <img
-            className="ig-ex-demo-gif"
-            src={src}
-            alt=""
-            loading="lazy"
-            decoding="async"
-            onError={() => setFailed(true)}
-          />
-        </div>
-      </div>
-    );
-  }
-
-  const chips = [
-    looked?.target && { label: looked.target, kind: "primary" },
-    looked?.equipment && { label: looked.equipment, kind: "equip" },
-    ...(looked?.secondary || []).slice(0, 3).map((m) => ({
-      label: m,
-      kind: "secondary",
-    })),
-  ].filter(Boolean);
-
+  // GIF only — no English muscle/equipment chips under demos
   return (
-    <div className={"ig-ex-demo" + (className ? ` ${className}` : "")}>
+    <div
+      className={
+        "ig-ex-demo" +
+        (compact ? " compact" : "") +
+        (className ? ` ${className}` : "")
+      }
+    >
       <div className="ig-ex-demo-frame">
         <img
           className="ig-ex-demo-gif"
           src={src}
-          alt={exerciseName}
+          alt={compact ? "" : exerciseName}
           loading="lazy"
           decoding="async"
           onError={() => setFailed(true)}
         />
       </div>
-      {looked?.name &&
-        looked.name.toLowerCase() !== String(exerciseName || "").toLowerCase() &&
-        !gif && (
-          <div className="ig-ex-demo-match mono">Demo: {looked.name}</div>
-        )}
-      {chips.length > 0 && (
-        <div className="ig-ex-demo-chips">
-          {chips.map((c) => (
-            <span key={c.kind + c.label} className={"ig-ex-demo-chip " + c.kind}>
-              {c.label}
-            </span>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
