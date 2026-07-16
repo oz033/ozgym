@@ -15,7 +15,7 @@ import { uid, planStats, relativeDay, todayISO, round1 } from "../lib/utils.js";
 import { generatePlans } from "../lib/planGenerator.js";
 import { EmptyState } from "../components/ui.jsx";
 
-export default function PlansTab({ data, update, autoOpenPlanId, onAutoOpenHandled }) {
+export default function PlansTab({ data, update, goTo, autoOpenPlanId, onAutoOpenHandled }) {
   const [editingId, setEditingId] = useState(null);
   const plans = data.plans || [];
   const profileReady = !!data.profile?.goal;
@@ -135,16 +135,33 @@ export default function PlansTab({ data, update, autoOpenPlanId, onAutoOpenHandl
       <div className="ig-screen-head">
         <h1 className="ig-screen-title">Pläne</h1>
         <div className="ig-screen-head-actions">
-          {profileReady && (
-            <button
-              type="button"
-              className="ig-chip sm"
-              onClick={regenerate}
-              aria-label="Smart-Plan erstellen"
-            >
-              <Sparkles size={14} /> Smart
-            </button>
-          )}
+          <button
+            type="button"
+            className="ig-chip sm"
+            onClick={() => {
+              if (profileReady) {
+                regenerate();
+                return;
+              }
+              if (goTo) goTo("profile");
+              else
+                window.alert(
+                  "Lege im Profil zuerst Fokus und Level fest — dann erzeugt Smart einen passenden Plan.",
+                );
+            }}
+            aria-label={
+              profileReady
+                ? "Smart-Plan erstellen"
+                : "Smart-Plan — zuerst Ziel im Profil setzen"
+            }
+            title={
+              profileReady
+                ? "Smart-Plan aus Profil"
+                : "Zuerst Fokus im Profil wählen"
+            }
+          >
+            <Sparkles size={14} /> Smart
+          </button>
           <button
             type="button"
             className="ig-btn-primary ig-plan-new-btn"
@@ -155,22 +172,26 @@ export default function PlansTab({ data, update, autoOpenPlanId, onAutoOpenHandl
         </div>
       </div>
 
-      {/* Aktiver Plan: klar dominant, sofort erkennbar als "das ist mein Plan" */}
+      {/* Aktiver Plan: tippen öffnet Editor — dominant und klar als primäre Aktion */}
       {activePlan && (
-        <div className="ig-active-plan" style={{ "--plan-color": activePlan.color }}>
+        <button
+          type="button"
+          className="ig-active-plan ig-active-plan-btn"
+          style={{ "--plan-color": activePlan.color }}
+          onClick={() => setEditingId(activePlan.id)}
+          aria-label={`${activePlan.name} bearbeiten`}
+        >
           <div className="ig-active-plan-head">
-            <span className="ig-active-plan-icon">{activePlan.icon}</span>
+            <span className="ig-active-plan-icon" aria-hidden="true">
+              {activePlan.icon}
+            </span>
             <div className="ig-active-plan-title">
               <span className="ig-active-plan-tag">Aktiver Plan</span>
               <h2>{activePlan.name}</h2>
             </div>
-            <button
-              className="ig-icon-btn ghost sm"
-              onClick={() => setEditingId(activePlan.id)}
-              aria-label="Bearbeiten"
-            >
+            <span className="ig-active-plan-edit" aria-hidden="true">
               <Pencil size={15} />
-            </button>
+            </span>
           </div>
 
           <div className="ig-active-plan-stats">
@@ -200,7 +221,6 @@ export default function PlansTab({ data, update, autoOpenPlanId, onAutoOpenHandl
             </div>
           </div>
 
-          {/* Planvorschau ohne in den Editor wechseln zu müssen */}
           <div className="ig-active-plan-preview">
             {activePlan.exercises.slice(0, 4).map((e, i) => (
               <span key={i} className="ig-badge">
@@ -211,7 +231,7 @@ export default function PlansTab({ data, update, autoOpenPlanId, onAutoOpenHandl
               <span className="ig-badge dim">+{activePlan.exercises.length - 4} weitere</span>
             )}
           </div>
-        </div>
+        </button>
       )}
 
       {/* Andere Pläne: kompakt, ein Tap zum Aktivieren */}
@@ -504,7 +524,7 @@ function PlanEditor({ plan, data, update, onClose }) {
                   <div
                     className="ig-pe-rest-chips"
                     role="group"
-                    aria-label={`Pause für ${name}`}
+                    aria-label={`Pause für ${entry?.name || "Übung"}`}
                   >
                     {[60, 90, 120, 180].map((s) => (
                       <button

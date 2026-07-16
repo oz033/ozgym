@@ -1,7 +1,7 @@
 /* Train-Tab: Session heute — Sätze, Fortschritt, Start (Ausführung) */
 
 import React, { useState, useEffect, useMemo } from "react";
-import { Play, Moon, ChevronRight, Check, Dumbbell, ListPlus } from "lucide-react";
+import { Play, Moon, ChevronRight, Check, Dumbbell, ListPlus, CalendarDays } from "lucide-react";
 import { Sparkline, EmptyState } from "../components/ui.jsx";
 import StreakCalendar from "../components/StreakCalendar.jsx";
 import {
@@ -204,24 +204,39 @@ export default function LogTab({
       <h1 className="ig-screen-title">Trainieren</h1>
       {!restDay && plan ? (
         <button
+          type="button"
           className="ig-plan-banner"
           onClick={() => setShowStreak((s) => !s)}
           aria-expanded={showStreak}
+          aria-label={
+            showStreak
+              ? "Trainingskalender schließen"
+              : `Session ${plan.name} — Kalender öffnen`
+          }
         >
-          <span className="ig-banner-icon">{plan.icon}</span>
+          <span className="ig-banner-icon" aria-hidden="true">
+            {plan.icon}
+          </span>
           <span>
             Session: <strong>{plan.name}</strong>
           </span>
-          <ChevronRight
+          <CalendarDays
             size={15}
             className={"ig-banner-chev" + (showStreak ? " open" : "")}
+            aria-hidden="true"
           />
         </button>
       ) : countdown ? (
         <button
+          type="button"
           className="ig-card ig-rest-card"
           onClick={() => setShowStreak((s) => !s)}
           aria-expanded={showStreak}
+          aria-label={
+            showStreak
+              ? "Trainingskalender schließen"
+              : "Ruhetag — Kalender öffnen"
+          }
         >
           <Moon size={22} className="ig-rest-icon" />
           <div className="ig-rest-body">
@@ -238,22 +253,30 @@ export default function LogTab({
               Zeit zur Regeneration — dein Körper baut jetzt Muskeln auf.
             </span>
           </div>
-          <ChevronRight
+          <CalendarDays
             size={15}
             className={"ig-banner-chev" + (showStreak ? " open" : "")}
+            aria-hidden="true"
           />
         </button>
       ) : (
         <button
+          type="button"
           className="ig-plan-banner rest"
           onClick={() => setShowStreak((s) => !s)}
           aria-expanded={showStreak}
+          aria-label={
+            showStreak
+              ? "Trainingskalender schließen"
+              : "Ruhetag — Kalender öffnen"
+          }
         >
           <Moon size={16} />
           <span>Heute: Ruhetag — Regeneration zählt auch.</span>
-          <ChevronRight
+          <CalendarDays
             size={15}
             className={"ig-banner-chev" + (showStreak ? " open" : "")}
+            aria-hidden="true"
           />
         </button>
       )}
@@ -273,14 +296,25 @@ export default function LogTab({
       )}
 
       {(data.plans || []).length > 1 && (
-        <div className="ig-progress-plans">
+        <div className="ig-progress-plans" role="group" aria-label="Plan für heute">
           {data.plans.map((p) => (
             <button
               key={p.id}
+              type="button"
               className={"ig-chip" + (p.id === plan?.id ? " active" : "")}
               onClick={() =>
-                update((prev) => ({ ...prev, activePlanId: p.id }))
+                update((prev) => ({
+                  ...prev,
+                  activePlanId: p.id,
+                  // Override day schedule for today only (see getTodayPlan)
+                  settings: {
+                    ...prev.settings,
+                    sessionPlanId: p.id,
+                    sessionPlanDate: today,
+                  },
+                }))
               }
+              aria-pressed={p.id === plan?.id}
             >
               {p.icon} {p.name}
             </button>
@@ -406,24 +440,37 @@ export default function LogTab({
             const done = (setsToday[it.name] || 0) >= it.sets;
             const partial = !done && (setsToday[it.name] || 0) > 0;
             return (
-              <li
-                key={it.name}
-                className={
-                  "ig-queue-row" +
-                  (done ? " done" : "") +
-                  (partial ? " partial" : "")
-                }
-              >
-                <span className="ig-queue-dot">
-                  {done ? "✓" : partial ? "◐" : i + 1}
-                </span>
-                <span className="ig-queue-name">{it.name}</span>
-                {(sparkByExercise[it.name] || []).length >= 2 && (
-                  <Sparkline points={sparkByExercise[it.name]} w={54} h={20} />
-                )}
-                <span className="ig-queue-meta mono">
-                  {setsToday[it.name] || 0}/{it.sets}
-                </span>
+              <li key={it.name}>
+                <button
+                  type="button"
+                  className={
+                    "ig-queue-row" +
+                    (done ? " done" : "") +
+                    (partial ? " partial" : "")
+                  }
+                  onClick={() => {
+                    if (doneExercises >= queue.length) return;
+                    onStart();
+                    playSound("tap", soundOn);
+                    buzz(15, hapticsOn);
+                  }}
+                  aria-label={
+                    done
+                      ? `${it.name} erledigt`
+                      : `${it.name} — Workout starten`
+                  }
+                >
+                  <span className="ig-queue-dot" aria-hidden="true">
+                    {done ? "✓" : partial ? "◐" : i + 1}
+                  </span>
+                  <span className="ig-queue-name">{it.name}</span>
+                  {(sparkByExercise[it.name] || []).length >= 2 && (
+                    <Sparkline points={sparkByExercise[it.name]} w={54} h={20} />
+                  )}
+                  <span className="ig-queue-meta mono">
+                    {setsToday[it.name] || 0}/{it.sets}
+                  </span>
+                </button>
               </li>
             );
           })}

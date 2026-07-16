@@ -70,8 +70,8 @@ export default function ThemeStudio({ data, update, onClose }) {
       </div>
 
       <div className="ig-sheet-body">
-        {/* Live-Vorschau (nutzt dieselben Tokens wie die App) */}
-        <div className="ig-card ig-ts-preview">
+        {/* Live-Vorschau — rein visuell, keine toten Buttons */}
+        <div className="ig-card ig-ts-preview" aria-hidden="true">
           <div className="ig-ts-preview-row">
             <EclipseMark size={22} />
             <span className="ig-ts-preview-title">Vorschau</span>
@@ -81,12 +81,12 @@ export default function ThemeStudio({ data, update, onClose }) {
             <div className="ig-level-fill" style={{ width: "64%" }} />
           </div>
           <div className="ig-ts-preview-row">
-            <button className="ig-btn-primary" style={{ flex: 1 }}>
+            <span className="ig-btn-primary ig-ts-fake-btn" style={{ flex: 1 }}>
               <Check size={15} /> Primär
-            </button>
-            <button className="ig-btn-primary ghosted" style={{ flex: 1 }}>
+            </span>
+            <span className="ig-btn-primary ghosted ig-ts-fake-btn" style={{ flex: 1 }}>
               Sekundär
-            </button>
+            </span>
           </div>
           <div className="ig-plan-badges">
             <span className="ig-chip sm active">Aktiv</span>

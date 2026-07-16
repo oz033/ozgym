@@ -317,18 +317,26 @@ export function weeklyFrequency(logs, weeks = 8) {
 export function getTodayPlan(data) {
   const plans = data.plans || [];
   const key = todayKey();
-  return (
-    plans.find((p) => p.id === data.activePlanId) ||
-    plans.find((p) => (p.days || []).includes(key)) ||
-    plans[0] ||
-    null
-  );
+  // Explicit one-day override (Train-Tab plan chips) — expires next calendar day
+  const overrideId = data.settings?.sessionPlanId;
+  const overrideDate = data.settings?.sessionPlanDate;
+  if (overrideId && overrideDate === todayISO()) {
+    const forced = plans.find((p) => p.id === overrideId);
+    if (forced) return forced;
+  }
+  // Day schedule wins so OK/UK splits actually rotate by weekday
+  const byDay = plans.find((p) => (p.days || []).includes(key));
+  if (byDay) return byDay;
+  const active = plans.find((p) => p.id === data.activePlanId);
+  if (active) return active;
+  return plans[0] || null;
 }
 
 export function isRestDay(data) {
   const plans = data.plans || [];
   const anyScheduled = plans.some((p) => (p.days || []).length > 0);
   if (!anyScheduled) return false;
+  // Rest only if no plan is scheduled for today
   return !plans.some((p) => (p.days || []).includes(todayKey()));
 }
 

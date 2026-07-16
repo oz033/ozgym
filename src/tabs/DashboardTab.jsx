@@ -146,10 +146,15 @@ export default function DashboardTab({ data, update, goTo, onStart }) {
         </button>
       )}
 
-      {/* 3 · Week strip */}
+      {/* 3 · Week strip — all three actions are real */}
       <div className="ig-card ig-overview ig-home-overview">
         <div className="ig-overview-row">
-          <button className="ig-overview-col" onClick={() => setShowCal((s) => !s)}>
+          <button
+            type="button"
+            className="ig-overview-col"
+            onClick={() => setShowCal((s) => !s)}
+            aria-label="Kalender öffnen"
+          >
             <Flame size={16} className="ig-dash-icon" />
             <span className="ig-overview-num mono">
               <CountUp value={streak.streak} />
@@ -157,7 +162,12 @@ export default function DashboardTab({ data, update, goTo, onStart }) {
             <span className="ig-overview-label">Serie</span>
           </button>
           <div className="ig-overview-divider" />
-          <div className="ig-overview-col">
+          <button
+            type="button"
+            className="ig-overview-col"
+            onClick={() => goTo("progress")}
+            aria-label="Wochenfortschritt im Verlauf"
+          >
             <Target size={16} className="ig-dash-icon" />
             <span className="ig-overview-num mono">
               {stats.thisWeekDays >= weeklyGoal
@@ -165,17 +175,27 @@ export default function DashboardTab({ data, update, goTo, onStart }) {
                 : `${stats.thisWeekDays}/${weeklyGoal}`}
             </span>
             <span className="ig-overview-label">Woche</span>
-          </div>
+          </button>
           <div className="ig-overview-divider" />
-          <div className="ig-overview-col">
+          <button
+            type="button"
+            className="ig-overview-col"
+            onClick={() => goTo("progress")}
+            aria-label="Rekorde im Verlauf"
+          >
             <Trophy size={16} className="ig-dash-icon" />
             <span className="ig-overview-num mono">
               <CountUp value={stats.prCount} />
             </span>
             <span className="ig-overview-label">PR</span>
-          </div>
+          </button>
         </div>
-        <div className="ig-overview-level">
+        <button
+          type="button"
+          className="ig-overview-level ig-overview-level-btn"
+          onClick={() => goTo("progress")}
+          aria-label={`Level ${stats.level} — Verlauf öffnen`}
+        >
           <span className="ig-overview-level-label">
             <Zap size={12} /> Level {stats.level}
           </span>
@@ -185,12 +205,16 @@ export default function DashboardTab({ data, update, goTo, onStart }) {
               style={{ width: `${stats.levelPct * 100}%` }}
             />
           </div>
-        </div>
+        </button>
       </div>
 
-      {/* Missed week nudge — only if relevant */}
+      {/* Missed week nudge — actionable */}
       {adherence && adherence.missed > 0 && !trainedToday && (
-        <div className="ig-card ig-nudge">
+        <button
+          type="button"
+          className="ig-card ig-nudge ig-nudge-btn"
+          onClick={() => (plan ? onStart() : goTo("plan"))}
+        >
           <span className="ig-nudge-icon">
             <Target size={16} />
           </span>
@@ -203,12 +227,17 @@ export default function DashboardTab({ data, update, goTo, onStart }) {
                 : ` Nachholen: ${catchUp.label}.`
               : ""}
           </span>
-        </div>
+          <Play size={16} className="ig-nudge-chev" aria-hidden="true" />
+        </button>
       )}
 
-      {/* 4 · Next exercises (compact) */}
+      {/* 4 · Next exercises — tap opens workout */}
       {plan && !trainedToday && !restDay && preview.length > 0 && (
-        <div className="ig-card ig-today-card">
+        <button
+          type="button"
+          className="ig-card ig-today-card ig-today-card-btn"
+          onClick={() => onStart()}
+        >
           <div className="ig-field-label">Nächste Übungen</div>
           <ol className="ig-today-plan">
             {preview.map((it, i) => (
@@ -228,7 +257,7 @@ export default function DashboardTab({ data, update, goTo, onStart }) {
               +{plan.exercises.length - preview.length} weitere im Workout
             </p>
           )}
-        </div>
+        </button>
       )}
 
       {/* Secondary lines — not competing with CTA */}

@@ -1,4 +1,4 @@
-/* Profil: Identität + Körper + App-Settings (ohne Ziele/Onboarding) */
+/* Profil: Identität + Körper + Trainingsziel + App-Settings */
 
 import React, { useState, useEffect, useRef } from "react";
 import {
@@ -13,7 +13,8 @@ import ThemeStudio from "../components/ThemeStudio.jsx";
 import { OzGymMark } from "../components/brand.jsx";
 import { ToggleRow } from "../components/ui.jsx";
 import { todayISO, round1, playSound, buzz, calcStats } from "../lib/utils.js";
-import { BADGE_DEFS } from "../lib/constants.js";
+import { hydrate } from "../lib/migrate.js";
+import { BADGE_DEFS, GOALS, LEVELS } from "../lib/constants.js";
 
 export default function ProfileTab({ data, update, goTo }) {
   const profile = data?.profile || {};
@@ -111,9 +112,19 @@ export default function ProfileTab({ data, update, goTo }) {
     reader.onload = () => {
       try {
         const parsed = JSON.parse(reader.result);
-        if (!parsed.logs || !parsed.profile) throw new Error("invalid");
-        if (window.confirm("Backup einspielen? Das ersetzt deine aktuellen Daten.")) {
-          update(() => parsed);
+        if (!parsed || typeof parsed !== "object") throw new Error("invalid");
+        // Accept full app state or older shapes; hydrate migrates + fills defaults
+        if (!Array.isArray(parsed.logs) && !parsed.profile && !parsed.plans) {
+          throw new Error("invalid");
+        }
+        if (
+          window.confirm(
+            "Backup einspielen? Das ersetzt deine aktuellen Daten auf diesem Gerät.",
+          )
+        ) {
+          update(() => hydrate(parsed));
+          playSound("pr", settings.sound !== false);
+          buzz(40, settings.haptics !== false);
         }
       } catch {
         window.alert("Diese Datei ist kein gültiges OZGYM-Backup.");
@@ -121,6 +132,9 @@ export default function ProfileTab({ data, update, goTo }) {
     };
     reader.readAsText(file);
   };
+
+  const goalList =
+    gender === "f" ? GOALS.f : gender === "m" ? GOALS.m : [...GOALS.m, ...GOALS.f];
 
   return (
     <div className="ig-tabpane">
@@ -203,6 +217,92 @@ export default function ProfileTab({ data, update, goTo }) {
           </span>
           <ChevronRight size={16} />
         </button>
+      </div>
+
+      {/* Trainingsziel — steuert Wochen-Ziel & Smart-Plan */}
+      <div className="ig-card">
+        <div className="ig-field-label">Trainingsziel</div>
+        <div className="ig-session-duration-head">
+          <span className="ig-field-label" style={{ margin: 0 }}>
+            Einheiten pro Woche
+          </span>
+          <span className="ig-session-duration-est mono">
+            {settings.weeklyGoal || 3}×
+          </span>
+        </div>
+        <div
+          className="ig-mode-toggle ig-session-duration-chips"
+          role="group"
+          aria-label="Wochenziel"
+        >
+          {[2, 3, 4, 5, 6].map((n) => (
+            <button
+              key={n}
+              type="button"
+              className={
+                "ig-chip sm" + ((settings.weeklyGoal || 3) === n ? " active" : "")
+              }
+              onClick={() => {
+                patchSettings({ weeklyGoal: n });
+                patchProfile({ daysPerWeek: n });
+                playSound("tap", settings.sound !== false);
+              }}
+            >
+              {n}×
+            </button>
+          ))}
+        </div>
+
+        <div className="ig-field-label" style={{ marginTop: 14 }}>
+          Level
+        </div>
+        <div
+          className="ig-mode-toggle ig-session-duration-chips"
+          role="group"
+          aria-label="Trainingslevel"
+        >
+          {LEVELS.map((lv) => (
+            <button
+              key={lv.id}
+              type="button"
+              className={
+                "ig-chip sm" + (profile.level === lv.id ? " active" : "")
+              }
+              onClick={() => {
+                patchProfile({ level: lv.id });
+                playSound("tap", settings.sound !== false);
+              }}
+              title={lv.desc}
+            >
+              {lv.name}
+            </button>
+          ))}
+        </div>
+
+        <div className="ig-field-label" style={{ marginTop: 14 }}>
+          Fokus
+        </div>
+        <p className="ig-plan-text" style={{ margin: "0 0 8px" }}>
+          Für Smart-Pläne unter Pläne → Smart. Ohne Fokus bleibt die Clever-Fit-Vorlage.
+        </p>
+        <div className="ig-goal-grid" role="group" aria-label="Trainingsfokus">
+          {goalList.map((g) => (
+            <button
+              key={g.id}
+              type="button"
+              className={"ig-goal-chip" + (profile.goal === g.id ? " active" : "")}
+              onClick={() => {
+                patchProfile({ goal: g.id });
+                playSound("tap", settings.sound !== false);
+              }}
+            >
+              <span className="ig-goal-chip-icon" aria-hidden="true">
+                {g.icon}
+              </span>
+              <span className="ig-goal-chip-name">{g.name}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Einstellungen */}

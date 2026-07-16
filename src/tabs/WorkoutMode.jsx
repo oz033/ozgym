@@ -509,9 +509,12 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
   }, [phase, advance]);
 
   const completeSet = () => {
-    const w = Number(weight);
-    const r = Number(reps);
-    if (!exercise || !w || !r) return;
+    const w = Number(String(weight).replace(",", "."));
+    const r = parseInt(String(reps), 10);
+    // Allow 0 kg (bodyweight / machine without stack load)
+    if (!exercise || !Number.isFinite(w) || w < 0 || !Number.isFinite(r) || r < 1) {
+      return;
+    }
     const isPr = w > bestBefore && bestBefore > 0;
     update((prev) => {
       const logs = [...prev.logs];
@@ -935,19 +938,27 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
             <span className="ig-wo-head-vol-unit">kg</span>
           </div>
         </div>
-        {/* Segment-Leiste: folgt Swipe (idx), fertige Übungen zusätzlich markiert */}
-        <div className="ig-wo-segbar" aria-hidden="true">
+        {/* Segment-Leiste: folgt Swipe; tippen springt zur Übung */}
+        <div className="ig-wo-segbar" role="tablist" aria-label="Übungen">
           {queue.map((it, i) => {
             const done = itemDone(it);
             return (
-              <span
+              <button
                 key={`${it.name}-${i}`}
+                type="button"
+                role="tab"
+                aria-selected={i === idx}
+                aria-label={`Übung ${i + 1}: ${it.name}`}
                 className={
                   "ig-wo-seg" +
                   (done ? " done" : "") +
                   (i === idx ? " current" : "") +
                   (i < idx ? " past" : "")
                 }
+                onClick={() => {
+                  setIdx(i);
+                  playSound("tap", soundOn);
+                }}
               />
             );
           })}
@@ -1162,7 +1173,18 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
           <button
             type="button"
             className="ig-wo-exit"
-            onClick={onExit}
+            onClick={() => {
+              const open = queue.some((it) => !itemDone(it));
+              if (
+                open &&
+                !window.confirm(
+                  "Workout beenden? Deine geloggten Sätze bleiben gespeichert.",
+                )
+              ) {
+                return;
+              }
+              onExit();
+            }}
             aria-label="Workout beenden"
           >
             <X size={20} strokeWidth={2.25} />
@@ -1181,7 +1203,6 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
           <button
             type="button"
             className="ig-wo-info-btn"
-            disabled={!meta?.guide && !meta?.hint && !meta?.benefit}
             onClick={() => {
               setGuideOpen(true);
               playSound("tap", soundOn);

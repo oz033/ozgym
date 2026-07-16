@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   House,
   Dumbbell,
-  List,
+  ClipboardList,
   ChartColumn,
   UserRound,
   Volume2,
@@ -341,7 +341,10 @@ export default function App() {
               onClick={() =>
                 update((prev) => ({
                   ...prev,
-                  settings: { ...prev.settings, sound: !prev.settings?.sound },
+                  settings: {
+                    ...prev.settings,
+                    sound: prev.settings?.sound === false,
+                  },
                 }))
               }
               aria-label={soundOn ? "Sound stummschalten" : "Sound einschalten"}
@@ -379,7 +382,7 @@ export default function App() {
                     queue={queue}
                     deferredQueue={deferredQueue}
                     carryHydrated={carryHydrated}
-                    onStart={() => setWorkoutOpen(true)}
+                    onStart={startWorkout}
                     onCreatePlan={createPlanAndEdit}
                     onCreateSmartPlan={createSmartPlanAndGo}
                     onEditPlan={editPlan}
@@ -389,6 +392,7 @@ export default function App() {
                   <PlansTab
                     data={data}
                     update={update}
+                    goTo={goTo}
                     autoOpenPlanId={autoEditPlanId}
                     onAutoOpenHandled={() => setAutoEditPlanId(null)}
                   />
@@ -445,14 +449,14 @@ export default function App() {
               <TabBtn
                 active={tab === "plan"}
                 onClick={() => goTo("plan")}
-                icon={<List size={20} strokeWidth={1.75} />}
+                icon={<ClipboardList size={20} strokeWidth={1.75} />}
                 label="Pläne"
               />
               <TabBtn
                 active={tab === "progress"}
                 onClick={() => goTo("progress")}
                 icon={<ChartColumn size={20} strokeWidth={1.75} />}
-                label="Stats"
+                label="Verlauf"
               />
               <TabBtn
                 active={tab === "profile"}

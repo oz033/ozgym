@@ -114,8 +114,12 @@ export function generatePlans(profile, library) {
   const scheme = GOAL_SCHEMES[goal] || GOAL_SCHEMES.fitness;
   const mod = LEVEL_MOD[level] || LEVEL_MOD.beginner;
 
-  // Equipment-Filter (Körpergewicht geht immer)
-  const allowedEquipment = new Set([...(equipment || []), "Körpergewicht", ""]);
+  // Equipment-Filter: leer = typisches Studio (Maschine + freies Gewicht)
+  const equipList =
+    equipment && equipment.length > 0
+      ? equipment
+      : ["Maschine", "Kurzhantel", "Langhantel", "Kabelzug", "Körpergewicht"];
+  const allowedEquipment = new Set([...equipList, "Körpergewicht", ""]);
   const filtered = library.filter(
     (e) => allowedEquipment.has(e.equipment) || e.custom,
   );

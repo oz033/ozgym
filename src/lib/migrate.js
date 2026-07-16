@@ -101,14 +101,17 @@ export function ensureCleverFitPlans(plans, restSeconds = 90) {
     if (idx === -1) {
       list.push(p);
     } else {
-      // Refresh preset exercises (e.g. clear duplicate notes) without
-      // wiping user day/color tweaks on the same plan id.
+      // Keep user edits (exercises, days, notes). Only refresh display name
+      // if still the old branded default — never wipe workout content on load.
+      const existing = list[idx];
+      const legacyName =
+        existing.name === "Oberkörper (Clever Fit)" ||
+        existing.name === "Unterkörper (Clever Fit)";
       list[idx] = {
-        ...list[idx],
-        name: p.name,
-        description: p.description,
-        exercises: p.exercises,
-        preset: p.preset,
+        ...existing,
+        name: legacyName ? p.name : existing.name || p.name,
+        description: existing.description || p.description,
+        preset: p.preset || existing.preset,
       };
     }
   }
