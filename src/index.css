@@ -1190,8 +1190,31 @@ button.ig-overview-col { cursor: pointer; }
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
   flex-shrink: 0;
+}
+/* Floating dock: sits on the visible edge above the iOS keyboard */
+.ig-wo-note-edit.is-dock {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 430px;
+  z-index: 400;
+  box-sizing: border-box;
+  padding: 12px 14px calc(10px + env(safe-area-inset-bottom, 0px));
+  background: var(--surface, #161822);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 16px 16px 0 0;
+  box-shadow: 0 -10px 36px rgba(0, 0, 0, 0.45);
+}
+.ig-wo-note-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 28px;
 }
 .ig-wo-note-label {
   font-size: 10px;
@@ -1200,6 +1223,25 @@ button.ig-overview-col { cursor: pointer; }
   letter-spacing: 0.05em;
   color: var(--text-dim);
   padding-left: 2px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ig-wo-note-done {
+  flex-shrink: 0;
+  border: none;
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--accent);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 8px 14px;
+  min-height: 36px;
+  border-radius: 10px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 .ig-wo-note-input {
   width: 100%;
@@ -1218,14 +1260,31 @@ button.ig-overview-col { cursor: pointer; }
   -webkit-appearance: none;
   appearance: none;
   touch-action: manipulation;
-  /* Avoid iOS auto-scroll fighting fixed shell */
   position: relative;
   z-index: 2;
 }
-/* While typing: hide heavy steppers so note + keyboard stay calm */
+/* While typing: hide chrome under the dock so only the note is interactive */
+.ig-wo-bottom.note-focus .ig-wo-bottom-top,
 .ig-wo-bottom.note-focus .ig-wo-steppers,
 .ig-wo-bottom.note-focus .ig-wo-cta {
-  display: none;
+  visibility: hidden;
+  pointer-events: none;
+  height: 0;
+  min-height: 0;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+  border: none;
+  opacity: 0;
+}
+.ig-wo-bottom.note-focus {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding-top: 0;
+  padding-bottom: 0;
+  /* reserve space so layout doesn't jump; dock is fixed above keyboard */
+  min-height: 0;
 }
 .ig-wo-note-input::placeholder {
   color: var(--text-dim);
@@ -1235,7 +1294,13 @@ button.ig-overview-col { cursor: pointer; }
   outline: none;
   border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
-  background: var(--surface);
+  background: var(--bg, #0c0d12);
+}
+.ig-wo-note-edit.is-dock .ig-wo-note-input {
+  background: var(--bg, #0c0d12);
+  min-height: 52px;
+  height: 52px;
+  font-size: 17px;
 }
 .ig-wo-hint.note { border-left: 3px solid var(--accent); color: var(--text); }
 .ig-pe-note { background: var(--surface); border: 1px dashed var(--border); border-radius: var(--radius-sm); color: var(--text); padding: 8px 10px; font-size: 12px; font-family: inherit; width: 100%; }

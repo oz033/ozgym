@@ -107,6 +107,8 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
   const [suggestion, setSuggestion] = useState(null);
   const [noteDraft, setNoteDraft] = useState("");
   const [noteFocused, setNoteFocused] = useState(false);
+  /** px from layout bottom to top of keyboard (0 = no keyboard) */
+  const [kbBottom, setKbBottom] = useState(0);
   const noteSaveTimer = useRef(null);
   const noteInputRef = useRef(null);
 
@@ -300,6 +302,7 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
 
   const onNoteBlur = () => {
     setNoteFocused(false);
+    setKbBottom(0);
     if (noteSaveTimer.current) {
       clearTimeout(noteSaveTimer.current);
       noteSaveTimer.current = null;
@@ -307,10 +310,8 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
     persistExerciseNote(noteDraft);
   };
 
-  // iOS: no transform lift; shell height freezes while input focused (index.html)
   const onNoteFocus = () => {
     setNoteFocused(true);
-    // Prevent iOS from scrolling the fixed shell into a broken offset
     try {
       window.scrollTo(0, 0);
       document.documentElement.scrollTop = 0;
@@ -319,6 +320,61 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
       /* ignore */
     }
   };
+
+  const finishNote = (e) => {
+    e?.preventDefault?.();
+    e?.stopPropagation?.();
+    if (noteSaveTimer.current) {
+      clearTimeout(noteSaveTimer.current);
+      noteSaveTimer.current = null;
+    }
+    persistExerciseNote(noteDraft);
+    setNoteFocused(false);
+    setKbBottom(0);
+    try {
+      noteInputRef.current?.blur();
+    } catch {
+      /* ignore */
+    }
+  };
+
+  // Pin note dock to the top edge of the keyboard (visual viewport), not the layout bottom
+  useEffect(() => {
+    if (!noteFocused) {
+      setKbBottom(0);
+      return;
+    }
+    const place = () => {
+      const vv = window.visualViewport;
+      if (!vv) {
+        setKbBottom(0);
+        return;
+      }
+      // Distance from bottom of layout viewport to bottom of visible area
+      const inset = Math.max(
+        0,
+        Math.round(window.innerHeight - (vv.offsetTop + vv.height)),
+      );
+      setKbBottom(inset);
+    };
+    place();
+    const vv = window.visualViewport;
+    vv?.addEventListener("resize", place);
+    vv?.addEventListener("scroll", place);
+    window.addEventListener("resize", place);
+    // Keyboard animation on iOS
+    const t1 = setTimeout(place, 50);
+    const t2 = setTimeout(place, 200);
+    const t3 = setTimeout(place, 400);
+    return () => {
+      vv?.removeEventListener("resize", place);
+      vv?.removeEventListener("scroll", place);
+      window.removeEventListener("resize", place);
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+    };
+  }, [noteFocused]);
 
   useEffect(
     () => () => {
@@ -979,10 +1035,34 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
             </span>
           </button>
         )}
-        <div className="ig-wo-note-edit" data-no-swipe>
-          <label className="ig-wo-note-label" htmlFor="ig-wo-note">
-            Notiz
-          </label>
+        <div
+          className={
+            "ig-wo-note-edit" + (noteFocused ? " is-dock" : "")
+          }
+          data-no-swipe
+          style={
+            noteFocused
+              ? { bottom: kbBottom > 0 ? kbBottom : 0 }
+              : undefined
+          }
+        >
+          <div className="ig-wo-note-head">
+            <label className="ig-wo-note-label" htmlFor="ig-wo-note">
+              {noteFocused ? `Notiz · ${exercise || "Übung"}` : "Notiz"}
+            </label>
+            {noteFocused && (
+              <button
+                type="button"
+                className="ig-wo-note-done"
+                // preventDefault so input doesn't blur before we handle done
+                onMouseDown={(e) => e.preventDefault()}
+                onTouchStart={(e) => e.preventDefault()}
+                onClick={finishNote}
+              >
+                Fertig
+              </button>
+            )}
+          </div>
           <input
             ref={noteInputRef}
             id="ig-wo-note"
@@ -995,11 +1075,16 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
             value={noteDraft}
             onChange={(ev) => onNoteChange(ev.target.value)}
             onFocus={onNoteFocus}
-            onBlur={onNoteBlur}
+            onBlur={(e) => {
+              // Ignore blur when tapping Fertig (handled there)
+              const next = e.relatedTarget;
+              if (next?.classList?.contains?.("ig-wo-note-done")) return;
+              onNoteBlur();
+            }}
             onKeyDown={(ev) => {
               if (ev.key === "Enter") {
                 ev.preventDefault();
-                ev.currentTarget.blur();
+                finishNote(ev);
               }
             }}
             placeholder="Sitz · Pin · Griff…"
