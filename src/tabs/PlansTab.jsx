@@ -631,10 +631,14 @@ function LibraryPicker({ data, update, usedIds, onPick, onClose }) {
       </div>
 
       <div className="ig-sheet-search">
-        <Search size={15} className="ig-sheet-search-icon" />
+        <Search size={16} className="ig-sheet-search-icon" aria-hidden="true" />
         <input
           className="ig-input"
-          placeholder={`Suchen in ${library.length} Übungen …`}
+          type="search"
+          enterKeyHint="search"
+          autoCorrect="off"
+          autoCapitalize="off"
+          placeholder="Übung suchen…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
