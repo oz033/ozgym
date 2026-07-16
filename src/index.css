@@ -1437,7 +1437,11 @@ button.ig-overview-col { cursor: pointer; }
   background: color-mix(in srgb, var(--accent) 12%, var(--surface));
   color: var(--accent);
 }
-/* Fullscreen machine guide */
+/*
+ * Machine guide — fit on one screen (iPhone SE → Pro Max).
+ * Compact density: no mandatory scroll on 13 Pro / similar.
+ * overflow auto only as fallback on very short viewports.
+ */
 .ig-wo-guide {
   position: absolute;
   inset: 0;
@@ -1449,40 +1453,40 @@ button.ig-overview-col { cursor: pointer; }
   flex-direction: column;
   justify-content: flex-end;
   animation: ig-fade-up 0.2s var(--ease-out);
+  /* full workout area; panel sizes to content up to max */
+  padding-top: env(safe-area-inset-top, 0px);
 }
 .ig-wo-guide-panel {
   background: var(--surface, #161822);
   border-top: 1px solid var(--border);
-  border-radius: 20px 20px 0 0;
-  max-height: min(88dvh, 720px);
+  border-radius: 18px 18px 0 0;
+  max-height: calc(100% - 4px);
   display: flex;
   flex-direction: column;
   box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
 }
-/*
- * Header row: [ title left ] [ demo fills gap ] [ X right ]
- * Demo is centered in the free space between Shoulderpress and X.
- */
+/* [ title ] [ gif mid ] [ X ] — compact header row */
 .ig-wo-guide-head {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(120px, 1.15fr) 44px;
+  grid-template-columns: minmax(0, 1.05fr) minmax(88px, 0.95fr) 40px;
   align-items: center;
-  gap: 10px;
-  padding: 12px 14px 12px 16px;
+  gap: 8px;
+  padding: 10px 12px 8px 14px;
   border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-  min-height: 132px;
+  flex: 0 0 auto;
+  min-height: 0;
 }
 .ig-wo-guide-titles {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
   align-items: flex-start;
   justify-content: center;
 }
 .ig-wo-guide-kicker {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -1492,22 +1496,24 @@ button.ig-overview-col { cursor: pointer; }
   margin: 0;
   width: 100%;
   font-family: var(--font-display);
-  font-size: clamp(16px, 4.6vw, 20px);
+  font-size: clamp(15px, 4.2vw, 18px);
   font-weight: 700;
   letter-spacing: -0.3px;
-  line-height: 1.15;
+  line-height: 1.12;
+}
+.ig-wo-guide-titles .ig-badge {
+  font-size: 10px;
+  padding: 2px 8px;
 }
 .ig-wo-guide-mid {
   display: flex;
   align-items: center;
   justify-content: center;
   min-width: 0;
-  height: 100%;
   align-self: stretch;
 }
 .ig-wo-guide-demo {
   width: 100%;
-  height: 100%;
   margin: 0;
   display: flex;
   flex-direction: column;
@@ -1515,20 +1521,20 @@ button.ig-overview-col { cursor: pointer; }
   justify-content: center;
   gap: 0;
 }
-/* Hide extra chrome — only the GIF fills the mid column */
 .ig-wo-guide-demo .ig-ex-demo-match,
 .ig-wo-guide-demo .ig-ex-demo-chips {
-  display: none;
+  display: none !important;
 }
 .ig-wo-guide-demo .ig-ex-demo-frame {
-  width: min(100%, 148px);
-  height: min(100%, 148px);
+  /* Scales with viewport so text still fits below on short phones */
+  width: clamp(84px, 26vw, 120px);
+  height: clamp(84px, 26vw, 120px);
   aspect-ratio: 1;
-  border-radius: 16px;
+  border-radius: 14px;
   border: 1px solid var(--border);
   overflow: hidden;
   background: var(--surface-2);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
 }
 .ig-wo-guide-demo .ig-ex-demo-gif {
   width: 100%;
@@ -1536,43 +1542,128 @@ button.ig-overview-col { cursor: pointer; }
   object-fit: cover;
   display: block;
 }
-.ig-wo-guide-demo.empty {
-  width: 100%;
-  height: 100%;
-}
 .ig-wo-guide-demo.empty .ig-ex-demo-fallback {
-  width: min(100%, 148px);
-  height: min(100%, 148px);
+  width: clamp(84px, 26vw, 120px);
+  height: clamp(84px, 26vw, 120px);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 8px;
-  border-radius: 16px;
+  padding: 6px;
+  border-radius: 14px;
   border: 1px dashed var(--border);
   background: var(--surface-2);
-  font-size: 11px;
+  font-size: 10px;
 }
 .ig-wo-guide-demo.empty .ig-ex-demo-fallback-hint {
   display: none;
 }
 .ig-wo-guide-head .ig-wo-exit {
-  align-self: start;
-  margin-top: 2px;
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  align-self: center;
+  border-radius: 12px;
 }
-@media (min-width: 380px) {
-  .ig-wo-guide-head {
-    min-height: 156px;
-    grid-template-columns: minmax(0, 1fr) minmax(140px, 1.2fr) 44px;
-  }
+/* Text: dense, preferably no scroll on 13 Pro class */
+.ig-wo-guide-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 8px 14px 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ig-wo-guide-benefit {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.3;
+  padding: 7px 10px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface-2));
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+  color: var(--text);
+  flex-shrink: 0;
+}
+.ig-wo-guide-sec {
+  flex-shrink: 0;
+}
+.ig-wo-guide-sec h3 {
+  margin: 0 0 4px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+}
+.ig-wo-guide-sec ol,
+.ig-wo-guide-sec ul {
+  margin: 0;
+  padding-left: 1.05rem;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.ig-wo-guide-sec li {
+  font-size: 12.5px;
+  line-height: 1.32;
+  color: var(--text);
+}
+.ig-wo-guide-sec.avoid li {
+  color: color-mix(in srgb, var(--warning, #e8a53a) 30%, var(--text));
+}
+.ig-wo-guide-foot {
+  flex: 0 0 auto;
+  padding: 6px 14px calc(8px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--border);
+}
+.ig-wo-guide-foot .ig-btn-primary {
+  height: 44px;
+  min-height: 44px;
+  font-size: 14px;
+  border-radius: 12px;
+}
+/* Taller phones: slightly larger mid GIF, still fit without scroll */
+@media (min-height: 780px) {
   .ig-wo-guide-demo .ig-ex-demo-frame,
   .ig-wo-guide-demo.empty .ig-ex-demo-fallback {
-    width: min(100%, 168px);
-    height: min(100%, 168px);
+    width: clamp(100px, 28vw, 132px);
+    height: clamp(100px, 28vw, 132px);
+  }
+  .ig-wo-guide-body {
+    gap: 10px;
+    padding: 10px 16px 6px;
+  }
+  .ig-wo-guide-sec li {
+    font-size: 13px;
+    line-height: 1.35;
   }
 }
-/* Compact variant kept for other uses */
+/* Very short (SE etc.): allow scroll only if still overflowing */
+@media (max-height: 700px) {
+  .ig-wo-guide-demo .ig-ex-demo-frame,
+  .ig-wo-guide-demo.empty .ig-ex-demo-fallback {
+    width: 76px;
+    height: 76px;
+  }
+  .ig-wo-guide-body {
+    gap: 6px;
+    padding: 6px 12px 2px;
+  }
+  .ig-wo-guide-sec li {
+    font-size: 12px;
+    line-height: 1.28;
+  }
+  .ig-wo-guide-benefit {
+    font-size: 12px;
+    padding: 6px 8px;
+  }
+}
 .ig-ex-demo.compact {
   flex-shrink: 0;
   margin: 0;
@@ -1597,56 +1688,6 @@ button.ig-overview-col { cursor: pointer; }
   font-weight: 700;
   color: var(--text-dim);
   opacity: 0.5;
-}
-.ig-wo-guide-body {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  padding: 12px 16px 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-.ig-wo-guide-benefit {
-  margin: 0;
-  font-size: 14px;
-  line-height: 1.45;
-  color: var(--text-dim);
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--accent) 10%, var(--surface-2));
-  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
-  color: var(--text);
-}
-.ig-wo-guide-sec h3 {
-  margin: 0 0 8px;
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-dim);
-}
-.ig-wo-guide-sec ol,
-.ig-wo-guide-sec ul {
-  margin: 0;
-  padding-left: 1.15rem;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.ig-wo-guide-sec li {
-  font-size: 14.5px;
-  line-height: 1.45;
-  color: var(--text);
-}
-.ig-wo-guide-sec.avoid li {
-  color: color-mix(in srgb, var(--warning, #e8a53a) 35%, var(--text));
-}
-.ig-wo-guide-foot {
-  flex-shrink: 0;
-  padding: 10px 16px calc(12px + env(safe-area-inset-bottom, 0px));
-  border-top: 1px solid var(--border);
 }
 .ig-wo-onehand {
   gap: 10px;
