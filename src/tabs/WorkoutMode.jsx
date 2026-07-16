@@ -1304,9 +1304,6 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
                         </span>
                       )}
                     </span>
-                    <span className="ig-wo-hint-info" aria-hidden="true">
-                      <Info size={16} strokeWidth={2.25} />
-                    </span>
                   </button>
                 );
               })()}

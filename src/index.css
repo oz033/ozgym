@@ -1363,7 +1363,7 @@ button.ig-wo-seg:active {
   width: 100%;
   max-width: 320px;
   text-align: left;
-  padding: 8px 10px 8px 12px;
+  padding: 8px 12px;
   border-radius: 12px;
   background: color-mix(in srgb, var(--surface-2) 88%, transparent);
   border: 1px solid var(--border);
@@ -1395,18 +1395,6 @@ button.ig-wo-seg:active {
   line-height: 1.35;
   color: var(--text);
   font-weight: 500;
-}
-.ig-wo-hint-rich .ig-wo-hint-info {
-  flex-shrink: 0;
-  align-self: center;
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  color: var(--accent);
 }
 .ig-app[data-theme="dark"] .ig-wo-hint-kicker {
   color: color-mix(in srgb, var(--accent) 70%, #fff 30%);
