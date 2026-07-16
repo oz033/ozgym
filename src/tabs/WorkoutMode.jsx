@@ -21,6 +21,10 @@ import {
   Trophy,
   TrendingUp,
   Info,
+  Repeat,
+  SkipForward,
+  Play,
+  Pause,
 } from "lucide-react";
 import { CountUp, RestRing, Confetti, showConfirm } from "../components/ui.jsx";
 import { EclipseMark } from "../components/brand.jsx";
@@ -31,10 +35,12 @@ import {
   playSound,
   buzz,
   round1,
+  getTodayPlan,
 } from "../lib/utils.js";
 import { setWorkoutWakeLock } from "../lib/wakeLock.js";
-import { ZONE_LABEL, MOTIVATION_POOL } from "../lib/constants.js";
+import { ZONE_LABEL, MUSCLE_NAME, MOTIVATION_POOL } from "../lib/constants.js";
 import { smartSuggest } from "../lib/planGenerator.js";
+import { buildWarmup, buildCooldown } from "../lib/stretches.js";
 
 /** Truncate cleanly at word boundary. */
 function shortTip(text, max = 72) {
@@ -69,6 +75,257 @@ function liftTipFromMeta(meta) {
   }
   if (!setup && !cue) return null;
   return { setup, cue };
+}
+
+/* Warm-up / Cool-down: geführte Abfolge aus Mobilisation bzw. statischen
+   Dehnungen. Jede Übung: erledigen, überspringen oder (bei Zeitangabe) per
+   Countdown-Timer laufen lassen. Alles ist überspringbar — die Abfolge
+   blockiert nie das eigentliche Training. */
+function StretchFlow({ mode, items, soundOn, hapticsOn, onDone }) {
+  const [idx, setIdx] = useState(0);
+  const [status, setStatus] = useState(() => items.map(() => "open"));
+  const [timeLeft, setTimeLeft] = useState(items[0]?.seconds || 0);
+  const [running, setRunning] = useState(false);
+  const item = items[idx];
+  const isWarmup = mode === "warmup";
+  const doneCount = status.filter((s) => s !== "open").length;
+
+  const finishWith = (finalStatus) => {
+    const stretched = finalStatus.filter((s) => s === "done").length;
+    onDone(stretched);
+  };
+
+  const advance = (nextStatus) => {
+    setStatus(nextStatus);
+    const next = items.findIndex((_, i) => i !== idx && nextStatus[i] === "open");
+    if (next === -1) {
+      finishWith(nextStatus);
+      return;
+    }
+    setIdx(next);
+    setTimeLeft(items[next]?.seconds || 0);
+    setRunning(false);
+  };
+
+  const completeCurrent = (kind) => {
+    const nextStatus = status.map((s, i) => (i === idx ? kind : s));
+    if (kind === "done") {
+      playSound("set", soundOn);
+      buzz(30, hapticsOn);
+    }
+    advance(nextStatus);
+  };
+
+  // Countdown (nur Übungen mit Zeitangabe)
+  useEffect(() => {
+    if (!running || !item?.seconds) return;
+    const iv = setInterval(() => setTimeLeft((t) => Math.max(0, t - 1)), 1000);
+    return () => clearInterval(iv);
+  }, [running, idx, item?.seconds]);
+  useEffect(() => {
+    if (!running || !item?.seconds || timeLeft > 0) return;
+    setRunning(false);
+    playSound("timer", soundOn);
+    buzz([120, 80, 120], hapticsOn);
+    completeCurrent("done");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeLeft, running]);
+
+  if (!item) return null;
+  const mm = String(Math.floor(timeLeft / 60)).padStart(2, "0");
+  const ss = String(timeLeft % 60).padStart(2, "0");
+
+  return (
+    <div className="ig-wo ig-wo-stretch">
+      <header className="ig-wo-head">
+        <button
+          className="ig-icon-btn ghost"
+          onClick={() => finishWith(status)}
+          aria-label={isWarmup ? "Warm-up überspringen" : "Cool-down überspringen"}
+        >
+          <X size={20} />
+        </button>
+        <div className="ig-wo-head-mid">
+          <span className="ig-wo-head-title">
+            {isWarmup ? "Warm-up" : "Cool-down"}
+          </span>
+          <span className="ig-wo-stretch-count mono">
+            {Math.min(doneCount + 1, items.length)}/{items.length}
+          </span>
+        </div>
+        <span className="ig-wo-stretch-headspace" aria-hidden="true" />
+      </header>
+
+      <div className="ig-wo-sets ig-wo-stretch-dots" aria-hidden="true">
+        {items.map((_, i) => (
+          <span
+            key={i}
+            className={
+              "ig-prog-dot" +
+              (status[i] === "done" ? " done" : i === idx ? " next" : "")
+            }
+          />
+        ))}
+      </div>
+
+      <div className="ig-wo-stretch-body">
+        <div className="ig-wo-stretch-card">
+          <div className="ig-wo-stretch-meta">
+            {item.zone && (
+              <span className="ig-badge">{ZONE_LABEL[item.zone] || item.zone}</span>
+            )}
+            <span className="ig-badge dim">
+              {item.seconds ? `${item.seconds}s halten` : `${item.reps} Wdh. je Seite`}
+            </span>
+          </div>
+          <h3 className="ig-wo-ex-name">{item.name}</h3>
+          <ExerciseDemo exerciseName={item.mediaName} />
+          {item.note && <p className="ig-wo-hint dim">{item.note}</p>}
+          {item.seconds ? (
+            <div className="ig-wo-stretch-timer mono" aria-live="polite">
+              {mm}:{ss}
+            </div>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="ig-wo-stretch-actions">
+        {item.seconds ? (
+          <button
+            type="button"
+            className="ig-btn-secondary"
+            onClick={() => {
+              setRunning((r) => !r);
+              playSound("tap", soundOn);
+            }}
+          >
+            {running ? <Pause size={16} /> : <Play size={16} />}
+            {running ? "Pause" : timeLeft < item.seconds ? "Weiter" : "Timer starten"}
+          </button>
+        ) : null}
+        <button
+          type="button"
+          className="ig-btn-secondary"
+          onClick={() => completeCurrent("skipped")}
+        >
+          <SkipForward size={16} /> Überspringen
+        </button>
+        <button
+          type="button"
+          className="ig-btn-primary"
+          onClick={() => completeCurrent("done")}
+        >
+          <Check size={16} /> Erledigt
+        </button>
+      </div>
+
+      <button
+        type="button"
+        className="ig-wo-stretch-skipall"
+        onClick={() => finishWith(status)}
+      >
+        {isWarmup ? "Warm-up überspringen — direkt trainieren" : "Cool-down beenden"}
+      </button>
+    </div>
+  );
+}
+
+/* Übung ersetzen, ohne das Workout zu verlassen: Alternativen aus derselben
+   Muskelgruppe, nach Equipment filterbar. Gerät besetzt/defekt → 2 Taps. */
+function ReplacePanel({ current, library, queueNames, onPick, onClose }) {
+  const [equip, setEquip] = useState(null);
+  const EQUIPS = ["Maschine", "Kurzhantel", "Langhantel", "Kabelzug", "Körpergewicht"];
+
+  const alternatives = useMemo(() => {
+    const list = (library || []).filter(
+      (e) =>
+        e.muscle === current.muscle &&
+        e.id !== current.id &&
+        !queueNames.has(e.name) &&
+        (!equip || e.equipment === equip),
+    );
+    // Gleiches Equipment zuerst — wahrscheinlichster 1-Tap-Ersatz
+    return list
+      .sort(
+        (a, b) =>
+          (a.equipment === current.equipment ? -1 : 0) -
+            (b.equipment === current.equipment ? -1 : 0) ||
+          a.name.localeCompare(b.name),
+      )
+      .slice(0, 40);
+  }, [library, current, equip, queueNames]);
+
+  return (
+    <div className="ig-wo-replace-backdrop" onClick={onClose} role="presentation">
+      <div
+        className="ig-wo-replace"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Alternative zu ${current.name}`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="ig-wo-replace-head">
+          <div className="ig-wo-replace-title">
+            <span className="ig-field-label">Übung ersetzen</span>
+            <strong>
+              Alternativen zu {current.name}
+              {current.muscle ? ` · ${MUSCLE_NAME[current.muscle] || ""}` : ""}
+            </strong>
+          </div>
+          <button className="ig-icon-btn ghost" onClick={onClose} aria-label="Schließen">
+            <X size={20} />
+          </button>
+        </div>
+        <div className="ig-wo-replace-chips">
+          <button
+            type="button"
+            className={"ig-chip sm" + (equip === null ? " active" : "")}
+            onClick={() => setEquip(null)}
+          >
+            Alle
+          </button>
+          {EQUIPS.map((eq) => (
+            <button
+              key={eq}
+              type="button"
+              className={"ig-chip sm" + (equip === eq ? " active" : "")}
+              onClick={() => setEquip(equip === eq ? null : eq)}
+            >
+              {eq}
+            </button>
+          ))}
+        </div>
+        <div className="ig-wo-replace-list">
+          {alternatives.length === 0 && (
+            <p className="ig-empty">
+              Keine Alternative mit diesem Filter — wähle ein anderes Equipment.
+            </p>
+          )}
+          {alternatives.map((e) => (
+            <button
+              key={e.id}
+              type="button"
+              className="ig-wo-replace-row"
+              onClick={() => onPick(e)}
+            >
+              <ExerciseDemo exerciseName={e.name} gif={e.gif} image={e.image} compact />
+              <span className="ig-wo-replace-info">
+                <span className="ig-wo-replace-name">{e.name}</span>
+                <span className="ig-wo-replace-meta">
+                  {MUSCLE_NAME[e.muscle] || e.muscle}
+                  {e.equipment ? ` · ${e.equipment}` : ""}
+                </span>
+                {e.hint && (
+                  <span className="ig-wo-replace-hint">{shortTip(e.hint, 64)}</span>
+                )}
+              </span>
+              <Repeat size={15} className="ig-wo-replace-chev" aria-hidden="true" />
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
@@ -241,7 +498,47 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
     settleTrack(idx);
   }, [idx, phase, trackW, settleTrack]);
 
-  const sessionRef = useRef({ sets: 0, volume: 0, prs: 0, records: [], zones: new Set() });
+  const sessionRef = useRef({
+    sets: 0,
+    volume: 0,
+    prs: 0,
+    records: [],
+    zones: new Set(),
+    stretches: 0,
+  });
+
+  /* ---- Warm-up / Cool-down / Übung ersetzen ---- */
+  const warmupEnabled = data.settings?.warmup !== false;
+  const cooldownEnabled = data.settings?.cooldown !== false;
+  const warmupItems = useMemo(() => buildWarmup(queue), [queue]);
+  // Warm-up nur beim frischen Einstieg — nicht beim Fortsetzen einer Session
+  const [flowPhase, setFlowPhase] = useState(() => {
+    if (!warmupEnabled || firstOpen === -1) return "main";
+    const logged = queue.some((it) =>
+      data.logs.some(
+        (l) => l.date === today && l.exercise === it.name && l.sets.length > 0,
+      ),
+    );
+    return logged || buildWarmup(queue).length === 0 ? "main" : "warmup";
+  });
+  const [cooldownItems, setCooldownItems] = useState(null);
+  const [cooldownDone, setCooldownDone] = useState(false);
+  const [replaceOpen, setReplaceOpen] = useState(false);
+  const queueNames = useMemo(() => new Set(queue.map((it) => it.name)), [queue]);
+
+  // Nach dem letzten Satz: Cool-down für die tatsächlich trainierten Zonen
+  useEffect(() => {
+    if (phase !== "done" || cooldownItems !== null) return;
+    const s = sessionRef.current;
+    if (!cooldownEnabled || s.sets === 0) {
+      setCooldownItems([]);
+      setCooldownDone(true);
+      return;
+    }
+    const items = buildCooldown(s.zones);
+    setCooldownItems(items);
+    if (!items.length) setCooldownDone(true);
+  }, [phase, cooldownEnabled, cooldownItems]);
 
   // Einheit beim Abschluss einmalig persistieren (Dauer, Sätze, Volumen, PRs)
   // — Grundlage für Trainingszeit + ≈kcal auf dem Dashboard und im Verlauf.
@@ -636,6 +933,35 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
       setRestLeft(r0);
       setPhase("rest");
     }
+  };
+
+  /* Übung ersetzen (Gerät besetzt/defekt): tauscht die Übung im heutigen Plan.
+     Bereits geloggte Sätze bleiben unter dem alten Namen in der Historie;
+     Sätze/Wdh./Pause/Notiz des Plan-Eintrags bleiben erhalten, Gewicht schlägt
+     smartSuggest für die neue Übung vor (Effekt auf exercise-Wechsel). */
+  const replaceExercise = (newEntry) => {
+    const eid = item?.entry?.id;
+    if (!eid || !newEntry) return;
+    update((prev) => {
+      const plan = getTodayPlan(prev);
+      if (!plan) return prev;
+      return {
+        ...prev,
+        plans: prev.plans.map((p) =>
+          p.id !== plan.id
+            ? p
+            : {
+                ...p,
+                exercises: p.exercises.map((it) =>
+                  it.exerciseId === eid ? { ...it, exerciseId: newEntry.id } : it,
+                ),
+              },
+        ),
+      };
+    });
+    setReplaceOpen(false);
+    playSound("tap", soundOn);
+    buzz(30, hapticsOn);
   };
 
   /** Pause live ändern und im aktiven Plan speichern (pro Übung) */
@@ -1075,6 +1401,42 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
   const mm = String(Math.floor(elapsed / 60)).padStart(2, "0");
   const ss = String(elapsed % 60).padStart(2, "0");
 
+  /* ---- Warm-up vor dem Training ---- */
+  if (flowPhase === "warmup" && phase !== "done") {
+    return (
+      <StretchFlow
+        mode="warmup"
+        items={warmupItems}
+        soundOn={soundOn}
+        hapticsOn={hapticsOn}
+        onDone={(n) => {
+          sessionRef.current.stretches += n;
+          setFlowPhase("main");
+          playSound("pr", soundOn);
+          buzz(40, hapticsOn);
+        }}
+      />
+    );
+  }
+
+  /* ---- Cool-down nach dem letzten Satz ---- */
+  if (phase === "done" && cooldownEnabled && !cooldownDone) {
+    if (!cooldownItems) return null; // ein Frame, bis der Effekt die Liste baut
+    return (
+      <StretchFlow
+        mode="cooldown"
+        items={cooldownItems}
+        soundOn={soundOn}
+        hapticsOn={hapticsOn}
+        onDone={(n) => {
+          sessionRef.current.stretches += n;
+          setCooldownDone(true);
+          playSound("timer", soundOn);
+        }}
+      />
+    );
+  }
+
   /* ---- Abschluss-Screen ---- */
   if (phase === "done") {
     const s = sessionRef.current;
@@ -1160,6 +1522,11 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
                   {ZONE_LABEL[z]}
                 </span>
               ))}
+              {s.stretches > 0 && (
+                <span className="ig-badge dim">
+                  {s.stretches} {s.stretches === 1 ? "Dehnung" : "Dehnungen"}
+                </span>
+              )}
             </div>
           )}
           <p className="ig-wo-recovery">
@@ -1289,6 +1656,21 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
                     </div>
                   )}
                 </div>
+                {active && (
+                  <button
+                    type="button"
+                    className="ig-wo-replace-btn"
+                    data-no-swipe
+                    onClick={() => {
+                      setReplaceOpen(true);
+                      playSound("tap", soundOn);
+                    }}
+                    aria-label={`${e} ersetzen — Alternativen zeigen`}
+                    title="Übung ersetzen"
+                  >
+                    <Repeat size={16} />
+                  </button>
+                )}
               </div>
               {active && (
                 <ExerciseDemo
@@ -1336,6 +1718,17 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
         })}
       </div>
       </div>
+
+      {/* Übung ersetzen: Alternativen derselben Muskelgruppe, 2 Taps */}
+      {replaceOpen && item?.entry && (
+        <ReplacePanel
+          current={item.entry}
+          library={data.library}
+          queueNames={queueNames}
+          onPick={replaceExercise}
+          onClose={() => setReplaceOpen(false)}
+        />
+      )}
 
       {/* Ausführliche Geräte-Anleitung */}
       {guideOpen && (

@@ -2937,6 +2937,168 @@ button.ig-ex-stat-btn {
 button.ig-ex-stat-btn:active { transform: scale(0.985); }
 .ig-ex-stat-chev { color: var(--text-dim); flex-shrink: 0; margin-left: 2px; }
 
+/* ---- Warm-up / Cool-down (StretchFlow im Workout-Vollbild) ---- */
+.ig-wo-stretch {
+  display: flex;
+  flex-direction: column;
+  padding-bottom: calc(12px + var(--safe-bottom));
+}
+.ig-wo-stretch .ig-wo-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ig-wo-stretch-headspace { width: 28px; flex-shrink: 0; }
+.ig-wo-stretch-count { font-size: 12px; color: var(--text-dim); }
+.ig-wo-stretch-dots {
+  display: flex;
+  justify-content: center;
+  gap: 7px;
+  padding: 4px 0 8px;
+}
+.ig-wo-stretch-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 16px;
+  -webkit-overflow-scrolling: touch;
+}
+.ig-wo-stretch-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: ig-fade-up 0.3s var(--ease-out);
+}
+.ig-wo-stretch-meta { display: flex; gap: 6px; }
+.ig-wo-stretch-timer {
+  font-size: 44px;
+  font-weight: 700;
+  text-align: center;
+  letter-spacing: 1px;
+  padding: 4px 0;
+  font-variant-numeric: tabular-nums;
+}
+.ig-wo-stretch-actions {
+  display: flex;
+  gap: 8px;
+  padding: 10px 16px 0;
+}
+.ig-wo-stretch-actions .ig-btn-primary,
+.ig-wo-stretch-actions .ig-btn-secondary { flex: 1; min-width: 0; }
+.ig-wo-stretch-skipall {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 12px;
+  cursor: pointer;
+  text-align: center;
+}
+.ig-wo-stretch-skipall:active { opacity: 0.7; }
+
+/* ---- Übung ersetzen (Panel im Workout) ---- */
+.ig-wo-replace-btn {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: color var(--dur-med) var(--ease-out),
+    border-color var(--dur-med) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+.ig-wo-replace-btn:hover { color: var(--accent); border-color: var(--accent); }
+.ig-wo-replace-btn:active { transform: scale(0.92); }
+.ig-wo-replace-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 110; /* über .ig-wo (100), unter Toast (120) */
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  animation: ig-backdrop-in 0.2s var(--ease-out);
+}
+.ig-wo-replace {
+  width: 100%;
+  max-width: 430px;
+  max-height: 78vh;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  padding: 16px 14px calc(10px + var(--safe-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: ig-confirm-up 0.28s var(--ease-out);
+}
+.ig-wo-replace-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.ig-wo-replace-title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.ig-wo-replace-title strong { font-size: 14.5px; line-height: 1.35; }
+.ig-wo-replace-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.ig-wo-replace-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ig-wo-replace-row {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 9px 11px;
+  color: var(--text);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--dur-med) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+.ig-wo-replace-row:hover { border-color: var(--accent); }
+.ig-wo-replace-row:active { transform: scale(0.98); }
+.ig-wo-replace-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ig-wo-replace-name { font-size: 13.5px; font-weight: 600; line-height: 1.3; }
+.ig-wo-replace-meta { font-size: 11.5px; color: var(--text-dim); }
+.ig-wo-replace-hint { font-size: 11px; color: var(--text-dim); opacity: 0.8; }
+.ig-wo-replace-chev { color: var(--text-dim); flex-shrink: 0; }
+
 /* ---- Statistik-Balken bauen sich beim Einblenden auf ---- */
 @keyframes ig-fill-up {
   from { transform: scaleY(0); }

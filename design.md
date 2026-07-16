@@ -138,6 +138,24 @@ Lives at the end of `src/index.css` ("Interaction Consistency Layer"). Rules:
 - **Trainingszeit-Karte** im Verlauf: Min diese Woche · Ø Min/Einheit ·
   Std gesamt (aus `data.sessions`).
 
+## Trainings-Flow (v2.4 — 2026-07-16)
+
+- **Warm-up** (`StretchFlow`, `lib/stretches.js`): vor frischem Workout,
+  zonenbasiert aus der Queue (max. 5), Reps- oder Timer-Übungen, alles
+  überspringbar. Toggle `settings.warmup`. Kein Warm-up beim Fortsetzen.
+- **Cool-down**: nach dem letzten Satz automatisch, statische Dehnungen für
+  die TATSÄCHLICH trainierten Zonen (`sessionRef.zones`), Haltezeit-Countdown.
+  Toggle `settings.cooldown`. Summary zeigt Dehnungs-Badge.
+- **Übung ersetzen** (`ReplacePanel` im Workout, z 110): gleiche Muskelgruppe,
+  Equipment-Chips (Maschine/Kurzhantel/Langhantel/Kabelzug/Körpergewicht),
+  gleiches Equipment sortiert zuerst, GIF-Thumb + Hinweis je Zeile. Tausch =
+  `exerciseId`-Swap im heutigen Plan — Sätze/Wdh./Pause/Notiz bleiben,
+  geloggte Sätze bleiben unterm alten Namen, smartSuggest belegt Gewicht vor.
+  2 Taps, Workout läuft weiter.
+- Stretch-Übungen: deutsche Namen + verifizierte Dataset-mediaNames
+  (GIF-Fallback via ExerciseDemo). Kein Schwierigkeitsgrad — Datenfeld
+  existiert nicht, nichts erfinden.
+
 ## Copy voice
 
 - German, short, second person optional.
