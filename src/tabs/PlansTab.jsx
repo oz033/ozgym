@@ -365,39 +365,45 @@ export default function PlansTab({ data, update, goTo, autoOpenPlanId, onAutoOpe
                 deleteLabel={`Plan ${p.name} löschen`}
                 onDelete={() => deletePlan(p)}
               >
-                <button
-                  className="ig-plan-main"
-                  {...withLongPress(p, () => setActive(p.id))}
-                  aria-label={`Plan ${p.name} aktivieren — halten für Menü`}
-                >
-                  <span className="ig-plan-icon">{p.icon}</span>
-                  <span className="ig-plan-info">
-                    <span className="ig-plan-name">
-                      {p.name}
-                      {p.generated && (
-                        <span className="ig-plan-smart-tag" title="Automatisch erstellt">
-                          <Sparkles size={9} /> Smart
-                        </span>
-                      )}
+                {/* Prep-Chips sind eigene Buttons — dürfen NICHT im
+                    ig-plan-main-<button> stecken (verschachtelte Buttons =
+                    invalides HTML, iOS-Tap undefined). Deshalb Spalten-
+                    Wrapper: Button oben, Chips als Geschwister darunter. */}
+                <div className="ig-plan-body">
+                  <button
+                    className="ig-plan-main"
+                    {...withLongPress(p, () => setActive(p.id))}
+                    aria-label={`Plan ${p.name} aktivieren — halten für Menü`}
+                  >
+                    <span className="ig-plan-icon">{p.icon}</span>
+                    <span className="ig-plan-info">
+                      <span className="ig-plan-name">
+                        {p.name}
+                        {p.generated && (
+                          <span className="ig-plan-smart-tag" title="Automatisch erstellt">
+                            <Sparkles size={9} /> Smart
+                          </span>
+                        )}
+                      </span>
+                      <span className="ig-plan-meta">
+                        {p.exercises.length} {p.exercises.length === 1 ? "Übung" : "Übungen"}
+                        {(p.days || []).length > 0 &&
+                          " · " + WEEKDAYS.filter((d) => p.days.includes(d.key)).map((d) => d.short).join(" ")}
+                      </span>
                     </span>
-                    <span className="ig-plan-meta">
-                      {p.exercises.length} {p.exercises.length === 1 ? "Übung" : "Übungen"}
-                      {(p.days || []).length > 0 &&
-                        " · " + WEEKDAYS.filter((d) => p.days.includes(d.key)).map((d) => d.short).join(" ")}
-                    </span>
-                    <PlanPrepChips
-                      plan={p}
-                      templates={data.prepTemplates}
-                      compact
-                      onWarmup={() =>
-                        setPrepAssign({ planId: p.id, kind: "warmup" })
-                      }
-                      onCooldown={() =>
-                        setPrepAssign({ planId: p.id, kind: "cooldown" })
-                      }
-                    />
-                  </span>
-                </button>
+                  </button>
+                  <PlanPrepChips
+                    plan={p}
+                    templates={data.prepTemplates}
+                    compact
+                    onWarmup={() =>
+                      setPrepAssign({ planId: p.id, kind: "warmup" })
+                    }
+                    onCooldown={() =>
+                      setPrepAssign({ planId: p.id, kind: "cooldown" })
+                    }
+                  />
+                </div>
                 <div className="ig-plan-actions">
                   <button className="ig-icon-btn ghost sm" onClick={() => setEditingId(p.id)} aria-label="Bearbeiten">
                     <Pencil size={14} />

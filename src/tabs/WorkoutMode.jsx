@@ -28,9 +28,11 @@ import {
   Pause,
   Search,
 } from "lucide-react";
-import { CountUp, RestRing, Confetti, showConfirm } from "../components/ui.jsx";
+import { CountUp, RestRing, showConfirm } from "../components/ui.jsx";
 import { EclipseMark } from "../components/brand.jsx";
 import ExerciseDemo from "../components/ExerciseDemo.jsx";
+import ShaderVeil from "../components/ShaderVeil.jsx";
+import MetalConfetti from "../components/MetalConfetti.jsx";
 import {
   todayISO,
   calcStats,
@@ -1929,7 +1931,9 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
     const celebrate = s.records.length > 0 || leveledUp;
     return (
       <div className="ig-wo ig-wo-done">
-        {celebrate && <Confetti />}
+        {/* GPU-Aura hinter der Zusammenfassung — ruhiges Metall, kein Kirmes */}
+        <ShaderVeil className="ig-wo-done-veil" opacity={0.35} />
+        {celebrate && <MetalConfetti />}
         <div className="ig-wo-done-body">
           <span className="ig-wo-done-icon">
             <EclipseMark size={48} />

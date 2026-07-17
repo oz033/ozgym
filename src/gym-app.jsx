@@ -1,6 +1,7 @@
 /* App-Shell: State, Persistenz, Theme/Modus, Navigation */
 
 import React, { useState, useEffect, useMemo, useRef, useCallback, Suspense, lazy } from "react";
+import { flushSync } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   House,
@@ -410,6 +411,53 @@ export default function App() {
     setTab("plan");
   };
 
+  // Theme-Wechsel als kreisförmiger Wipe vom Tap-Punkt aus (View Transitions
+  // API). flushSync: der DOM muss synchron im Transition-Callback stehen,
+  // sonst friert die API den alten Zustand ein. Fallback (kein Support /
+  // reduced motion): normaler Toggle mit CSS-Farb-Transition.
+  const toggleTheme = (e) => {
+    const apply = () =>
+      update((prev) => ({
+        ...prev,
+        settings: {
+          ...prev.settings,
+          theme: theme === "dark" ? "light" : "dark",
+        },
+      }));
+    const reducedPref =
+      reduced ||
+      (typeof window.matchMedia === "function" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    if (typeof document.startViewTransition !== "function" || reducedPref) {
+      apply();
+      return;
+    }
+    const x = e?.clientX ?? window.innerWidth - 40;
+    const y = e?.clientY ?? 40;
+    const vt = document.startViewTransition(() => flushSync(apply));
+    vt.ready
+      .then(() => {
+        const r = Math.hypot(
+          Math.max(x, window.innerWidth - x),
+          Math.max(y, window.innerHeight - y),
+        );
+        document.documentElement.animate(
+          {
+            clipPath: [
+              `circle(0px at ${x}px ${y}px)`,
+              `circle(${r}px at ${x}px ${y}px)`,
+            ],
+          },
+          {
+            duration: 480,
+            easing: "cubic-bezier(0.16, 1, 0.3, 1)",
+            pseudoElement: "::view-transition-new(root)",
+          },
+        );
+      })
+      .catch(() => {});
+  };
+
   // Fertige Vorlage aus dem Profil generieren (Ziel/Level/Equipment bereits bekannt)
   const createSmartPlanAndGo = () => {
     update((prev) => {
@@ -437,15 +485,7 @@ export default function App() {
             <button
               className="ig-mute-btn"
               type="button"
-              onClick={() =>
-                update((prev) => ({
-                  ...prev,
-                  settings: {
-                    ...prev.settings,
-                    theme: theme === "dark" ? "light" : "dark",
-                  },
-                }))
-              }
+              onClick={toggleTheme}
               aria-label={theme === "dark" ? "Light Mode" : "Dark Mode"}
             >
               {/* key erzwingt Remount → Swap-Animation beim Wechsel */}

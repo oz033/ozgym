@@ -286,7 +286,8 @@ export function RestRing({ left, total }) {
   const mm = String(Math.floor(left / 60)).padStart(2, "0");
   const ss = String(left % 60).padStart(2, "0");
   return (
-    <div className="ig-wo-restring">
+    // Letzte 5 Sekunden: Ring pulsiert mit Glow — "gleich geht's weiter"
+    <div className={"ig-wo-restring" + (left <= 5 && left > 0 ? " ending" : "")}>
       <svg width="180" height="180" viewBox="0 0 180 180">
         <circle cx="90" cy="90" r={r} fill="none" stroke="var(--border)" strokeWidth="11" />
         <circle

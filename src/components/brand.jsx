@@ -1,6 +1,7 @@
 /* OZGYM Mark — large black brush O+Z on frosted glass tile */
 
 import React from "react";
+import ShaderVeil from "./ShaderVeil.jsx";
 
 /* ?v= busts CDN/browser when mark art changes */
 const MARK_SRC = "/oz-mark.png?v=20260717g";
@@ -65,6 +66,8 @@ export function EclipseMark(props) {
 export function SplashScreen({ label = "OZGYM" }) {
   return (
     <div className="ig-splash">
+      {/* Flüssig-Metall-Aura hinter dem Logo (GPU, mono, reduced-motion-safe) */}
+      <ShaderVeil className="ig-splash-veil" opacity={0.5} />
       <div className="ig-splash-mark ig-splash-oz">
         <OzGymMark size={120} variant="glass" title="OZGYM" />
       </div>

@@ -3474,12 +3474,11 @@ button.ig-active-plan-btn:active {
   line-height: 1.4;
   box-shadow: var(--shadow);
   cursor: pointer;
-  animation: ig-toast-in 0.25s var(--ease-out);
+  /* Entry über @starting-style (Boundary Layer) — hier nur der Shake */
 }
 .ig-toast.error {
   border-color: color-mix(in srgb, var(--danger) 50%, var(--border));
-  animation: ig-toast-in 0.25s var(--ease-out),
-    ig-toast-shake 0.4s var(--ease-out) 0.25s;
+  animation: ig-toast-shake 0.4s var(--ease-out) 0.25s;
 }
 .ig-toast.error .ig-toast-icon { color: var(--danger); }
 .ig-toast.success .ig-toast-icon { color: var(--success); }
@@ -3530,7 +3529,7 @@ button.ig-active-plan-btn:active {
   flex-direction: column;
   gap: 8px;
   box-shadow: var(--shadow);
-  animation: ig-confirm-up 0.28s var(--ease-out);
+  /* Entry über @starting-style (Boundary Layer) */
 }
 .ig-confirm-title {
   font-family: var(--font-display);
@@ -3853,7 +3852,7 @@ button.ig-ex-stat-btn:active { transform: scale(0.985); }
   display: flex;
   flex-direction: column;
   gap: 8px;
-  animation: ig-confirm-up 0.28s var(--ease-out);
+  /* Entry über @starting-style (Boundary Layer) */
   box-sizing: border-box;
   will-change: transform;
   touch-action: pan-y;
@@ -4032,6 +4031,108 @@ button.ig-ex-stat-btn:active { transform: scale(0.985); }
   width: 14px;
   height: 14px;
   opacity: 0.7;
+}
+
+/* ============================================================
+   Boundary Layer — Plattform-Features Stand Juli 2026
+   View Transitions · WebGL-Veils · linear()-Springs · @starting-style
+   Alles mit Fallback: kein Feature ist tragend, nur veredelnd.
+   ============================================================ */
+
+/* ---- Theme-Wipe (View Transitions API): Kreis-Reveal vom Tap-Punkt.
+   Default-Crossfade aus — die clip-path-Animation übernimmt. ---- */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+::view-transition-old(root) { z-index: 1; }
+::view-transition-new(root) { z-index: 2; }
+
+/* ---- Echte Feder-Kurve als CSS linear() — für Press-Feedback.
+   Fallback: Browser ohne linear() ignorieren die Zeile, --ease-spring
+   (cubic-bezier) bleibt wirksam. ---- */
+.ig-app {
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-spring: linear(
+    0, 0.009, 0.035 2.1%, 0.141 4.4%, 0.723 12.9%, 0.938 16.7%, 1.017,
+    1.077, 1.121, 1.149 24.3%, 1.159, 1.163, 1.161, 1.154 29.9%,
+    1.129 32.8%, 1.051 39.6%, 1.017 43.1%, 0.991, 0.977 51%, 0.974 53.8%,
+    0.975 57.1%, 0.997 69.8%, 1.003 76.9%, 1
+  );
+}
+
+/* ---- @starting-style: Overlays animieren ab Entstehung, unterbrechbar
+   und ohne Keyframe-Doppelung (Toast/Confirm/Replace-Panel). ---- */
+.ig-toast,
+.ig-confirm,
+.ig-wo-replace {
+  transition:
+    opacity 0.25s var(--ease-out),
+    transform 0.3s var(--ease-out),
+    display 0.3s allow-discrete;
+}
+@starting-style {
+  .ig-toast { opacity: 0; transform: translateY(10px) scale(0.97); }
+  .ig-confirm,
+  .ig-wo-replace { opacity: 0; transform: translateY(28px); }
+}
+
+/* ---- Rest-Ring-Finale: letzte 5 s pulsiert der Ring mit Silber-Glow ---- */
+@keyframes ig-ring-pulse {
+  0%, 100% { filter: drop-shadow(0 0 0 rgba(var(--accent-rgb), 0)); transform: scale(1); }
+  50% { filter: drop-shadow(0 0 18px rgba(var(--accent-rgb), 0.45)); transform: scale(1.02); }
+}
+.ig-wo-restring.ending svg {
+  animation: ig-ring-pulse 1s var(--ease-in-out, ease-in-out) infinite;
+}
+.ig-wo-restring.ending .ig-wo-rest-time { color: var(--accent); }
+
+/* ---- WebGL-Veils (Splash + Abschluss) ---- */
+.ig-shader-veil {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  mix-blend-mode: screen; /* auf hellem Grund automatisch dezent */
+}
+.ig-splash { position: relative; overflow: hidden; }
+.ig-splash-mark, .ig-splash-word, .ig-splash-tag { position: relative; z-index: 1; }
+.ig-wo-done { position: relative; }
+.ig-wo-done-veil { position: fixed; inset: 0; }
+.ig-wo-done-body { position: relative; z-index: 1; }
+
+/* ---- GPU-Konfetti-Canvas füllt wie das CSS-Konfetti den Screen ---- */
+.ig-gl-confetti {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 105;
+}
+
+/* ---- Plan-Karte: Button + Prep-Chips als Spalten-Geschwister
+   (Fix: keine <button>-in-<button>-Verschachtelung) ---- */
+.ig-plan-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.ig-plan-body > .ig-plan-main { width: 100%; }
+.ig-plan-body > .ig-plan-prep-chips {
+  padding: 0 12px 10px 46px; /* bündig unter Name/Meta (Icon 22 + Gaps) */
+}
+
+/* ---- Typo-Feinschliff: Titel brechen ausgewogen um ---- */
+.ig-screen-title,
+.ig-home-title,
+.ig-wo-done-title,
+.ig-empty-state-title,
+.ig-confirm-title {
+  text-wrap: balance;
 }
 
 /* ---- Statistik-Balken bauen sich beim Einblenden auf ---- */
