@@ -1,9 +1,13 @@
-/* Barcode-Scanner — mobil-first
+/* Barcode-Scanner (PWA/Browser)
  *
- * 1) Live: getUserMedia + native BarcodeDetector (Chrome/Android, neuere Safari)
- * 2) Live-Fallback: html5-qrcode OHNE qrbox (qrbox bricht 1D-EAN oft)
- * 3) Foto: capture=environment → decode (zuverlässig auf iOS)
- * 4) Manuell tippen
+ * Warum es vorher oft „nichts tat“:
+ * 1) getUserMedia im useEffect/setTimeout → iOS verliert User-Gesture
+ * 2) html5-qrcode + qrbox erkennt 1D-EAN am Handy unzuverlässig
+ *
+ * Ansatz wie stabile Web-Scanner (ZXing):
+ * - Stream kommt VOM PARENT (im onClick geholt)
+ * - Decode mit @zxing/browser (1D/EAN)
+ * - Foto-Scan + Manuell als Fallback
  */
 
 import React, { useEffect, useRef, useState, useCallback } from "react";
@@ -16,26 +20,13 @@ import {
   Camera,
   ImagePlus,
 } from "lucide-react";
-import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
+import {
+  BrowserMultiFormatReader,
+  BarcodeFormat,
+} from "@zxing/browser";
+import { DecodeHintType } from "@zxing/library";
 import { showToast } from "./ui.jsx";
-
-const FORMATS_BD = [
-  "ean_13",
-  "ean_8",
-  "upc_a",
-  "upc_e",
-  "code_128",
-  "code_39",
-];
-
-const FORMATS_H5 = [
-  Html5QrcodeSupportedFormats.EAN_13,
-  Html5QrcodeSupportedFormats.EAN_8,
-  Html5QrcodeSupportedFormats.UPC_A,
-  Html5QrcodeSupportedFormats.UPC_E,
-  Html5QrcodeSupportedFormats.CODE_128,
-  Html5QrcodeSupportedFormats.CODE_39,
-];
+import { stopMediaStream } from "../lib/camera.js";
 
 function normalizeBarcode(raw) {
   const code = String(raw ?? "").replace(/\D/g, "");
@@ -43,92 +34,82 @@ function normalizeBarcode(raw) {
   return code;
 }
 
-function createDetector() {
-  try {
-    if (typeof window === "undefined" || !("BarcodeDetector" in window)) {
-      return null;
-    }
-    try {
-      return new window.BarcodeDetector({ formats: FORMATS_BD });
-    } catch {
-      return new window.BarcodeDetector();
-    }
-  } catch {
-    return null;
-  }
+function makeReader() {
+  const hints = new Map();
+  hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+    BarcodeFormat.EAN_13,
+    BarcodeFormat.EAN_8,
+    BarcodeFormat.UPC_A,
+    BarcodeFormat.UPC_E,
+    BarcodeFormat.CODE_128,
+    BarcodeFormat.CODE_39,
+  ]);
+  hints.set(DecodeHintType.TRY_HARDER, true);
+  // Continuously try; ZXing throws NotFoundException per frame — normal
+  return new BrowserMultiFormatReader(hints, {
+    delayBetweenScanAttempts: 80,
+    delayBetweenScanSuccess: 800,
+    tryPlayVideoTimeout: 8000,
+  });
 }
 
 /**
- * @param {{ onDetect: (code: string) => void, onClose: () => void }} props
+ * @param {{
+ *   onDetect: (code: string) => void,
+ *   onClose: () => void,
+ *   stream?: MediaStream | null,
+ *   cameraError?: string,
+ * }} props
  */
-export default function BarcodeScanner({ onDetect, onClose }) {
+export default function BarcodeScanner({
+  onDetect,
+  onClose,
+  stream = null,
+  cameraError = "",
+}) {
   const [mode, setMode] = useState("live"); // live | manual
   const [manual, setManual] = useState("");
-  const [error, setError] = useState("");
-  const [status, setStatus] = useState("Kamera startet…");
+  const [status, setStatus] = useState(
+    stream ? "Code vor die Kamera halten" : "Kamera wird vorbereitet…",
+  );
   const [torchOn, setTorchOn] = useState(false);
   const [torchSupported, setTorchSupported] = useState(false);
   const [busyPhoto, setBusyPhoto] = useState(false);
-  /** 'native' | 'h5' | '' */
-  const [engine, setEngine] = useState("");
+  const [error, setError] = useState(cameraError || "");
 
   const videoRef = useRef(null);
   const fileRef = useRef(null);
-  const streamRef = useRef(null);
-  const h5Ref = useRef(null);
-  const h5HostRef = useRef(null);
+  const controlsRef = useRef(null);
+  const readerRef = useRef(null);
+  const streamRef = useRef(stream);
   const handledRef = useRef(false);
-  const rafRef = useRef(0);
-  const detectBusy = useRef(false);
+  const ownStreamRef = useRef(false); // true = we must stop stream on unmount
 
   const onDetectRef = useRef(onDetect);
   const onCloseRef = useRef(onClose);
   onDetectRef.current = onDetect;
   onCloseRef.current = onClose;
 
-  const stopAll = useCallback(async () => {
-    if (rafRef.current) {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = 0;
+  // Parent may pass stream after first paint
+  useEffect(() => {
+    streamRef.current = stream;
+  }, [stream]);
+
+  useEffect(() => {
+    if (cameraError) setError(cameraError);
+  }, [cameraError]);
+
+  const teardownDecode = useCallback(() => {
+    try {
+      controlsRef.current?.stop();
+    } catch {
+      /* ignore */
     }
-    const stream = streamRef.current;
-    streamRef.current = null;
-    if (stream) {
-      stream.getTracks().forEach((t) => {
-        try {
-          t.stop();
-        } catch {
-          /* ignore */
-        }
-      });
-    }
-    const v = videoRef.current;
-    if (v) {
-      try {
-        v.pause();
-        v.srcObject = null;
-      } catch {
-        /* ignore */
-      }
-    }
-    const h5 = h5Ref.current;
-    h5Ref.current = null;
-    if (h5) {
-      try {
-        if (h5.isScanning) {
-          await Promise.race([
-            h5.stop(),
-            new Promise((r) => setTimeout(r, 800)),
-          ]);
-        }
-      } catch {
-        /* ignore */
-      }
-      try {
-        await h5.clear();
-      } catch {
-        /* ignore */
-      }
+    controlsRef.current = null;
+    try {
+      readerRef.current?.reset();
+    } catch {
+      /* ignore */
     }
   }, []);
 
@@ -145,6 +126,7 @@ export default function BarcodeScanner({ onDetect, onClose }) {
         /* ignore */
       }
       showToast(`Barcode ${clean}`, "success");
+      teardownDecode();
       try {
         onDetectRef.current?.(clean);
       } catch (e) {
@@ -153,267 +135,185 @@ export default function BarcodeScanner({ onDetect, onClose }) {
         showToast("Verarbeitung fehlgeschlagen", "error");
         return false;
       }
-      // Kamera stoppen, Parent hat Scanner bereits unmounted oft
-      stopAll();
       return true;
     },
-    [stopAll],
+    [teardownDecode],
   );
 
+  // Live decode with ZXing from parent stream (or self-requested fallback)
   useEffect(() => {
     if (mode !== "live") {
-      stopAll();
-      setEngine("");
+      teardownDecode();
       return undefined;
     }
 
     let cancelled = false;
     handledRef.current = false;
-    setError("");
-    setTorchSupported(false);
-    setTorchOn(false);
-    setEngine("");
-    setStatus("Kamera startet…");
 
-    const startNative = async (detector) => {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: false,
-        video: {
-          facingMode: { ideal: "environment" },
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
-        },
-      });
-      if (cancelled) {
-        stream.getTracks().forEach((t) => t.stop());
-        return false;
-      }
-      streamRef.current = stream;
+    const start = async () => {
       const video = videoRef.current;
-      if (!video) {
-        stream.getTracks().forEach((t) => t.stop());
-        return false;
-      }
+      if (!video) return;
+
       video.setAttribute("playsinline", "true");
       video.setAttribute("webkit-playsinline", "true");
       video.muted = true;
       video.playsInline = true;
-      video.srcObject = stream;
-      await video.play();
 
-      try {
-        const track = stream.getVideoTracks()[0];
-        const caps = track.getCapabilities?.() || {};
-        if (caps.torch) setTorchSupported(true);
-      } catch {
-        /* ignore */
-      }
+      let activeStream = streamRef.current;
 
-      if (cancelled) return false;
-      setEngine("native");
-      setStatus("Code vor die Kamera halten");
-
-      let last = 0;
-      const loop = (ts) => {
-        if (cancelled || handledRef.current) return;
-        rafRef.current = requestAnimationFrame(loop);
-        if (ts - last < 90) return;
-        last = ts;
-        const v = videoRef.current;
-        if (!v || v.readyState < 2 || detectBusy.current) return;
-        detectBusy.current = true;
-        detector
-          .detect(v)
-          .then((codes) => {
-            if (cancelled || handledRef.current) return;
-            const text = (codes || [])
-              .map((c) => c.rawValue)
-              .find((t) => normalizeBarcode(t));
-            if (text) finishWithCode(text);
-          })
-          .catch(() => {})
-          .finally(() => {
-            detectBusy.current = false;
-          });
-      };
-      rafRef.current = requestAnimationFrame(loop);
-      return true;
-    };
-
-    const startH5 = async () => {
-      const host = h5HostRef.current;
-      if (!host) throw new Error("Scanner-Host fehlt");
-      host.innerHTML = "";
-      const id = "ozgym-h5-scan";
-      const box = document.createElement("div");
-      box.id = id;
-      box.className = "ig-scan-h5";
-      host.appendChild(box);
-
-      const scanner = new Html5Qrcode(id, {
-        formatsToSupport: FORMATS_H5,
-        verbose: false,
-        useBarCodeDetectorIfSupported: true,
-        experimentalFeatures: { useBarCodeDetectorIfSupported: true },
-      });
-      h5Ref.current = scanner;
-
-      await scanner.start(
-        { facingMode: "environment" },
-        {
-          fps: 12,
-          // KEIN qrbox — 1D-EAN wird sonst auf dem Handy oft nie erkannt
-          disableFlip: false,
-        },
-        (decoded) => {
-          if (!cancelled) finishWithCode(decoded);
-        },
-        () => {},
-      );
-
-      if (cancelled) {
-        await stopAll();
-        return;
-      }
-      setEngine("h5");
-      setStatus("Code vor die Kamera halten");
-
-      try {
-        const torch = scanner
-          .getRunningTrackCameraCapabilities?.()
-          ?.torchFeature?.();
-        if (torch?.isSupported?.()) setTorchSupported(true);
-      } catch {
-        /* ignore */
-      }
-    };
-
-    const run = async () => {
-      if (!navigator.mediaDevices?.getUserMedia) {
-        setError("Keine Kamera-API — Foto oder manuell nutzen.");
-        setStatus("Foto oder manuell");
-        return;
-      }
-
-      const detector = createDetector();
-      if (detector) {
+      // Fallback only if parent couldn't get stream (still try — may fail on iOS)
+      if (!activeStream) {
         try {
-          const ok = await startNative(detector);
-          if (ok || cancelled) return;
+          setStatus("Kamera startet…");
+          activeStream = await navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: { facingMode: { ideal: "environment" } },
+          });
+          if (cancelled) {
+            stopMediaStream(activeStream);
+            return;
+          }
+          streamRef.current = activeStream;
+          ownStreamRef.current = true;
         } catch (e) {
-          console.warn("[scan] native failed", e);
-          await stopAll();
+          if (cancelled) return;
+          console.warn("[scan] getUserMedia fallback", e);
+          setError(
+            "Live-Kamera nicht verfügbar. Nutze „Foto aufnehmen“ — das funktioniert im Browser und in der Home-Screen-App.",
+          );
+          setStatus("Foto oder manuell");
+          return;
         }
       }
 
+      video.srcObject = activeStream;
       try {
-        await startH5();
+        await video.play();
+      } catch (e) {
+        console.warn("[scan] video.play", e);
+      }
+
+      // Torch capability
+      try {
+        const track = activeStream.getVideoTracks?.()[0];
+        const caps = track?.getCapabilities?.() || {};
+        if (caps.torch) setTorchSupported(true);
+      } catch {
+        setTorchSupported(false);
+      }
+
+      if (cancelled) return;
+      setStatus("Code waagrecht vor die Kamera halten");
+      setError("");
+
+      const reader = makeReader();
+      readerRef.current = reader;
+
+      try {
+        const controls = await reader.decodeFromStream(
+          activeStream,
+          video,
+          (result, err) => {
+            if (cancelled || handledRef.current) return;
+            if (result) {
+              const text = result.getText?.() || String(result.text || "");
+              finishWithCode(text);
+              return;
+            }
+            // NotFoundException every frame — ignore
+            if (err && err.name && err.name !== "NotFoundException") {
+              // occasional checksum errors etc.
+            }
+          },
+        );
+        if (cancelled) {
+          controls?.stop();
+          return;
+        }
+        controlsRef.current = controls;
       } catch (e) {
         if (cancelled) return;
-        console.warn("[scan] h5 failed", e);
-        const msg =
-          e?.name === "NotAllowedError" ||
-          String(e?.message || "").toLowerCase().includes("permission")
-            ? "Kamera-Zugriff verweigert — Foto oder manuell nutzen."
-            : e?.name === "NotFoundError"
-              ? "Keine Kamera — Foto oder manuell nutzen."
-              : "Live-Scan nicht möglich — bitte Foto aufnehmen oder manuell eingeben.";
-        setError(msg);
+        console.warn("[scan] zxing start", e);
+        setError(
+          "Live-Scan fehlgeschlagen. Bitte „Foto aufnehmen“ — funktioniert auch im Browser.",
+        );
         setStatus("Foto oder manuell");
-        setEngine("");
       }
     };
 
-    const t = setTimeout(run, 80);
+    // microtask: video node must be mounted; stream already acquired in click
+    const t = requestAnimationFrame(() => {
+      if (!cancelled) start();
+    });
+
     return () => {
       cancelled = true;
-      clearTimeout(t);
-      stopAll();
+      cancelAnimationFrame(t);
+      teardownDecode();
+      if (ownStreamRef.current) {
+        stopMediaStream(streamRef.current);
+        streamRef.current = null;
+        ownStreamRef.current = false;
+      }
+      const v = videoRef.current;
+      if (v) {
+        try {
+          v.srcObject = null;
+        } catch {
+          /* ignore */
+        }
+      }
     };
-  }, [mode, finishWithCode, stopAll]);
+  }, [mode, finishWithCode, teardownDecode, stream]);
+
+  // Parent closes scanner: don't stop parent-owned stream here if parent handles it
+  useEffect(() => {
+    return () => {
+      teardownDecode();
+      // Parent owns stream from openScanner — FoodTab must stop it on close
+    };
+  }, [teardownDecode]);
 
   const toggleTorch = async () => {
     try {
-      const stream = streamRef.current;
-      if (stream) {
-        const track = stream.getVideoTracks()[0];
-        const caps = track.getCapabilities?.() || {};
-        if (caps.torch) {
-          const next = !torchOn;
-          await track.applyConstraints({ advanced: [{ torch: next }] });
-          setTorchOn(next);
-          return;
-        }
+      const track = streamRef.current?.getVideoTracks?.()[0];
+      const caps = track?.getCapabilities?.() || {};
+      if (!caps.torch) {
+        showToast("Taschenlampe nicht verfügbar", "info");
+        return;
       }
-      const h5 = h5Ref.current;
-      if (h5) {
-        const torch = h5
-          .getRunningTrackCameraCapabilities?.()
-          ?.torchFeature?.();
-        if (torch?.isSupported?.()) {
-          const next = !torchOn;
-          await torch.apply(next);
-          setTorchOn(next);
-          return;
-        }
-      }
-      showToast("Taschenlampe nicht verfügbar", "info");
+      const next = !torchOn;
+      await track.applyConstraints({ advanced: [{ torch: next }] });
+      setTorchOn(next);
     } catch {
       showToast("Taschenlampe fehlgeschlagen", "error");
     }
   };
 
-  const decodeFile = async (file) => {
-    // Native
-    const detector = createDetector();
-    if (detector && typeof createImageBitmap === "function") {
-      try {
-        const bmp = await createImageBitmap(file);
-        try {
-          const codes = await detector.detect(bmp);
-          const text = (codes || [])
-            .map((c) => c.rawValue)
-            .find((t) => normalizeBarcode(t));
-          if (text && finishWithCode(text)) return true;
-        } finally {
-          bmp.close?.();
-        }
-      } catch (err) {
-        console.warn("[scan] photo BD", err);
-      }
-    }
-
-    // html5-qrcode file scan
-    const tmpId = "ozgym-scan-file-tmp";
-    let host = document.getElementById(tmpId);
-    if (!host) {
-      host = document.createElement("div");
-      host.id = tmpId;
-      host.style.cssText =
-        "position:fixed;left:-9999px;width:1px;height:1px;overflow:hidden;";
-      document.body.appendChild(host);
-    }
-    host.innerHTML = "";
-    const scanner = new Html5Qrcode(tmpId, {
-      formatsToSupport: FORMATS_H5,
-      verbose: false,
-      useBarCodeDetectorIfSupported: true,
-    });
+  const decodeImageFile = async (file) => {
+    const reader = makeReader();
+    const url = URL.createObjectURL(file);
     try {
-      const result = await scanner.scanFileV2(file, false);
-      const text =
-        typeof result === "string"
-          ? result
-          : result?.decodedText || result?.text || "";
-      if (text && finishWithCode(text)) return true;
+      // Prefer ImageBitmap path via img element
+      const img = new Image();
+      img.decoding = "async";
+      const loaded = new Promise((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error("Bild laden fehlgeschlagen"));
+      });
+      img.src = url;
+      await loaded;
+      const result = await reader.decodeFromImageElement(img);
+      const text = result?.getText?.() || "";
+      return normalizeBarcode(text) ? text : "";
     } finally {
+      URL.revokeObjectURL(url);
       try {
-        await scanner.clear();
+        reader.reset();
       } catch {
         /* ignore */
       }
     }
-    return false;
   };
 
   const onPhoto = async (e) => {
@@ -423,10 +323,13 @@ export default function BarcodeScanner({ onDetect, onClose }) {
     setBusyPhoto(true);
     setStatus("Foto wird gelesen…");
     try {
-      const ok = await decodeFile(file);
-      if (!ok) {
-        showToast("Kein Barcode im Foto — näher rangehen, scharf stellen", "error");
-        setStatus("Kein Code im Foto");
+      const text = await decodeImageFile(file);
+      if (!text || !finishWithCode(text)) {
+        showToast(
+          "Kein Barcode im Foto — näher, scharf, guter Kontrast",
+          "error",
+        );
+        setStatus("Kein Code im Foto — erneut versuchen");
       }
     } catch (err) {
       console.warn("[scan] photo", err);
@@ -447,6 +350,11 @@ export default function BarcodeScanner({ onDetect, onClose }) {
     finishWithCode(code);
   };
 
+  const handleClose = () => {
+    teardownDecode();
+    onCloseRef.current?.();
+  };
+
   const node = (
     <div
       className="ig-scan"
@@ -459,9 +367,7 @@ export default function BarcodeScanner({ onDetect, onClose }) {
         <button
           type="button"
           className="ig-icon-btn ghost"
-          onClick={() => {
-            stopAll().finally(() => onCloseRef.current?.());
-          }}
+          onClick={handleClose}
           aria-label="Schließen"
         >
           <X size={20} />
@@ -469,19 +375,13 @@ export default function BarcodeScanner({ onDetect, onClose }) {
       </header>
 
       <p className="ig-scan-hint dim">
-        Live-Scan oder besser: <strong>Foto der Verpackung</strong> — funktioniert
-        auch auf dem iPhone zuverlässig.
+        Funktioniert im Browser und als Home-Screen-App. Am iPhone oft am
+        zuverlässigsten: <strong>Foto aufnehmen</strong>.
       </p>
 
       {mode === "live" ? (
         <div className="ig-scan-camera-wrap">
-          <div
-            className={
-              "ig-scan-region" +
-              (engine === "native" ? " is-native" : "") +
-              (engine === "h5" ? " is-h5" : "")
-            }
-          >
+          <div className="ig-scan-region is-native">
             <video
               ref={videoRef}
               className="ig-scan-video"
@@ -489,7 +389,6 @@ export default function BarcodeScanner({ onDetect, onClose }) {
               muted
               autoPlay
             />
-            <div ref={h5HostRef} className="ig-scan-h5-host" />
             <div className="ig-scan-frame" aria-hidden="true" />
           </div>
 
@@ -533,7 +432,6 @@ export default function BarcodeScanner({ onDetect, onClose }) {
               <Keyboard size={14} /> Manuell
             </button>
           </div>
-
         </div>
       ) : (
         <form className="ig-scan-manual" onSubmit={submitManual}>
@@ -546,7 +444,7 @@ export default function BarcodeScanner({ onDetect, onClose }) {
               inputMode="numeric"
               autoComplete="off"
               autoFocus
-              placeholder="z. B. 9008505000123"
+              placeholder="z. B. 3017620422003"
               value={manual}
               onChange={(e) => setManual(e.target.value)}
               maxLength={18}
@@ -558,10 +456,7 @@ export default function BarcodeScanner({ onDetect, onClose }) {
           <button
             type="button"
             className="ig-btn-primary wide ghosted"
-            onClick={() => {
-              setError("");
-              setMode("live");
-            }}
+            onClick={() => setMode("live")}
           >
             Zurück zur Kamera
           </button>
@@ -576,7 +471,6 @@ export default function BarcodeScanner({ onDetect, onClose }) {
         </form>
       )}
 
-      {/* Ein File-Input für Live + Manuell (capture = Rückkamera) */}
       <input
         ref={fileRef}
         type="file"

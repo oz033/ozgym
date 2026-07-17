@@ -6321,30 +6321,7 @@ button.ig-home-mini:active {
   height: 100%;
   object-fit: cover;
   background: #000;
-  display: none;
-}
-.ig-scan-region.is-native .ig-scan-video {
   display: block;
-}
-.ig-scan-h5-host {
-  position: absolute;
-  inset: 0;
-  display: none;
-}
-.ig-scan-region.is-h5 .ig-scan-h5-host {
-  display: block;
-}
-.ig-scan-h5-host,
-.ig-scan-h5,
-.ig-scan-h5 > div,
-.ig-scan-h5 video {
-  width: 100% !important;
-  height: 100% !important;
-  max-width: 100%;
-  border: none !important;
-}
-.ig-scan-h5 video {
-  object-fit: cover !important;
 }
 /* Zielrahmen (nur UI, keine Decode-Begrenzung) */
 .ig-scan-frame {

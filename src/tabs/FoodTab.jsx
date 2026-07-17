@@ -19,6 +19,11 @@ import FoodScoreBadges from "../components/FoodScoreBadges.jsx";
 import MacroStrip from "../components/MacroStrip.jsx";
 import WaterBottle from "../components/WaterBottle.jsx";
 import {
+  requestBarcodeCamera,
+  stopMediaStream,
+  cameraErrorMessage,
+} from "../lib/camera.js";
+import {
   fetchProductByBarcode,
   scalePer100,
   parseGramsHint,
@@ -60,6 +65,9 @@ export default function FoodTab({
   onAutoScanHandled,
 }) {
   const [scanning, setScanning] = useState(false);
+  /** Stream muss im Button-Klick geholt werden (iOS User-Gesture) */
+  const [scanStream, setScanStream] = useState(null);
+  const [scanCamError, setScanCamError] = useState("");
   const [loading, setLoading] = useState(false);
   const [product, setProduct] = useState(null);
   const [grams, setGrams] = useState(100);
@@ -116,11 +124,57 @@ export default function FoodTab({
       ? nutriscoreWorseThan(product.nutriscore, nutriMax)
       : false;
 
+  const closeScanner = useCallback(() => {
+    setScanning(false);
+    setScanStream((prev) => {
+      stopMediaStream(prev);
+      return null;
+    });
+    setScanCamError("");
+  }, []);
+
+  /**
+   * Kamera SOFORT im Klick anfordern — sonst blockiert iOS Safari/PWA.
+   * Auch wenn Kamera scheitert: Scanner öffnen (Foto + Manuell).
+   */
+  const openScanner = useCallback(async () => {
+    setScanCamError("");
+    // Vorherigen Stream freigeben
+    setScanStream((prev) => {
+      stopMediaStream(prev);
+      return null;
+    });
+    try {
+      const stream = await requestBarcodeCamera();
+      setScanStream(stream);
+      setScanning(true);
+    } catch (e) {
+      console.warn("[food] camera", e);
+      setScanCamError(cameraErrorMessage(e));
+      setScanStream(null);
+      setScanning(true); // Foto/Manuell trotzdem
+      showToast(cameraErrorMessage(e), "info");
+    }
+  }, []);
+
   useEffect(() => {
     if (!autoOpenScan) return;
-    setScanning(true);
     onAutoScanHandled?.();
+    // Auto-open: kein User-Gesture → Scanner ohne Stream (Foto/Manuell)
+    setScanCamError("");
+    setScanStream(null);
+    setScanning(true);
   }, [autoOpenScan, onAutoScanHandled]);
+
+  // Stream aufräumen beim Unmount
+  useEffect(() => {
+    return () => {
+      setScanStream((prev) => {
+        stopMediaStream(prev);
+        return null;
+      });
+    };
+  }, []);
 
   const presentProduct = useCallback((p, offlineNote = false) => {
     const hint =
@@ -152,8 +206,8 @@ export default function FoodTab({
         showToast("Barcode ungültig", "error");
         return;
       }
-      // Scanner sofort schließen, Lookup sichtbar machen
-      setScanning(false);
+      // Scanner schließen + Kamera freigeben, Lookup sichtbar machen
+      closeScanner();
       setLoading(true);
       setProduct(null);
 
@@ -235,7 +289,13 @@ export default function FoodTab({
         setLoading(false);
       }
     },
-    [data.foodCustomProducts, data.foodProductCache, cacheProduct, presentProduct],
+    [
+      data.foodCustomProducts,
+      data.foodProductCache,
+      cacheProduct,
+      presentProduct,
+      closeScanner,
+    ],
   );
 
   const openSnapshot = (snap) => {
@@ -461,7 +521,7 @@ export default function FoodTab({
         <button
           type="button"
           className="ig-btn-primary wide xl ig-home-cta-glow"
-          onClick={() => setScanning(true)}
+          onClick={openScanner}
           disabled={loading}
         >
           <ScanBarcode size={20} aria-hidden="true" />
@@ -986,7 +1046,9 @@ export default function FoodTab({
       {scanning ? (
         <BarcodeScanner
           onDetect={lookup}
-          onClose={() => setScanning(false)}
+          onClose={closeScanner}
+          stream={scanStream}
+          cameraError={scanCamError}
         />
       ) : null}
     </div>
