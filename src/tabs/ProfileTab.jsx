@@ -153,9 +153,6 @@ export default function ProfileTab({ data, update, goTo }) {
             <OzGymMark size={44} variant="glass" title={APP_NAME} />
           </span>
           <div className="ig-identity-text">
-            <span className="ig-identity-tag">
-              {gender === "f" ? "Frauen-Modus" : gender === "m" ? "Männer-Modus" : "Profil"}
-            </span>
             <h2>{displayName || APP_NAME}</h2>
             <span className="ig-identity-sub">
               {displayName ? "Name auf Home tippen zum Ändern" : APP_NAME}
@@ -177,7 +174,7 @@ export default function ProfileTab({ data, update, goTo }) {
         </button>
       </div>
 
-      {/* Persönliches: Modus + Alter */}
+      {/* Persönliches: Geschlecht + Alter (ohne „Modus“-Labels) */}
       <div className="ig-card">
         <div className="ig-field-label">Persönliches</div>
         <div className="ig-set-inputs two">
@@ -199,13 +196,6 @@ export default function ProfileTab({ data, update, goTo }) {
                 ♂ Mann
               </button>
             </div>
-            <p className="ig-plan-text" style={{ margin: "6px 0 0" }}>
-              {gender === "f"
-                ? "Frauen-Modus: Pink/Lila-Akzent in der ganzen App."
-                : gender === "m"
-                  ? "Männer-Modus: Lime-Akzent."
-                  : "Modus steuert Farben und Plan-Vorschläge."}
-            </p>
           </div>
           <label className="ig-num-field">
             <span>Alter</span>

@@ -159,7 +159,7 @@ export default function ThemeStudio({ data, update, onClose }) {
             <button
               className={"ig-ts-swatch mode" + (cfg.accent === null ? " active" : "")}
               onClick={() => patch({ accent: null })}
-              title="Automatisch (folgt deinem Modus)"
+              title="Automatisch (Geschlecht / Standard)"
             >
               A
             </button>
@@ -195,7 +195,7 @@ export default function ThemeStudio({ data, update, onClose }) {
             </label>
           </div>
           <p className="ig-plan-text">
-            „A" folgt deinem Modus (Frau/Mann). „Mono" = Schwarz/Weiß pur.
+            „A“ = Standard-Akzent. „Mono“ = Schwarz/Weiß pur.
           </p>
         </div>
 

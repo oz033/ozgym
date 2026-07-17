@@ -112,9 +112,6 @@ export default function Onboarding({ onComplete }) {
             <div className="ig-field-label" style={{ marginTop: 16 }}>
               Geschlecht
             </div>
-            <p className="ig-onb-hint">
-              Steuert Modus-Farben und passende Plan-Vorschläge.
-            </p>
             <div className="ig-mode-toggle ig-onb-gender-chips" role="group" aria-label="Geschlecht">
               <button
                 type="button"
