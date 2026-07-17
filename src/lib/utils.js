@@ -68,8 +68,27 @@ export function playSound(type, enabled = true) {
   }
 }
 
+/**
+ * Haptics — Web Vibration (Android strong; iOS Safari limited / often no-op).
+ * Named levels map to short patterns when pattern is a string.
+ * @param {number|number[]|string} pattern  ms | [ms…] | 'light'|'medium'|'heavy'|'success'|'error'
+ */
 export function buzz(pattern, enabled = true) {
-  if (enabled && navigator.vibrate) navigator.vibrate(pattern);
+  if (!enabled || typeof navigator === "undefined" || !navigator.vibrate) return;
+  const map = {
+    light: 8,
+    medium: 18,
+    heavy: 32,
+    success: [12, 40, 18],
+    error: [30, 40, 30],
+    tap: 10,
+  };
+  const p = typeof pattern === "string" ? map[pattern] ?? 12 : pattern;
+  try {
+    navigator.vibrate(p);
+  } catch {
+    /* ignore */
+  }
 }
 
 /** Aktuelles Körpergewicht: letzter Log-Eintrag, sonst Profil-Feld. */

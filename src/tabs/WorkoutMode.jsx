@@ -7,6 +7,8 @@ import React, {
   useMemo,
   useRef,
   useCallback,
+  Suspense,
+  lazy,
 } from "react";
 import {
   X,
@@ -32,8 +34,9 @@ import {
 import { CountUp, RestRing, showConfirm } from "../components/ui.jsx";
 import { EclipseMark } from "../components/brand.jsx";
 import ExerciseDemo from "../components/ExerciseDemo.jsx";
-import ShaderVeil from "../components/ShaderVeil.jsx";
-import MetalConfetti from "../components/MetalConfetti.jsx";
+// WebGL only on done screen — smaller initial workout chunk
+const ShaderVeil = lazy(() => import("../components/ShaderVeil.jsx"));
+const MetalConfetti = lazy(() => import("../components/MetalConfetti.jsx"));
 import {
   todayISO,
   calcStats,
@@ -41,6 +44,7 @@ import {
   buzz,
   round1,
   getTodayPlan,
+  REDUCED_MOTION,
 } from "../lib/utils.js";
 import { setWorkoutWakeLock } from "../lib/wakeLock.js";
 import { ZONE_LABEL, MUSCLE_NAME, MOTIVATION_POOL } from "../lib/constants.js";
@@ -52,6 +56,7 @@ import {
   CARDIO_INTENSITIES,
 } from "../lib/stretches.js";
 import { withGuide } from "../lib/exerciseGuides.js";
+import { trapFocus, dialogCloseMs } from "../lib/dialogFocus.js";
 
 /** Truncate cleanly at word boundary. */
 function shortTip(text, max = 72) {
@@ -407,10 +412,12 @@ function StretchFlow({ mode, items, soundOn, hapticsOn, onDone }) {
 function ReplacePanel({ current, library, queueNames, onPick, onClose }) {
   const [equip, setEquip] = useState(null);
   const [query, setQuery] = useState("");
+  const [panelState, setPanelState] = useState("pre"); // pre | open | closing
   const EQUIPS = ["Maschine", "Kurzhantel", "Langhantel", "Kabelzug", "Körpergewicht"];
   const sheetRef = useRef(null);
   const listRef = useRef(null);
   const backdropRef = useRef(null);
+  const closingRef = useRef(false);
   const dragRef = useRef({
     active: false,
     fromHandle: false,
@@ -420,6 +427,24 @@ function ReplacePanel({ current, library, queueNames, onPick, onClose }) {
     lastT: 0,
     vy: 0,
   });
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setPanelState("open"));
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  const softClose = useCallback(() => {
+    if (closingRef.current) return;
+    closingRef.current = true;
+    setPanelState("closing");
+    const ms = REDUCED_MOTION ? 0 : dialogCloseMs();
+    window.setTimeout(() => onClose(), ms);
+  }, [onClose]);
+
+  useEffect(() => {
+    if (panelState !== "open") return;
+    return trapFocus(sheetRef.current, { onEscape: softClose });
+  }, [panelState, softClose]);
 
   const alternatives = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -474,18 +499,8 @@ function ReplacePanel({ current, library, queueNames, onPick, onClose }) {
   }, []);
 
   const dismissDrag = useCallback(() => {
-    const sheet = sheetRef.current;
-    const bg = backdropRef.current;
-    if (sheet) {
-      sheet.style.transition = "transform 0.22s var(--ease-out, cubic-bezier(0.16,1,0.3,1))";
-      sheet.style.transform = "translateY(110%)";
-    }
-    if (bg) {
-      bg.style.transition = "opacity 0.2s ease";
-      bg.style.opacity = "0";
-    }
-    window.setTimeout(() => onClose(), 200);
-  }, [onClose]);
+    softClose();
+  }, [softClose]);
 
   // Pull-down: Handle/Header immer · Liste nur bei scrollTop === 0
   useEffect(() => {
@@ -576,7 +591,8 @@ function ReplacePanel({ current, library, queueNames, onPick, onClose }) {
     <div
       ref={backdropRef}
       className="ig-wo-replace-backdrop"
-      onClick={onClose}
+      data-state={panelState}
+      onClick={softClose}
       role="presentation"
     >
       <div
@@ -605,10 +621,10 @@ function ReplacePanel({ current, library, queueNames, onPick, onClose }) {
           <button
             type="button"
             className="ig-icon-btn ghost sm"
-            onClick={onClose}
-            aria-label="Schließen"
+            onClick={softClose}
+            aria-label="Ersetzen schließen"
           >
-            <X size={18} />
+            <X size={18} aria-hidden="true" />
           </button>
         </div>
         <div className="ig-wo-replace-search">
@@ -622,11 +638,16 @@ function ReplacePanel({ current, library, queueNames, onPick, onClose }) {
             aria-label="Alternative Übung suchen"
           />
         </div>
-        <div className="ig-wo-replace-chips">
+        <div
+          className="ig-wo-replace-chips"
+          role="group"
+          aria-label="Equipment filtern"
+        >
           <button
             type="button"
             className={"ig-chip sm" + (equip === null ? " active" : "")}
             onClick={() => setEquip(null)}
+            aria-pressed={equip === null}
           >
             Alle
           </button>
@@ -636,6 +657,7 @@ function ReplacePanel({ current, library, queueNames, onPick, onClose }) {
               type="button"
               className={"ig-chip sm" + (equip === eq ? " active" : "")}
               onClick={() => setEquip(equip === eq ? null : eq)}
+              aria-pressed={equip === eq}
             >
               {eq}
             </button>
@@ -709,7 +731,7 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
 
   const firstOpen = queue.findIndex((it) => !itemDone(it));
   const [idx, setIdx] = useState(firstOpen === -1 ? 0 : firstOpen);
-  const [phase, setPhase] = useState(firstOpen === -1 ? "done" : "lift"); // lift | rest | go | done
+  const [phase, setPhase] = useState(firstOpen === -1 ? "done" : "lift"); // lift | rest | done
   const [restLeft, setRestLeft] = useState(restSeconds);
   const [restTotal, setRestTotal] = useState(restSeconds);
   const trackWrapRef = useRef(null);
@@ -721,6 +743,8 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
   const [noteDraft, setNoteDraft] = useState("");
   const [noteFocused, setNoteFocused] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
+  const [guideState, setGuideState] = useState("pre");
+  const guidePanelRef = useRef(null);
   /** Bottom sheet: start collapsed so GIF has room; swipe up for note/last-load */
   const [bottomCollapsed, setBottomCollapsed] = useState(true);
   /** px from layout bottom to top of keyboard (0 = no keyboard) */
@@ -1005,21 +1029,29 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
     setNoteDraft(item?.note || "");
   }, [exercise]); // eslint-disable-line
 
-  /** Eigene Notiz pro Übung im Plan speichern (Gerät, Sitz, Griff, …) */
+  /** Eigene Notiz am Plan-Eintrag speichern — bleibt fürs nächste Workout. */
   const persistExerciseNote = useCallback(
     (text) => {
       const eid = item?.entry?.id;
       if (!eid) return;
       const note = String(text || "").trim();
-      update((prev) => ({
-        ...prev,
-        plans: (prev.plans || []).map((p) => ({
-          ...p,
-          exercises: (p.exercises || []).map((e) =>
-            e.exerciseId === eid ? { ...e, note } : e,
+      update((prev) => {
+        const plan = getTodayPlan(prev);
+        if (!plan) return prev;
+        return {
+          ...prev,
+          plans: (prev.plans || []).map((p) =>
+            p.id !== plan.id
+              ? p
+              : {
+                  ...p,
+                  exercises: (p.exercises || []).map((e) =>
+                    e.exerciseId === eid ? { ...e, note } : e,
+                  ),
+                },
           ),
-        })),
-      }));
+        };
+      });
     },
     [item?.entry?.id, update],
   );
@@ -1219,7 +1251,7 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
     }
   }, [item, idx, queue, itemDone]);
 
-  // Rest-Countdown
+  // Rest-Countdown — nach 0 sofort weiter (kein "Weiter!"-Screen)
   useEffect(() => {
     if (phase !== "rest") return;
     const iv = setInterval(() => {
@@ -1228,21 +1260,15 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
           clearInterval(iv);
           playSound("timer", soundOn);
           buzz([200, 100, 200], hapticsOn);
-          setPhase("go");
+          // defer advance out of setState
+          queueMicrotask(() => advance());
           return 0;
         }
         return l - 1;
       });
     }, 1000);
     return () => clearInterval(iv);
-  }, [phase, soundOn, hapticsOn]);
-
-  // "Weiter!"-Moment, dann automatisch weiter
-  useEffect(() => {
-    if (phase !== "go") return;
-    const t = setTimeout(advance, 1300);
-    return () => clearTimeout(t);
-  }, [phase, advance]);
+  }, [phase, soundOn, hapticsOn, advance]);
 
   const completeSet = () => {
     const w = Number(String(weight).replace(",", "."));
@@ -1271,10 +1297,10 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
       s.prs += 1;
       s.records.push({ exercise, weight: w });
       playSound("pr", soundOn);
-      buzz([80, 60, 80], hapticsOn);
+      buzz("success", hapticsOn);
     } else {
       playSound("set", soundOn);
-      buzz(40, hapticsOn);
+      buzz("medium", hapticsOn);
     }
     const willBeDone = doneCount + 1 >= targetSets;
     const openAfter = queue.filter((it) =>
@@ -1677,6 +1703,29 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
     }, 180);
   };
 
+  const openGuide = () => {
+    setGuideState("pre");
+    setGuideOpen(true);
+    playSound("tap", soundOn);
+  };
+  const closeGuide = useCallback(() => {
+    setGuideState("closing");
+    const ms = REDUCED_MOTION ? 0 : dialogCloseMs();
+    window.setTimeout(() => {
+      setGuideOpen(false);
+      setGuideState("pre");
+    }, ms);
+  }, []);
+  useEffect(() => {
+    if (!guideOpen || guideState !== "pre") return;
+    const id = requestAnimationFrame(() => setGuideState("open"));
+    return () => cancelAnimationFrame(id);
+  }, [guideOpen, guideState]);
+  useEffect(() => {
+    if (!guideOpen || guideState !== "open") return;
+    return trapFocus(guidePanelRef.current, { onEscape: closeGuide });
+  }, [guideOpen, guideState, closeGuide]);
+
   // Keep extras measured after paint; default collapsed on lift
   useLayoutEffect(() => {
     if (phase !== "lift") return;
@@ -1946,8 +1995,10 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
     return (
       <div className="ig-wo ig-wo-done">
         {/* GPU-Aura hinter der Zusammenfassung — ruhiges Metall, kein Kirmes */}
-        <ShaderVeil className="ig-wo-done-veil" opacity={0.35} />
-        {celebrate && <MetalConfetti />}
+        <Suspense fallback={null}>
+          <ShaderVeil className="ig-wo-done-veil" opacity={0.35} />
+          {celebrate && <MetalConfetti />}
+        </Suspense>
         <div className="ig-wo-done-body">
           <span className="ig-wo-done-icon">
             <EclipseMark size={48} />
@@ -2210,10 +2261,9 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
               )}
               {active && (() => {
                 const tip = liftTipFromMeta(m);
-                const hasNote = !!noteDraft.trim();
-                // Immer Tip zeigen (auch nach Replace ohne guide).
-                // Eigene Notiz zusätzlich, nicht statt der Info.
-                if (!tip && !hasNote) return null;
+                const noteText = noteDraft.trim();
+                // Tip (Anleitung) + Notiz-Zeile IMMER — leer = „Notiz hinzufügen“.
+                // Notiz hängt am Plan-Eintrag und bleibt beim nächsten Workout.
                 return (
                   <>
                     {tip && (
@@ -2221,10 +2271,7 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
                         type="button"
                         className="ig-wo-hint dim ig-wo-hint-btn ig-wo-hint-rich"
                         data-no-swipe
-                        onClick={() => {
-                          setGuideOpen(true);
-                          playSound("tap", soundOn);
-                        }}
+                        onClick={openGuide}
                         aria-label={`Geräte-Anleitung für ${e}`}
                       >
                         <span className="ig-wo-hint-rich-body">
@@ -2245,18 +2292,27 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
                         </span>
                       </button>
                     )}
-                    {hasNote && (
-                      <button
-                        type="button"
-                        className="ig-wo-hint note ig-wo-note-btn"
-                        data-no-swipe
-                        onClick={openNoteEditor}
-                        aria-label="Notiz bearbeiten"
-                      >
-                        <Pencil size={12} aria-hidden="true" />
-                        <span>{shortTip(noteDraft, 80)}</span>
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      className={
+                        "ig-wo-hint note ig-wo-note-btn" +
+                        (noteText ? "" : " empty")
+                      }
+                      data-no-swipe
+                      onClick={openNoteEditor}
+                      aria-label={
+                        noteText
+                          ? "Notiz bearbeiten"
+                          : "Notiz hinzufügen"
+                      }
+                    >
+                      <Pencil size={12} aria-hidden="true" />
+                      <span>
+                        {noteText
+                          ? shortTip(noteText, 80)
+                          : "Notiz hinzufügen"}
+                      </span>
+                    </button>
                   </>
                 );
               })()}
@@ -2281,11 +2337,12 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
       {guideOpen && (
         <div
           className="ig-wo-guide"
+          data-state={guideState}
           role="dialog"
           aria-modal="true"
           aria-label={`Anleitung ${exercise}`}
         >
-          <div className="ig-wo-guide-panel">
+          <div ref={guidePanelRef} className="ig-wo-guide-panel">
             <header className="ig-wo-guide-head">
               <div className="ig-wo-guide-titles">
                 <span className="ig-wo-guide-kicker">Geräte-Anleitung</span>
@@ -2306,7 +2363,7 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
               <button
                 type="button"
                 className="ig-wo-exit"
-                onClick={() => setGuideOpen(false)}
+                onClick={closeGuide}
                 aria-label="Anleitung schließen"
               >
                 <X size={20} />
@@ -2360,7 +2417,7 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
               <button
                 type="button"
                 className="ig-btn-primary wide"
-                onClick={() => setGuideOpen(false)}
+                onClick={closeGuide}
               >
                 Verstanden
               </button>
@@ -2435,10 +2492,7 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
             type="button"
             className="ig-wo-info-btn"
             data-no-sheet-drag
-            onClick={() => {
-              setGuideOpen(true);
-              playSound("tap", soundOn);
-            }}
+            onClick={openGuide}
             aria-label={`Anleitung für ${exercise || "Übung"}`}
           >
             <Info size={20} strokeWidth={2.25} />
@@ -2529,7 +2583,7 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
                   finishNote(ev);
                 }
               }}
-              placeholder="Sitz · Pin · Griff…"
+              placeholder="Eigene Notiz…"
               maxLength={120}
             />
           </div>
@@ -2658,12 +2712,8 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
         </button>
       </div>
 
-      {(phase === "rest" || phase === "go") && (
+      {phase === "rest" && (
         <div className="ig-wo-rest">
-          {phase === "go" ? (
-            <div className="ig-wo-go">Weiter!</div>
-          ) : (
-            <>
               {feedback && (
                 <div className="ig-wo-feedback" key={feedback}>
                   {feedback}
@@ -2730,8 +2780,8 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
                   className="ig-chip"
                   onClick={() => {
                     playSound("tap", soundOn);
-                    setPhase("go");
                     setRestLeft(0);
+                    advance();
                   }}
                 >
                   Überspringen
@@ -2763,8 +2813,6 @@ export default function WorkoutMode({ data, update, queue, onExit, onFinish }) {
               <button className="ig-wo-undo" onClick={undoLastSet}>
                 <RotateCcw size={13} /> Letzten Satz zurücknehmen
               </button>
-            </>
-          )}
         </div>
       )}
     </div>

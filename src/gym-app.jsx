@@ -38,6 +38,9 @@ import {
   ActionSheetHost,
   showToast,
 } from "./components/ui.jsx";
+import { OfflineBanner, InstallCoach } from "./components/IosChrome.jsx";
+import { isStandalone } from "./lib/iosShell.js";
+import { resolveMascotSrc } from "./lib/mascots.js";
 // Home ist der erste Screen nach dem Laden — sofort verfügbar statt nachgeladen.
 import DashboardTab from "./tabs/DashboardTab.jsx";
 // Alles andere (inkl. recharts in ProgressTab) erst bei Bedarf laden, damit der
@@ -63,16 +66,24 @@ function accentVars(accent, theme) {
   if (accent === "mono") {
     return theme === "light"
       ? { "--accent": "#191c26", "--accent-2": "#4b5060", "--accent-rgb": "25,28,38", "--on-accent": "#ffffff" }
-      : { "--accent": "#f2f3f7", "--accent-2": "#b9bdc9", "--accent-rgb": "242,243,247", "--on-accent": "#0c0d12" };
+      : { "--accent": "#e8eaed", "--accent-2": "#9aa0ad", "--accent-rgb": "232,234,237", "--on-accent": "#0a0c0b" };
   }
-  const hex = accent.replace("#", "");
+  const hex = String(accent).replace("#", "");
+  if (hex.length < 6) return {};
   const r = parseInt(hex.slice(0, 2), 16);
   const g = parseInt(hex.slice(2, 4), 16);
   const b = parseInt(hex.slice(4, 6), 16);
+  if (![r, g, b].every((n) => Number.isFinite(n))) return {};
   const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  const full = `#${hex.slice(0, 6)}`;
+  // slightly deeper companion for gradients
+  const r2 = Math.round(r * 0.62);
+  const g2 = Math.round(g * 0.62);
+  const b2 = Math.round(b * 0.72);
+  const accent2 = `#${[r2, g2, b2].map((n) => n.toString(16).padStart(2, "0")).join("")}`;
   return {
-    "--accent": accent,
-    "--accent-2": accent,
+    "--accent": full,
+    "--accent-2": accent2,
     "--accent-rgb": `${r},${g},${b}`,
     "--on-accent": lum > 0.62 ? "#0c0d12" : "#ffffff",
   };
@@ -220,7 +231,7 @@ export default function App() {
   // Sync root/html/body background with theme so iOS home-indicator zone
   // never shows a stale white/black strip when toggling light ↔ dark.
   useEffect(() => {
-    const fallback = theme === "light" ? "#e8e8ea" : "#0c0d12";
+    const fallback = theme === "light" ? "#eef1ea" : "#0a0c0b";
     // Prefer live CSS token from .ig-app (mode-specific dark tints etc.)
     const appEl = document.querySelector(".ig-app");
     const token = appEl
@@ -243,9 +254,21 @@ export default function App() {
 
   // Theme-Studio: Akzent-Variablen + Varianten-Attribute für die ganze App
   const accentStyle = useMemo(() => accentVars(cfg.accent, theme), [cfg.accent, theme]);
+  const [standalone, setStandalone] = useState(() =>
+    typeof window !== "undefined" ? isStandalone() : false,
+  );
+  useEffect(() => {
+    setStandalone(isStandalone());
+    const mq = window.matchMedia?.("(display-mode: standalone)");
+    const onChange = () => setStandalone(isStandalone());
+    mq?.addEventListener?.("change", onChange);
+    return () => mq?.removeEventListener?.("change", onChange);
+  }, []);
+
   const themeAttrs = {
     "data-theme": theme,
     "data-mode": mode,
+    "data-standalone": standalone ? "yes" : "no",
     "data-radius": cfg.radius || "round",
     "data-density": cfg.density || "cozy",
     "data-font": cfg.font || "grotesk",
@@ -255,6 +278,7 @@ export default function App() {
     "data-motion": cfg.motion || "full",
   };
   const reduced = cfg.motion === "reduced";
+  const mascotSrc = useMemo(() => resolveMascotSrc(cfg), [cfg.mascot, cfg.mascotSrc]);
 
   // Heutiger Plan: full → trim by Dauer; optional Carry-Over anhängen
   const { queue, deferredQueue, carryHydrated } = useMemo(() => {
@@ -477,9 +501,21 @@ export default function App() {
         <header className="ig-header">
           <div className="ig-brand">
             <span className="ig-brand-mark">
-              <OzGymMark size={30} variant="glass" title="OZGYM" />
+              {mascotSrc ? (
+                <img
+                  className="ig-brand-mascot"
+                  src={mascotSrc}
+                  alt=""
+                  width={32}
+                  height={32}
+                  draggable={false}
+                  aria-hidden="true"
+                />
+              ) : (
+                <OzGymMark size={30} variant="glass" title="OZ" />
+              )}
             </span>
-            <span className="ig-brand-name">OZGYM</span>
+            <span className="ig-brand-name">OZ</span>
           </div>
           <div className="ig-header-actions">
             <button
@@ -595,11 +631,13 @@ export default function App() {
         <ToastHost hapticsOn={data.settings?.haptics !== false} />
         <ConfirmHost hapticsOn={data.settings?.haptics !== false} />
         <ActionSheetHost hapticsOn={data.settings?.haptics !== false} />
+        <OfflineBanner />
+        {!workoutOpen && <InstallCoach hidden={standalone} />}
 
         {/* Dock shell paints app bg into home-indicator zone; pill floats above */}
         {!workoutOpen && (
           <div className="ig-dock">
-            <nav className="ig-tabbar" aria-label="Hauptnavigation">
+            <nav className="ig-tabbar" aria-label="Hauptnavigation" role="navigation">
               <TabBtn
                 active={tab === "home"}
                 onClick={() => goTo("home")}

@@ -93,9 +93,10 @@ export default function ProgressTab({ data, onStart, onEditPlan }) {
         <h1 className="ig-screen-title">Verlauf</h1>
         <EmptyState
           icon={<TrendingUp size={40} />}
-          title="Noch keine Trainings"
-          description="Starte dein erstes Workout, um deine Statistiken, Rekorde und deinen Fortschritt zu sehen."
-          primaryLabel="Erstes Workout starten"
+          kicker="Verlauf"
+          title="Noch keine Daten"
+          description="Nach dem ersten Workout siehst du hier Volumen, Rekorde und deine Serie."
+          primaryLabel="Workout starten"
           onPrimary={onStart}
         />
       </div>
@@ -103,73 +104,80 @@ export default function ProgressTab({ data, onStart, onEditPlan }) {
   }
 
   return (
-    <div className="ig-tabpane">
-      <h1 className="ig-screen-title">Verlauf</h1>
-
-      {/* Overview: die drei Lebenszeit-Zahlen, die hier hingehören (kein Duplikat von Home) */}
-      <div className="ig-card ig-overview">
-        <div className="ig-overview-row">
-          <div className="ig-overview-col">
-            <CalendarDays size={17} className="ig-dash-icon" />
-            <span className="ig-overview-num mono"><CountUp value={stats.totalWorkouts} /></span>
-            <span className="ig-overview-label">Einheiten</span>
-          </div>
-          <div className="ig-overview-divider" />
-          <div className="ig-overview-col">
-            <Scale size={17} className="ig-dash-icon" />
-            <span className="ig-overview-num mono">
-              <CountUp
-                value={stats.totalVolume}
-                format={(v) => (stats.totalVolume >= 1000 ? `${round1(v / 1000)}t` : Math.round(v))}
-              />
-            </span>
-            <span className="ig-overview-label">Volumen</span>
-          </div>
-          <div className="ig-overview-divider" />
-          <div className="ig-overview-col">
-            <Trophy size={17} className="ig-dash-icon" />
-            <span className="ig-overview-num mono"><CountUp value={stats.prCount} /></span>
-            <span className="ig-overview-label">Rekorde</span>
-          </div>
-        </div>
+    <div className="ig-tabpane ig-progress-dna">
+      <div className="ig-home-summary-head">
+        <h1 className="ig-screen-title">Verlauf</h1>
       </div>
 
-      {/* Trainingszeit: aus den persistierten Sessions — Woche, Ø, gesamt */}
-      {timeStats && (
-        <div className="ig-card ig-overview">
-          <div className="ig-overview-row">
-            <div className="ig-overview-col">
-              <Timer size={17} className="ig-dash-icon" />
-              <span className="ig-overview-num mono">
-                <CountUp value={timeStats.weekMin} />
-              </span>
-              <span className="ig-overview-label">Min diese Woche</span>
-            </div>
-            <div className="ig-overview-divider" />
-            <div className="ig-overview-col">
-              <Timer size={17} className="ig-dash-icon" />
-              <span className="ig-overview-num mono">
-                <CountUp value={timeStats.avgMin} />
-              </span>
-              <span className="ig-overview-label">Ø Min / Einheit</span>
-            </div>
-            <div className="ig-overview-divider" />
-            <div className="ig-overview-col">
-              <Timer size={17} className="ig-dash-icon" />
-              <span className="ig-overview-num mono">{timeStats.totalH}</span>
-              <span className="ig-overview-label">Std gesamt</span>
-            </div>
-          </div>
+      {/* Lifetime summary — mini DNA cards */}
+      <div className="ig-home-summary-grid ig-progress-summary">
+        <div className="ig-card ig-home-mini">
+          <span className="ig-home-mini-icon" aria-hidden="true">
+            <CalendarDays size={16} />
+          </span>
+          <span className="ig-home-mini-kicker">Einheiten</span>
+          <span className="ig-home-mini-num mono">
+            <CountUp value={stats.totalWorkouts} />
+          </span>
         </div>
-      )}
+        <div className="ig-card ig-home-mini">
+          <span className="ig-home-mini-icon" aria-hidden="true">
+            <Scale size={16} />
+          </span>
+          <span className="ig-home-mini-kicker">Volumen</span>
+          <span className="ig-home-mini-num mono">
+            <CountUp
+              value={stats.totalVolume}
+              format={(v) =>
+                stats.totalVolume >= 1000 ? `${round1(v / 1000)}t` : Math.round(v)
+              }
+            />
+          </span>
+        </div>
+        <div className="ig-card ig-home-mini">
+          <span className="ig-home-mini-icon" aria-hidden="true">
+            <Trophy size={16} />
+          </span>
+          <span className="ig-home-mini-kicker">Rekorde</span>
+          <span className="ig-home-mini-num mono">
+            <CountUp value={stats.prCount} />
+          </span>
+        </div>
+        {timeStats ? (
+          <div className="ig-card ig-home-mini">
+            <span className="ig-home-mini-icon" aria-hidden="true">
+              <Timer size={16} />
+            </span>
+            <span className="ig-home-mini-kicker">Diese Woche</span>
+            <span className="ig-home-mini-num mono">
+              <CountUp value={timeStats.weekMin} />
+              <span className="ig-home-mini-unit"> Min</span>
+            </span>
+            <span className="ig-home-mini-meta mono">
+              Ø {timeStats.avgMin} · {timeStats.totalH}h gesamt
+            </span>
+          </div>
+        ) : (
+          <div className="ig-card ig-home-mini">
+            <span className="ig-home-mini-icon" aria-hidden="true">
+              <Timer size={16} />
+            </span>
+            <span className="ig-home-mini-kicker">Zeit</span>
+            <span className="ig-home-mini-num mono">—</span>
+            <span className="ig-home-mini-meta">nach Sessions</span>
+          </div>
+        )}
+      </div>
 
-      {/* Trainingskalender: der eigentliche Verlauf, hier immer sichtbar statt versteckt */}
+      {/* Trainingskalender */}
       <StreakCalendar logs={data.logs} today={today} />
 
-      {/* Muskelgruppen-Verteilung: worauf trainiere ich wirklich? */}
+      {/* Muskelgruppen-Verteilung */}
       {muscleBreakdown.length > 0 && (
         <div className="ig-card">
-          <div className="ig-field-label">Muskelgruppen (Volumen)</div>
+          <div className="ig-home-summary-head" style={{ marginBottom: 8 }}>
+            <h2 className="ig-home-section-title">Muskelgruppen</h2>
+          </div>
           <div className="ig-muscle-bars">
             {muscleBreakdown.map((m) => (
               <div key={m.muscle} className="ig-muscle-row">
@@ -184,9 +192,12 @@ export default function ProgressTab({ data, onStart, onEditPlan }) {
         </div>
       )}
 
-      {/* Trainingsfrequenz: letzte 8 Wochen auf einen Blick */}
-      <div className="ig-card">
-        <div className="ig-field-label">Frequenz · letzte 8 Wochen</div>
+      {/* Frequenz — bar chart DNA */}
+      <div className="ig-card ig-progress-freq-card">
+        <div className="ig-home-summary-head" style={{ marginBottom: 10 }}>
+          <h2 className="ig-home-section-title">Frequenz</h2>
+          <span className="ig-home-week-meta mono">8 Wochen</span>
+        </div>
         <div className="ig-freq-bars">
           {frequency.map((f) => (
             <div key={f.week} className="ig-freq-col">
@@ -202,12 +213,11 @@ export default function ProgressTab({ data, onStart, onEditPlan }) {
         </div>
       </div>
 
-      {/* Körpergewicht: Fortschritt, nicht Eingabe (die lebt im Profil) */}
       {weightChart.length >= 2 && (
         <div className="ig-card">
-          <div className="ig-field-label">
-            <Scale size={12} style={{ verticalAlign: "-2px", marginRight: 4 }} />
-            Körpergewicht
+          <div className="ig-home-summary-head" style={{ marginBottom: 8 }}>
+            <h2 className="ig-home-section-title">Körpergewicht</h2>
+            <Scale size={16} className="ig-dash-icon" aria-hidden="true" />
           </div>
           <div className="ig-chart-wrap">
             <WeightChart data={weightChart} height={160} />
@@ -271,11 +281,10 @@ export default function ProgressTab({ data, onStart, onEditPlan }) {
         </button>
       ))}
 
-      {/* Abzeichen: Motivation, kein Pflichtprogramm — deshalb ganz unten */}
       <div className="ig-card">
-        <div className="ig-field-label">
-          <Award size={12} style={{ verticalAlign: "-2px", marginRight: 4 }} />
-          Abzeichen
+        <div className="ig-home-summary-head" style={{ marginBottom: 10 }}>
+          <h2 className="ig-home-section-title">Abzeichen</h2>
+          <Award size={16} className="ig-dash-icon" aria-hidden="true" />
         </div>
         <div className="ig-achieve-grid">
           {BADGE_DEFS.map((b) => {

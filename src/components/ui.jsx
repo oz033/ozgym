@@ -1,9 +1,10 @@
 /* Wiederverwendbare UI-Bausteine */
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { motion } from "framer-motion";
 import { AlertTriangle, Check, Info, Trash2 } from "lucide-react";
 import { REDUCED_MOTION, buzz } from "../lib/utils.js";
+import { trapFocus, dialogCloseMs } from "../lib/dialogFocus.js";
 
 /* Leichter Toast-Bus: showToast() feuert ein CustomEvent, das der ToastHost in
    der App-Shell rendert. Kein Prop-Drilling, kein Context — Fehlertexte dürfen
@@ -34,6 +35,11 @@ export function showConfirm({
 
 export function ConfirmHost({ hapticsOn = true }) {
   const [req, setReq] = useState(null);
+  /** "pre" | "open" | "closing" — enter needs a paint of pre, then open */
+  const [state, setState] = useState("pre");
+  const closingRef = useRef(false);
+  const reqRef = useRef(null);
+  const panelRef = useRef(null);
   const hapticsRef = useRef(hapticsOn);
   useEffect(() => {
     hapticsRef.current = hapticsOn;
@@ -42,48 +48,74 @@ export function ConfirmHost({ hapticsOn = true }) {
     const onConfirm = (e) => {
       if (!e.detail?.resolve) return;
       buzz(15, hapticsRef.current);
+      closingRef.current = false;
+      reqRef.current = e.detail;
+      setState("pre");
       setReq(e.detail);
     };
     window.addEventListener("ozgym:confirm", onConfirm);
     return () => window.removeEventListener("ozgym:confirm", onConfirm);
   }, []);
+  // First paint at pre-scale, then open (guarantees enter transition)
   useEffect(() => {
-    if (!req) return;
-    const onKey = (e) => {
-      if (e.key === "Escape") {
-        req.resolve(false);
-        setReq(null);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [req]);
+    if (!req || state !== "pre") return;
+    const id = requestAnimationFrame(() => setState("open"));
+    return () => cancelAnimationFrame(id);
+  }, [req, state]);
+  const close = useCallback((result) => {
+    const r = reqRef.current;
+    if (!r || closingRef.current) return;
+    closingRef.current = true;
+    setState("closing");
+    const ms = REDUCED_MOTION ? 0 : dialogCloseMs();
+    window.setTimeout(() => {
+      r.resolve(result);
+      reqRef.current = null;
+      setReq(null);
+      closingRef.current = false;
+      setState("pre");
+    }, ms);
+  }, []);
+  // Focus trap while open; restore trigger on cleanup
+  useEffect(() => {
+    if (!req || state !== "open") return;
+    return trapFocus(panelRef.current, { onEscape: () => close(false) });
+  }, [req, state, close]);
   if (!req) return null;
-  const close = (result) => {
-    req.resolve(result);
-    setReq(null);
-  };
+  const titleId = "ig-confirm-title";
+  const msgId = "ig-confirm-msg";
   return (
     <div
       className="ig-confirm-backdrop"
+      data-state={state === "pre" ? "pre" : state}
       onClick={() => close(false)}
       role="presentation"
     >
       <div
+        ref={panelRef}
         className="ig-confirm"
         role="alertdialog"
         aria-modal="true"
-        aria-label={req.title || req.message}
+        aria-labelledby={req.title ? titleId : undefined}
+        aria-describedby={req.message ? msgId : undefined}
+        aria-label={!req.title ? req.message || "Bestätigung" : undefined}
         onClick={(e) => e.stopPropagation()}
       >
-        {req.title && <h3 className="ig-confirm-title">{req.title}</h3>}
-        {req.message && <p className="ig-confirm-msg">{req.message}</p>}
+        {req.title && (
+          <h3 id={titleId} className="ig-confirm-title">
+            {req.title}
+          </h3>
+        )}
+        {req.message && (
+          <p id={msgId} className="ig-confirm-msg">
+            {req.message}
+          </p>
+        )}
         <div className="ig-confirm-actions">
           <button
             type="button"
             className="ig-btn-primary wide ghosted"
             onClick={() => close(false)}
-            autoFocus
           >
             {req.cancelLabel}
           </button>
@@ -93,6 +125,7 @@ export function ConfirmHost({ hapticsOn = true }) {
               "ig-btn-primary wide" + (req.destructive ? " ig-btn-danger" : "")
             }
             onClick={() => close(true)}
+            autoFocus={!req.destructive}
           >
             {req.confirmLabel}
           </button>
@@ -135,7 +168,9 @@ export function ToastHost({ hapticsOn = true }) {
     <div
       key={toast.key}
       className={"ig-toast " + toast.type}
-      role="alert"
+      role="status"
+      aria-live={toast.type === "error" ? "assertive" : "polite"}
+      aria-atomic="true"
       onClick={dismiss}
     >
       <span className="ig-toast-icon" aria-hidden="true">
@@ -165,38 +200,58 @@ export function ToastHost({ hapticsOn = true }) {
   );
 }
 
-/* Skeleton statt leerem/weißem Frame beim ersten Laden eines lazy Tabs.
-   Greift nur beim allerersten Besuch pro Chunk (React.lazy resolved danach
-   synchron), macht diesen kurzen Moment aber sichtbar hochwertig statt blank. */
-export function TabSkeleton() {
+/* Skeleton — mirrors home rhythm so lazy tabs don't flash empty */
+export function TabSkeleton({ variant = "home" }) {
   return (
-    <div className="ig-tabpane" aria-hidden="true">
+    <div
+      className={"ig-tabpane ig-skel-pane" + (variant === "home" ? " ig-skel-home" : "")}
+      aria-hidden="true"
+      aria-busy="true"
+    >
+      <div className="ig-skel ig-skel-eyebrow" />
       <div className="ig-skel ig-skel-hero" />
+      <div className="ig-skel ig-skel-cta" />
+      <div className="ig-skel ig-skel-card" />
       <div className="ig-skel-row">
         <div className="ig-skel ig-skel-stat" />
         <div className="ig-skel ig-skel-stat" />
+        <div className="ig-skel ig-skel-stat" />
       </div>
-      <div className="ig-skel ig-skel-card" />
+      <div className="ig-skel ig-skel-card sm" />
       <div className="ig-skel ig-skel-card sm" />
     </div>
   );
 }
 
-/* Hochwertiger Leerzustand: Icon, Erklärung, ein primärer und ein optionaler
-   sekundärer Weg nach vorn. Kein Screen der App darf einfach leer bleiben. */
-export function EmptyState({ icon, title, description, primaryLabel, onPrimary, secondaryLabel, onSecondary }) {
+/* Unified empty state — every tab can use the same voice */
+export function EmptyState({
+  icon,
+  kicker,
+  title,
+  description,
+  primaryLabel,
+  onPrimary,
+  secondaryLabel,
+  onSecondary,
+  className = "",
+}) {
   return (
-    <div className="ig-empty-state">
-      {icon && <div className="ig-empty-state-icon">{icon}</div>}
+    <div className={"ig-empty-state" + (className ? " " + className : "")} role="status">
+      {icon && (
+        <div className="ig-empty-state-icon" aria-hidden="true">
+          {icon}
+        </div>
+      )}
+      {kicker && <span className="ig-empty-state-kicker mono">{kicker}</span>}
       <h2 className="ig-empty-state-title">{title}</h2>
       {description && <p className="ig-empty-state-desc">{description}</p>}
       {primaryLabel && (
-        <button className="ig-btn-primary wide xl" onClick={onPrimary}>
+        <button type="button" className="ig-btn-primary wide xl" onClick={onPrimary}>
           {primaryLabel}
         </button>
       )}
       {secondaryLabel && (
-        <button className="ig-btn-primary wide ghosted" onClick={onSecondary}>
+        <button type="button" className="ig-btn-primary wide ghosted" onClick={onSecondary}>
           {secondaryLabel}
         </button>
       )}
@@ -247,13 +302,14 @@ export function Sparkline({ points, w = 90, h = 32 }) {
   });
   const path = coords.map((c) => c.join(",")).join(" ");
   const up = points[points.length - 1] >= points[0];
+  const stroke = up ? "var(--accent)" : "var(--danger)";
   return (
     <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden="true">
       <polyline
         className="ig-spark-line"
         points={path}
         fill="none"
-        stroke={up ? "var(--success)" : "var(--danger)"}
+        stroke={stroke}
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -267,9 +323,7 @@ export function Sparkline({ points, w = 90, h = 32 }) {
           r={i === coords.length - 1 ? 2.6 : 1.6}
           fill={
             i === coords.length - 1
-              ? up
-                ? "var(--success)"
-                : "var(--danger)"
+              ? stroke
               : "var(--text-dim)"
           }
         />
@@ -367,14 +421,17 @@ export function MiniRing({ pct, size = 44, stroke = 5, color = "var(--accent)", 
 export function TabBtn({ active, onClick, icon, label }) {
   return (
     <button
+      type="button"
       className={"ig-tab" + (active ? " active" : "")}
       onClick={onClick}
       aria-label={label}
+      aria-current={active ? "page" : undefined}
     >
       {active && (
         <motion.span
           layoutId="ig-nav-pill"
           className="ig-tab-pill"
+          aria-hidden="true"
           transition={
             REDUCED_MOTION
               ? { duration: 0 }
@@ -382,7 +439,9 @@ export function TabBtn({ active, onClick, icon, label }) {
           }
         />
       )}
-      <span className="ig-tab-icon">{icon}</span>
+      <span className="ig-tab-icon" aria-hidden="true">
+        {icon}
+      </span>
       <span className="ig-tab-label">{label}</span>
     </button>
   );
@@ -457,6 +516,10 @@ export function showActionSheet({ title, actions }) {
 
 export function ActionSheetHost({ hapticsOn = true }) {
   const [req, setReq] = useState(null);
+  const [state, setState] = useState("pre");
+  const closingRef = useRef(false);
+  const reqRef = useRef(null);
+  const panelRef = useRef(null);
   const hapticsRef = useRef(hapticsOn);
   useEffect(() => {
     hapticsRef.current = hapticsOn;
@@ -465,41 +528,60 @@ export function ActionSheetHost({ hapticsOn = true }) {
     const onOpen = (e) => {
       if (!e.detail?.resolve) return;
       buzz(15, hapticsRef.current);
+      closingRef.current = false;
+      reqRef.current = e.detail;
+      setState("pre");
       setReq(e.detail);
     };
     window.addEventListener("ozgym:actionsheet", onOpen);
     return () => window.removeEventListener("ozgym:actionsheet", onOpen);
   }, []);
   useEffect(() => {
-    if (!req) return;
-    const onKey = (e) => {
-      if (e.key === "Escape") {
-        req.resolve(null);
-        setReq(null);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [req]);
+    if (!req || state !== "pre") return;
+    const id = requestAnimationFrame(() => setState("open"));
+    return () => cancelAnimationFrame(id);
+  }, [req, state]);
+  const close = useCallback((id) => {
+    const r = reqRef.current;
+    if (!r || closingRef.current) return;
+    closingRef.current = true;
+    setState("closing");
+    const ms = REDUCED_MOTION ? 0 : dialogCloseMs();
+    window.setTimeout(() => {
+      r.resolve(id);
+      reqRef.current = null;
+      setReq(null);
+      closingRef.current = false;
+      setState("pre");
+    }, ms);
+  }, []);
+  useEffect(() => {
+    if (!req || state !== "open") return;
+    return trapFocus(panelRef.current, { onEscape: () => close(null) });
+  }, [req, state, close]);
   if (!req) return null;
-  const close = (id) => {
-    req.resolve(id);
-    setReq(null);
-  };
+  const sheetTitleId = "ig-action-sheet-title";
   return (
     <div
       className="ig-confirm-backdrop"
+      data-state={state === "pre" ? "pre" : state}
       onClick={() => close(null)}
       role="presentation"
     >
       <div
+        ref={panelRef}
         className="ig-confirm ig-action-sheet"
         role="menu"
-        aria-label={req.title || "Aktionen"}
+        aria-labelledby={req.title ? sheetTitleId : undefined}
+        aria-label={!req.title ? "Aktionen" : undefined}
         onClick={(e) => e.stopPropagation()}
       >
-        {req.title && <h3 className="ig-confirm-title">{req.title}</h3>}
-        <div className="ig-action-list">
+        {req.title && (
+          <h3 id={sheetTitleId} className="ig-confirm-title">
+            {req.title}
+          </h3>
+        )}
+        <div className="ig-action-list" role="none">
           {(req.actions || []).map((a) => (
             <button
               key={a.id}
@@ -508,7 +590,7 @@ export function ActionSheetHost({ hapticsOn = true }) {
               className={"ig-action-item" + (a.destructive ? " destructive" : "")}
               onClick={() => close(a.id)}
             >
-              {a.icon}
+              {a.icon ? <span aria-hidden="true">{a.icon}</span> : null}
               <span>{a.label}</span>
             </button>
           ))}

@@ -5,6 +5,7 @@ import { registerSW } from "virtual:pwa-register";
 import "./index.css";
 import App from "./gym-app.jsx";
 import { showToast } from "./components/ui.jsx";
+import ErrorBoundary from "./components/ErrorBoundary.jsx";
 
 // Update-Fluss: neue Version erkannt → Toast mit "Neu laden". Nutzer
 // entscheidet den Zeitpunkt (nie mitten im Workout unterbrochen).
@@ -23,7 +24,9 @@ const updateSW = registerSW({
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
-    <App />
-    <Analytics />
+    <ErrorBoundary>
+      <App />
+      <Analytics />
+    </ErrorBoundary>
   </StrictMode>,
 );

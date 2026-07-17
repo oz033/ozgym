@@ -201,6 +201,7 @@ export default function PlansTab({ data, update, goTo, autoOpenPlanId, onAutoOpe
         </div>
         <EmptyState
           icon={<ClipboardList size={36} />}
+          kicker="Pläne"
           title="Noch kein Plan"
           description="Lege Übungen, Sätze und Wdh. fest — dann startest du unter Train."
           primaryLabel="Plan erstellen"
@@ -616,7 +617,16 @@ function PlanEditor({ plan, data, update, onClose, onOpenPrep }) {
         <div className="ig-card">
           <div className="ig-field-label">Übungen ({plan.exercises.length})</div>
           {plan.exercises.length === 0 && (
-            <p className="ig-empty">Noch keine Übungen im Plan.</p>
+            <div className="ig-empty-inline">
+              <p className="ig-empty">Noch keine Übungen im Plan.</p>
+              <button
+                type="button"
+                className="ig-btn-primary wide"
+                onClick={() => setShowPicker(true)}
+              >
+                Übung hinzufügen
+              </button>
+            </div>
           )}
           <div className="ig-pe-list">
             {plan.exercises.map((e, i) => {
@@ -749,7 +759,7 @@ function PlanEditor({ plan, data, update, onClose, onOpenPrep }) {
                   </div>
                   <input
                     className="ig-pe-note"
-                    placeholder="Notiz (optional), z. B. Sitz auf Stufe 4"
+                    placeholder="Eigene Notiz (optional)"
                     value={e.note || ""}
                     onChange={(ev) => patchExercise(i, { note: ev.target.value })}
                   />

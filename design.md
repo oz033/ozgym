@@ -10,17 +10,34 @@ before emitting code. Consistency across tabs > variety.
 - **Tone** · utilitarian · technical calm (not playful, not manifesto)
 - **Genre** · modern-minimal (instrument panel, not lifestyle brand)
 
+## Reference DNA (v2.3)
+
+**Studied (structure only, not pixel-clone):** FitPal — Fitness Health Tracker Mobile App UI Kits
+(Envato / slabdsgn). Extracted DNA applied to gym-log surfaces:
+
+| FitPal pattern | OZGYM mapping |
+| --- | --- |
+| Dark OLED + lime accent | `--bg #0a0c0b` · `--accent #b8f24a` |
+| Welcome row (avatar + Hi) | Home `.ig-home-welcome` + glass mark |
+| Pill chip rail | `.ig-home-chips` → Heute / Plan / Verlauf / Serie |
+| Summary Activity 2×2 cards | `.ig-home-summary-grid` mini cards |
+| Overall Status line chart | `.ig-home-status` + SVG area chart (week kg) |
+| Lime pill primary CTA | `.ig-btn-primary` `border-radius: 999px` |
+| Bottom nav filled active | `.ig-tab-pill` solid accent |
+
+OZGYM domain stays gym (sets / plans / streak), not running GPS/HR. Theme Studio can still override accent to mono.
+
 ## Macrostructure family
 
 App is a **phone shell** (single viewport, bottom tabs) — not a marketing site.
 
 | Surface | Shape | Notes |
 | --- | --- | --- |
-| App shell | Workbench-lite | Sticky top brand bar · content pane · bottom tab rail |
-| Home | Stat-led hero + one CTA | Greeting · today plan · primary “Workout starten” · week strip |
+| App shell | Workbench-lite | Sticky top brand bar · content pane · floating pill dock |
+| Home | FitPal welcome + summary + status | Avatar greeting · chips · CTA · 2×2 stats · week chart · plan list |
 | Workout | Full-bleed mode | Exercise focus · GIF · set controls · no chrome clutter |
 | Pläne | Index + detail | Weekly days control · active plan card · list |
-| Verlauf | Spec sheet denser | Charts optional · records · weight |
+| Verlauf | Spec sheet denser | Mini DNA cards · freq bars · muscle · weight |
 | Profil | Identity + utility | Glass logo · mode · body · sound · backup |
 
 ## Brand (locked — do not redesign without ask)
@@ -30,35 +47,38 @@ App is a **phone shell** (single viewport, bottom tabs) — not a marketing site
   Source: `public/logo-source-oz.png` · runtime: `public/oz-mark.png`  
   Component: `src/components/brand.jsx` · regenerate: `node scripts/gen-icons-from-source.mjs`  
   Glass: soft cool gradient + specular highlight in icon pipeline; in-app CSS glass rim
-- **UI accent:** Mono silver/white on dark · ink on light · bg `#0c0d12` / light `#e8e8ea`
+- **UI accent (default):** Lime fitness `#b8f24a` on dark OLED · Theme Studio may set mono or custom
 - **Credit line:** “by OZ” only where identity needs it (Profil, splash)
 
-## Theme tokens (preserve existing, clarify names)
+## Theme tokens (v2.3 FitPal dark)
 
 Dark default (paper = ink ground):
 
 | Token | Value | Role |
 | --- | --- | --- |
-| `--bg` | `#0c0d12` | App paper |
-| `--surface` | `#16181f` | Card / sheet |
-| `--surface-2` | `#1e212b` | Nested control |
-| `--text` | `#f2f3f7` | Ink |
-| `--text-dim` | `#9aa0ad` | Secondary |
-| `--border` | `rgba(255,255,255,0.08)` | Hairlines |
-| `--accent` | silver / ink (mono) | Primary signal only |
+| `--bg` | `#0a0c0b` | App paper (OLED) |
+| `--surface` | `#121512` | Card / sheet |
+| `--surface-2` | `#1a1f1b` | Nested control |
+| `--text` | `#f0f4ec` | Ink |
+| `--text-dim` | `#8a9485` | Secondary |
+| `--border` | `rgba(255,255,255,0.07)` | Hairlines |
+| `--accent` | `#b8f24a` | Primary signal (lime) |
+| `--accent-2` | `#7bc41f` | Accent companion |
+| `--on-accent` | `#0a1006` | Text on lime |
 | `--font-display` | Space Grotesk | Titles, brand |
 | `--font-body` | Inter | UI body |
 | `--font-mono` | JetBrains Mono | Stats, chips meta |
-| `--radius-md` | 14px | Cards / buttons |
+| `--radius-md` | 18px | Cards |
+| `--radius-pill` | 999px | CTAs, chips |
 | `--ease-out` | `cubic-bezier(0.16, 1, 0.3, 1)` | Motion |
 
 ### Mode accents (signal < 8% of viewport)
 
 | Mode | `--accent` | Use |
 | --- | --- | --- |
-| m | silver `#e8eaed` (dark) / ink (light) | mono brand default |
-| f | lighter silver | optional |
-| n | steel | optional |
+| default | lime `#b8f24a` | FitPal DNA default |
+| mono (Theme Studio) | silver / ink | brand override |
+| custom hex | user | Theme Studio |
 
 **Discipline:** One solid accent CTA per screen. No gradient text. No aurora blobs on content. Glass only on the **logo mark** (brand signature), not every card.
 

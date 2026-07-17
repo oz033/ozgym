@@ -64,7 +64,7 @@ export default function WeightChart({ data, height = 160 }) {
             d={path}
             pathLength="1"
             fill="none"
-            stroke="var(--success)"
+            stroke="var(--accent)"
             strokeWidth="2.5"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -78,8 +78,8 @@ export default function WeightChart({ data, height = 160 }) {
                 cx={x(i)}
                 cy={y(d.kg)}
                 r={isLast ? 4.5 : 3}
-                fill={isLast ? "var(--success)" : "var(--surface-2)"}
-                stroke="var(--success)"
+                fill={isLast ? "var(--accent)" : "var(--surface-2)"}
+                stroke="var(--accent)"
                 strokeWidth={isLast ? 0 : 1.5}
               />
             );

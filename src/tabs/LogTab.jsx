@@ -175,8 +175,9 @@ export default function LogTab({
       <div className="ig-tabpane">
         <EmptyState
           icon={<Dumbbell size={40} />}
-          title="Du hast noch keinen Trainingsplan"
-          description="Erstelle zuerst einen Trainingsplan, um dein erstes Workout zu starten."
+          kicker="Trainieren"
+          title="Noch kein Plan"
+          description="Lege einen Split an oder nimm eine Vorlage — dann startet das erste Workout in Sekunden."
           primaryLabel="Plan erstellen"
           onPrimary={onCreatePlan}
           secondaryLabel={profileReady ? "Vorlage auswählen" : undefined}
@@ -190,8 +191,9 @@ export default function LogTab({
       <div className="ig-tabpane">
         <EmptyState
           icon={<ListPlus size={40} />}
-          title={`"${readiness.planName}" hat noch keine Übungen`}
-          description="Füge Übungen zu deinem Plan hinzu, bevor du dein Workout startest."
+          kicker="Trainieren"
+          title={`„${readiness.planName}" ist leer`}
+          description="Füge Übungen hinzu — Sätze und Wiederholungen kannst du jederzeit anpassen."
           primaryLabel="Übungen hinzufügen"
           onPrimary={() => onEditPlan(readiness.planId)}
         />

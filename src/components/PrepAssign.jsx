@@ -419,6 +419,7 @@ function PrepTemplateEditor({ template, plan, data, update, onClose, onDone }) {
                               <button
                                 type="button"
                                 className="ig-icon-btn ghost sm"
+                                aria-label="Eine Minute weniger"
                                 onClick={() =>
                                   patchItem(i, {
                                     seconds: Math.max(60, secs - 60),
@@ -448,6 +449,7 @@ function PrepTemplateEditor({ template, plan, data, update, onClose, onDone }) {
                               <button
                                 type="button"
                                 className="ig-icon-btn ghost sm"
+                                aria-label="Eine Minute mehr"
                                 onClick={() =>
                                   patchItem(i, {
                                     seconds: Math.min(90 * 60, secs + 60),
@@ -466,6 +468,7 @@ function PrepTemplateEditor({ template, plan, data, update, onClose, onDone }) {
                               <button
                                 type="button"
                                 className="ig-icon-btn ghost sm"
+                                aria-label="5 Sekunden weniger"
                                 onClick={() =>
                                   patchItem(i, {
                                     seconds: Math.max(10, secs - 5),
@@ -497,6 +500,7 @@ function PrepTemplateEditor({ template, plan, data, update, onClose, onDone }) {
                               <button
                                 type="button"
                                 className="ig-icon-btn ghost sm"
+                                aria-label="5 Sekunden mehr"
                                 onClick={() =>
                                   patchItem(i, {
                                     seconds: Math.min(600, secs + 5),
@@ -517,6 +521,7 @@ function PrepTemplateEditor({ template, plan, data, update, onClose, onDone }) {
                               <button
                                 type="button"
                                 className="ig-icon-btn ghost sm"
+                                aria-label="Eine Wiederholung weniger"
                                 onClick={() =>
                                   patchItem(i, {
                                     reps: Math.max(1, (item.reps || 10) - 1),
@@ -551,6 +556,7 @@ function PrepTemplateEditor({ template, plan, data, update, onClose, onDone }) {
                               <button
                                 type="button"
                                 className="ig-icon-btn ghost sm"
+                                aria-label="Eine Wiederholung mehr"
                                 onClick={() =>
                                   patchItem(i, {
                                     reps: Math.min(100, (item.reps || 10) + 1),
@@ -946,6 +952,7 @@ function PrepExercisePicker({
                   <button
                     type="button"
                     className="ig-icon-btn ghost sm"
+                    aria-label="Eine Minute weniger"
                     onClick={() =>
                       setDraft((d) => ({
                         ...d,
@@ -973,6 +980,7 @@ function PrepExercisePicker({
                   <button
                     type="button"
                     className="ig-icon-btn ghost sm"
+                    aria-label="Eine Minute mehr"
                     onClick={() =>
                       setDraft((d) => ({
                         ...d,
@@ -992,6 +1000,7 @@ function PrepExercisePicker({
                   <button
                     type="button"
                     className="ig-icon-btn ghost sm"
+                    aria-label="5 Sekunden weniger"
                     onClick={() =>
                       setDraft((d) => ({
                         ...d,
@@ -1022,6 +1031,7 @@ function PrepExercisePicker({
                   <button
                     type="button"
                     className="ig-icon-btn ghost sm"
+                    aria-label="5 Sekunden mehr"
                     onClick={() =>
                       setDraft((d) => ({
                         ...d,
@@ -1043,6 +1053,7 @@ function PrepExercisePicker({
                   <button
                     type="button"
                     className="ig-icon-btn ghost sm"
+                    aria-label="Eine Wiederholung weniger"
                     onClick={() =>
                       setDraft((d) => ({
                         ...d,
@@ -1074,6 +1085,7 @@ function PrepExercisePicker({
                   <button
                     type="button"
                     className="ig-icon-btn ghost sm"
+                    aria-label="Eine Wiederholung mehr"
                     onClick={() =>
                       setDraft((d) => ({
                         ...d,

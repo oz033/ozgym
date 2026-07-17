@@ -19,6 +19,12 @@ export const DEFAULT_THEME_CFG = {
   motion: "full", // full | reduced
   density: "cozy", // cozy | compact
   font: "grotesk", // grotesk | mono
+  /** Header mascot: "none" | catalog id | "custom" */
+  mascot: "camille",
+  /** data-URL or public path for custom upload */
+  mascotSrc: null,
+  /** When true, picking a mascot also sets accent colors */
+  mascotTint: true,
 };
 
 export const DEFAULT_SETTINGS = {
