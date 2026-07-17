@@ -473,18 +473,6 @@ export default function ProfileTab({ data, update, goTo }) {
         >
           Haptisches Feedback (Vibration)
         </ToggleRow>
-        <ToggleRow
-          checked={settings.warmup !== false}
-          onChange={(v) => patchSettings({ warmup: v })}
-        >
-          Warm-up vor dem Training
-        </ToggleRow>
-        <ToggleRow
-          checked={settings.cooldown !== false}
-          onChange={(v) => patchSettings({ cooldown: v })}
-        >
-          Cool-down nach dem Training
-        </ToggleRow>
       </div>
 
       {/* Daten: ehrlich nur das, was eine reine Client-App leisten kann — lokales Backup statt vorgetäuschter Cloud-Sync */}
