@@ -1,4 +1,9 @@
-/* Barcode-Scanner — iPhone Safari: Foto-first (Live-EAN im Web ist unzuverlässig) */
+/* Barcode-Scanner
+ *
+ * Web/PWA ≠ native App: Apple/Google ML-Scan gibt es im Browser nicht.
+ * iPhone Safari: Foto (Systemkamera) = zuverlässigster Weg.
+ * Live: fullscreen + ZXing 1D — auf Android oft ok, iOS wackelig.
+ */
 
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
@@ -11,13 +16,17 @@ import {
   ImagePlus,
 } from "lucide-react";
 import {
-  BrowserMultiFormatReader,
+  BrowserMultiFormatOneDReader,
   BarcodeFormat,
 } from "@zxing/browser";
 import { DecodeHintType } from "@zxing/library";
 import { showToast } from "./ui.jsx";
 import { isIos } from "../lib/iosShell.js";
-import { stopMediaStream } from "../lib/camera.js";
+import {
+  requestBarcodeCamera,
+  stopMediaStream,
+  cameraErrorMessage,
+} from "../lib/camera.js";
 import {
   normalizeBarcode,
   decodeBarcodeFromFile,
@@ -33,10 +42,11 @@ function makeLiveReader() {
     BarcodeFormat.CODE_128,
   ]);
   hints.set(DecodeHintType.TRY_HARDER, true);
-  return new BrowserMultiFormatReader(hints, {
-    delayBetweenScanAttempts: 120,
-    delayBetweenScanSuccess: 1000,
-    tryPlayVideoTimeout: 8000,
+  // OneD-Reader = schneller/zuverlässiger für Strichcodes als MultiFormat
+  return new BrowserMultiFormatOneDReader(hints, {
+    delayBetweenScanAttempts: 50,
+    delayBetweenScanSuccess: 600,
+    tryPlayVideoTimeout: 10000,
   });
 }
 
@@ -57,20 +67,18 @@ export default function BarcodeScanner({
   preferPhoto = false,
 }) {
   const ios = preferPhoto || isIos();
-  // iPhone: Foto-Modus als Start (Live-EAN im Safari-Web oft nutzlos)
   const [mode, setMode] = useState(ios ? "photo" : "live");
   const [manual, setManual] = useState("");
   const [status, setStatus] = useState(
     ios
-      ? "Tippe „Foto aufnehmen“ — öffnet die iPhone-Kamera"
-      : stream
-        ? "Code vor die Kamera halten"
-        : "Kamera wird vorbereitet…",
+      ? "Am iPhone: Foto der Verpackung — erkennt EAN am zuverlässigsten"
+      : "Code vor die Kamera halten",
   );
   const [torchOn, setTorchOn] = useState(false);
   const [torchSupported, setTorchSupported] = useState(false);
   const [busyPhoto, setBusyPhoto] = useState(false);
   const [error, setError] = useState(cameraError || "");
+  const [liveStarting, setLiveStarting] = useState(false);
 
   const videoRef = useRef(null);
   const fileRef = useRef(null);
@@ -134,7 +142,7 @@ export default function BarcodeScanner({
     [teardownDecode],
   );
 
-  // Live nur wenn nicht iOS-Foto-Modus
+  // Live decode
   useEffect(() => {
     if (mode !== "live") {
       teardownDecode();
@@ -156,12 +164,10 @@ export default function BarcodeScanner({
       let activeStream = streamRef.current;
 
       if (!activeStream) {
+        // Stream sollte vom Live-Button kommen; Fallback
         try {
           setStatus("Kamera startet…");
-          activeStream = await navigator.mediaDevices.getUserMedia({
-            audio: false,
-            video: { facingMode: { ideal: "environment" } },
-          });
+          activeStream = await requestBarcodeCamera();
           if (cancelled) {
             stopMediaStream(activeStream);
             return;
@@ -170,10 +176,8 @@ export default function BarcodeScanner({
           ownStreamRef.current = true;
         } catch (e) {
           if (cancelled) return;
-          setError(
-            "Live-Kamera nicht verfügbar. Am iPhone bitte „Foto aufnehmen“ nutzen.",
-          );
-          setStatus("Foto oder manuell");
+          setError(cameraErrorMessage(e));
+          setStatus("Foto oder manuell nutzen");
           setMode("photo");
           return;
         }
@@ -195,12 +199,12 @@ export default function BarcodeScanner({
       }
 
       if (cancelled) return;
-      setStatus(
+      setStatus("Strichcode waagrecht in den Rahmen");
+      setError(
         ios
-          ? "Live am iPhone oft unzuverlässig — sonst Foto nutzen"
-          : "Code waagrecht vor die Kamera halten",
+          ? "Hinweis: Live am iPhone ist unsicher — Foto ist besser."
+          : "",
       );
-      setError("");
 
       const reader = makeLiveReader();
       readerRef.current = reader;
@@ -280,7 +284,7 @@ export default function BarcodeScanner({
       const text = await decodeBarcodeFromFile(file);
       if (!text || !finishWithCode(text)) {
         showToast(
-          "Kein Barcode erkannt — näher rangehen, scharf, guter Kontrast",
+          "Kein Barcode erkannt — näher, scharf, ganzer Code im Bild",
           "error",
         );
         setStatus("Kein Code im Foto — erneut versuchen");
@@ -306,17 +310,45 @@ export default function BarcodeScanner({
 
   const handleClose = () => {
     teardownDecode();
+    if (ownStreamRef.current) {
+      stopMediaStream(streamRef.current);
+      streamRef.current = null;
+      ownStreamRef.current = false;
+    }
     onCloseRef.current?.();
   };
 
   const openNativeCamera = () => {
-    // Muss im Tap bleiben — öffnet iOS-Systemkamera
     fileRef.current?.click();
+  };
+
+  /** Live starten — getUserMedia im Tap (iOS) */
+  const startLiveFromTap = async () => {
+    setLiveStarting(true);
+    setError("");
+    try {
+      // Alten eigenen Stream ersetzen
+      if (ownStreamRef.current) {
+        stopMediaStream(streamRef.current);
+        ownStreamRef.current = false;
+      }
+      const s = await requestBarcodeCamera();
+      streamRef.current = s;
+      ownStreamRef.current = true;
+      setMode("live");
+      setStatus("Strichcode waagrecht in den Rahmen");
+    } catch (e) {
+      setError(cameraErrorMessage(e));
+      showToast(cameraErrorMessage(e), "info");
+      setMode("photo");
+    } finally {
+      setLiveStarting(false);
+    }
   };
 
   const node = (
     <div
-      className="ig-scan"
+      className={"ig-scan" + (mode === "live" ? " ig-scan-live" : "")}
       role="dialog"
       aria-modal="true"
       aria-label="Barcode scannen"
@@ -333,21 +365,9 @@ export default function BarcodeScanner({
         </button>
       </header>
 
-      {ios ? (
-        <p className="ig-scan-hint dim">
-          <strong>iPhone Safari:</strong> Live-Scan für Strichcodes ist im
-          Browser unzuverlässig. Nutze die{" "}
-          <strong>iPhone-Kamera per Foto</strong> — wie bei vielen Web-Apps.
-        </p>
-      ) : (
-        <p className="ig-scan-hint dim">
-          Code in den Rahmen halten oder Foto aufnehmen.
-        </p>
-      )}
-
       {mode === "live" ? (
         <div className="ig-scan-camera-wrap">
-          <div className="ig-scan-region is-native">
+          <div className="ig-scan-region">
             <video
               ref={videoRef}
               className="ig-scan-video"
@@ -356,22 +376,17 @@ export default function BarcodeScanner({
               autoPlay
             />
             <div className="ig-scan-frame" aria-hidden="true" />
+            <p className="ig-scan-overlay-hint">{status}</p>
           </div>
-          {status ? (
-            <p className="ig-scan-status" role="status">
-              <Camera size={14} aria-hidden="true" /> {status}
-            </p>
-          ) : null}
-          {error ? <p className="ig-scan-error">{error}</p> : null}
-          <div className="ig-scan-toolbar">
+          {error ? <p className="ig-scan-error ig-scan-error-float">{error}</p> : null}
+          <div className="ig-scan-toolbar ig-scan-toolbar-float">
             <button
               type="button"
               className="ig-btn-primary"
               disabled={busyPhoto}
               onClick={openNativeCamera}
             >
-              <ImagePlus size={16} />{" "}
-              {busyPhoto ? "Liest…" : "Foto aufnehmen"}
+              <ImagePlus size={16} /> Foto
             </button>
             {torchSupported ? (
               <button
@@ -405,11 +420,14 @@ export default function BarcodeScanner({
       ) : mode === "photo" ? (
         <div className="ig-scan-photo-pane">
           <div className="ig-scan-photo-card">
-            <ImagePlus size={40} strokeWidth={1.5} aria-hidden="true" />
-            <p className="ig-scan-photo-title">iPhone-Kamera öffnen</p>
+            <ImagePlus size={44} strokeWidth={1.5} aria-hidden="true" />
+            <p className="ig-scan-photo-title">
+              {ios ? "iPhone-Kamera (empfohlen)" : "Foto scannen"}
+            </p>
             <p className="ig-scan-photo-desc dim">
-              Fotografiere den Strichcode scharf und möglichst gerade. Die App
-              liest die EAN aus dem Foto.
+              {ios
+                ? "Im Browser gibt es keinen Apple-Scan wie in Store-Apps. Foto der EAN ist der zuverlässige Web-Weg — oft in 1 Sekunde erkannt."
+                : "Fotografiere den Strichcode scharf und gerade."}
             </p>
             <button
               type="button"
@@ -418,7 +436,15 @@ export default function BarcodeScanner({
               onClick={openNativeCamera}
             >
               <Camera size={18} />{" "}
-              {busyPhoto ? "Barcode wird gelesen…" : "Foto aufnehmen"}
+              {busyPhoto ? "Wird gelesen…" : "Foto aufnehmen"}
+            </button>
+            <button
+              type="button"
+              className="ig-btn-primary wide ghosted"
+              disabled={liveStarting}
+              onClick={startLiveFromTap}
+            >
+              {liveStarting ? "Kamera…" : "Live-Scan versuchen"}
             </button>
           </div>
           {status ? (
@@ -435,24 +461,11 @@ export default function BarcodeScanner({
             >
               <Keyboard size={14} /> Manuell tippen
             </button>
-            {!ios || stream ? (
-              <button
-                type="button"
-                className="ig-chip sm"
-                onClick={() => setMode("live")}
-              >
-                Live versuchen
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="ig-chip sm"
-                onClick={() => setMode("live")}
-              >
-                Live versuchen
-              </button>
-            )}
           </div>
+          <p className="ig-scan-footnote dim">
+            Cola Zero u. a. sind in Open Food Facts — wenn „unbekannt“, oft
+            Server-Limit. Nochmal scannen oder Code tippen.
+          </p>
         </div>
       ) : (
         <form className="ig-scan-manual" onSubmit={submitManual}>
@@ -464,7 +477,7 @@ export default function BarcodeScanner({
               inputMode="numeric"
               autoComplete="off"
               autoFocus
-              placeholder="z. B. 3017620422003"
+              placeholder="z. B. 5449000131805 (Cola Zero)"
               value={manual}
               onChange={(e) => setManual(e.target.value)}
               maxLength={18}
@@ -491,7 +504,6 @@ export default function BarcodeScanner({
         </form>
       )}
 
-      {/* capture=environment → native iOS Kamera-UI (zuverlässig) */}
       <input
         ref={fileRef}
         type="file"

@@ -6263,7 +6263,7 @@ button.ig-home-mini:active {
   text-decoration: none;
 }
 
-/* Fullscreen scanner — über Dock/Sheets, Portal auf body */
+/* Fullscreen scanner — ganze Displaybreite (kein 430px-Käfig) */
 .ig-scan {
   position: fixed;
   inset: 0;
@@ -6274,10 +6274,25 @@ button.ig-home-mini:active {
   padding: max(12px, env(safe-area-inset-top)) 14px max(14px, env(safe-area-inset-bottom));
   background: #0a0c0b;
   color: #e8eaed;
-  max-width: 430px;
-  margin: 0 auto;
+  max-width: none;
+  margin: 0;
   width: 100%;
   box-sizing: border-box;
+}
+/* Live: Kamera füllt den gesamten Screen */
+.ig-scan.ig-scan-live {
+  padding: 0;
+  gap: 0;
+  background: #000;
+}
+.ig-scan.ig-scan-live .ig-scan-head {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  padding: max(12px, env(safe-area-inset-top)) 14px 10px;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.72), transparent);
 }
 .ig-scan-head {
   display: flex;
@@ -6303,17 +6318,29 @@ button.ig-home-mini:active {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  position: relative;
+}
+.ig-scan-live .ig-scan-camera-wrap {
+  position: absolute;
+  inset: 0;
 }
 .ig-scan-region {
   flex: 1 1 auto;
-  min-height: 240px;
-  height: min(58vh, 420px);
+  min-height: 280px;
+  height: min(70vh, 560px);
   border-radius: 16px;
   overflow: hidden;
   background: #111;
   border: 1px solid rgba(255, 255, 255, 0.08);
   position: relative;
+}
+.ig-scan-live .ig-scan-region {
+  position: absolute;
+  inset: 0;
+  height: auto;
+  min-height: 100%;
+  border-radius: 0;
+  border: none;
 }
 .ig-scan-video {
   position: absolute;
@@ -6324,17 +6351,30 @@ button.ig-home-mini:active {
   background: #000;
   display: block;
 }
-/* Zielrahmen (nur UI, keine Decode-Begrenzung) */
+/* Großer EAN-Rahmen (breiter Streifen — Strichcodes brauchen Breite) */
 .ig-scan-frame {
   pointer-events: none;
   position: absolute;
-  left: 8%;
-  right: 8%;
-  top: 35%;
-  height: 22%;
-  border: 2px solid rgba(184, 242, 74, 0.85);
-  border-radius: 12px;
-  box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.28);
+  left: 4%;
+  right: 4%;
+  top: 36%;
+  height: 26%;
+  border: 3px solid rgba(184, 242, 74, 0.92);
+  border-radius: 16px;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.38);
+}
+.ig-scan-overlay-hint {
+  pointer-events: none;
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+  margin: 0;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 650;
+  color: #fff;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
 }
 .ig-scan-status {
   display: flex;
@@ -6356,9 +6396,37 @@ button.ig-home-mini:active {
   flex-shrink: 0;
   padding-bottom: 4px;
 }
+.ig-scan-toolbar-float {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 5;
+  padding: 12px 14px calc(14px + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.82), transparent);
+}
 .ig-scan-toolbar .ig-btn-primary {
-  min-height: 44px;
+  min-height: 48px;
   gap: 6px;
+  padding-left: 16px;
+  padding-right: 16px;
+}
+.ig-scan-error-float {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  top: calc(56px + env(safe-area-inset-top, 0px));
+  z-index: 5;
+  background: rgba(40, 10, 10, 0.88);
+  padding: 8px 10px;
+  border-radius: 10px;
+}
+.ig-scan-footnote {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.4;
+  text-align: center;
+  padding: 0 8px;
 }
 /* iPhone Safari: Foto-first (kein Live-EAN) */
 .ig-scan-photo-pane {

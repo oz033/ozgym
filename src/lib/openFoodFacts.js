@@ -162,22 +162,44 @@ export function pickProductName(p) {
   return null;
 }
 
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+/**
+ * OFF rate-limited stark (429). Wenige Requests, mit Retry — nicht 9 URLs am Stück.
+ */
 async function fetchOffJson(url, signal) {
-  const res = await fetch(url, {
-    headers: { Accept: "application/json" },
-    signal,
-  });
-  if (res.status === 404) return { status: 0 };
-  if (!res.ok) {
-    throw new Error(`Produkt-Suche fehlgeschlagen (${res.status}).`);
+  let lastErr = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await fetch(url, {
+        headers: { Accept: "application/json" },
+        signal,
+      });
+      if (res.status === 404) return { status: 0 };
+      if (res.status === 429) {
+        lastErr = new Error("Open Food Facts ausgelastet — kurz warten…");
+        await sleep(700 * (attempt + 1));
+        continue;
+      }
+      if (!res.ok) {
+        throw new Error(`Produkt-Suche fehlgeschlagen (${res.status}).`);
+      }
+      const ct = res.headers.get("content-type") || "";
+      if (ct.includes("text/html")) {
+        lastErr = new Error("Open Food Facts vorübergehend nicht erreichbar.");
+        await sleep(500 * (attempt + 1));
+        continue;
+      }
+      return await res.json();
+    } catch (e) {
+      if (e?.name === "TimeoutError" || e?.name === "AbortError") throw e;
+      lastErr = e;
+      await sleep(300 * (attempt + 1));
+    }
   }
-  const ct = res.headers.get("content-type") || "";
-  // Rate-Limit / Block liefert oft HTML
-  if (ct.includes("text/html")) {
-    throw new Error("Open Food Facts vorübergehend nicht erreichbar.");
-  }
-  const data = await res.json();
-  return data;
+  throw lastErr || new Error("Produkt-Suche fehlgeschlagen.");
 }
 
 /**
@@ -192,16 +214,18 @@ export async function fetchProductByBarcode(barcode) {
 
   const variants = barcodeVariants(raw);
   const signal = AbortSignal.timeout
-    ? AbortSignal.timeout(14000)
+    ? AbortSignal.timeout(16000)
     : undefined;
 
-  // v0 first = vollständige Felder (Name, Bild, Nährwerte). v2 fields oft lückenhaft.
-  // Alle Varianten + Spiegel — bei status:0 WEITER suchen (früher: break → „Unbekannt“)
+  // Sparsam: 1) world v0 je Variante, 2) erst dann de-Spiegel — vermeidet 429
   const urls = [];
   for (const code of variants) {
     urls.push(
       `https://world.openfoodfacts.org/api/v0/product/${encodeURIComponent(code)}.json`,
-      `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(code)}.json`,
+    );
+  }
+  for (const code of variants) {
+    urls.push(
       `https://de.openfoodfacts.org/api/v0/product/${encodeURIComponent(code)}.json`,
     );
   }
@@ -223,7 +247,7 @@ export async function fetchProductByBarcode(barcode) {
       }
       if (data?.status === 0) {
         sawNotFound = true;
-        continue; // nächste URL / Variante
+        continue;
       }
     } catch (e) {
       if (e?.name === "TimeoutError" || e?.name === "AbortError") {
@@ -232,14 +256,13 @@ export async function fetchProductByBarcode(barcode) {
         );
       }
       lastErr = e;
-      // HTML/Rate-limit: andere URL versuchen
       continue;
     }
   }
 
   if (!product) {
     if (sawNotFound && !lastErr) return null;
-    if (lastErr && !sawNotFound) throw lastErr;
+    if (lastErr) throw lastErr;
     return null;
   }
 
