@@ -218,13 +218,13 @@ export default function FoodTab({
       setLoading(true);
       setProduct(null);
 
-      const openManualStub = (msg) => {
+      const openManualStub = (msg, extra = {}) => {
         if (msg) showToast(msg, "info");
         setProduct({
           barcode: clean,
-          name: "",
-          brand: "",
-          image: null,
+          name: extra.name || "",
+          brand: extra.brand || "",
+          image: extra.image || null,
           per100: {
             kcal: null,
             protein: null,
@@ -232,10 +232,11 @@ export default function FoodTab({
             fat: null,
             sugar: null,
             salt: null,
+            ...(extra.per100 || {}),
           },
-          nutriscore: null,
-          allergens: [],
-          source: "manual",
+          nutriscore: extra.nutriscore || null,
+          allergens: extra.allergens || [],
+          source: extra.source || "manual",
           notFound: true,
         });
         setGrams(100);
@@ -262,10 +263,21 @@ export default function FoodTab({
         // 3) Online Open Food Facts
         try {
           const p = await fetchProductByBarcode(clean);
-          if (p) {
+          if (p && !p.notFound) {
             cacheProduct(p);
             presentProduct(p);
+            if (p.incomplete) {
+              showToast("Unvollständige Daten — bitte prüfen", "info");
+            }
             setLoading(false);
+            return;
+          }
+          if (p?.notFound) {
+            // In OFF, aber ohne Namen/kcal
+            openManualStub(
+              "Produkt lückenhaft — Name und kcal ergänzen",
+              p,
+            );
             return;
           }
         } catch (err) {
@@ -289,7 +301,9 @@ export default function FoodTab({
           setLoading(false);
           return;
         }
-        openManualStub("Unbekannt — Name/kcal eingeben");
+        openManualStub(
+          "Nicht in Open Food Facts — Name & kcal eintippen (danach speicherbar)",
+        );
       } catch (e) {
         console.error("[food] lookup", e);
         showToast("Suche fehlgeschlagen", "error");
@@ -619,16 +633,20 @@ export default function FoodTab({
               </span>
             )}
             <div className="ig-food-product-meta">
-              {product.notFound ? (
+              {product.notFound || !product.name ? (
                 <label className="ig-num-field">
                   <span>Produktname</span>
                   <input
                     className="ig-input"
                     value={product.name}
                     onChange={(e) =>
-                      setProduct((p) => ({ ...p, name: e.target.value }))
+                      setProduct((p) => ({
+                        ...p,
+                        name: e.target.value,
+                        notFound: true,
+                      }))
                     }
-                    placeholder="z. B. Naturjoghurt"
+                    placeholder="z. B. Ja! Naturjoghurt 200g"
                     autoFocus
                   />
                 </label>
@@ -641,9 +659,13 @@ export default function FoodTab({
                 </>
               )}
               <span className="mono dim" style={{ fontSize: 11 }}>
-                {product.barcode || ""}
+                EAN {product.barcode || ""}
               </span>
-              {!product.image || product._imgBroken ? (
+              {product.notFound ? (
+                <span className="dim" style={{ fontSize: 11 }}>
+                  Nicht (vollständig) in Open Food Facts — manuell ergänzen
+                </span>
+              ) : !product.image || product._imgBroken ? (
                 <span className="dim" style={{ fontSize: 11 }}>
                   Kein Produktfoto in der Datenbank
                 </span>

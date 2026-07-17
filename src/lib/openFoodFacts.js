@@ -120,141 +120,165 @@ export function pickProductImage(p) {
   return null;
 }
 
+/** UPC-A (12) ↔ EAN-13 (13 mit führender 0) — Scanner liefern oft eine Variante */
+function barcodeVariants(code) {
+  const c = String(code || "").replace(/\D/g, "");
+  const out = [];
+  const add = (x) => {
+    if (x && x.length >= 8 && !out.includes(x)) out.push(x);
+  };
+  add(c);
+  if (c.length === 12) add("0" + c);
+  if (c.length === 13 && c.startsWith("0")) add(c.slice(1));
+  // Manche Codes mit führenden Nullen als 14-stellig
+  if (c.length === 14 && c.startsWith("0")) add(c.slice(1));
+  return out;
+}
+
+/** Bester Anzeigename aus OFF-Feldern (leer → null, kein Fake-„Unbekannt“) */
+export function pickProductName(p) {
+  if (!p || typeof p !== "object") return null;
+  const candidates = [
+    p.product_name_de,
+    p.product_name,
+    p.product_name_en,
+    p.product_name_fr,
+    p.product_name_it,
+    p.generic_name_de,
+    p.generic_name,
+    p.generic_name_en,
+    p.abbreviated_product_name,
+  ];
+  for (const c of candidates) {
+    const s = String(c || "").trim();
+    if (s && !/^unknown$/i.test(s)) return s;
+  }
+  const brand = String(p.brands || "")
+    .split(",")[0]
+    .trim();
+  const qty = String(p.quantity || "").trim();
+  if (brand && qty) return `${brand} (${qty})`;
+  if (brand) return brand;
+  return null;
+}
+
+async function fetchOffJson(url, signal) {
+  const res = await fetch(url, {
+    headers: { Accept: "application/json" },
+    signal,
+  });
+  if (res.status === 404) return { status: 0 };
+  if (!res.ok) {
+    throw new Error(`Produkt-Suche fehlgeschlagen (${res.status}).`);
+  }
+  const ct = res.headers.get("content-type") || "";
+  // Rate-Limit / Block liefert oft HTML
+  if (ct.includes("text/html")) {
+    throw new Error("Open Food Facts vorübergehend nicht erreichbar.");
+  }
+  const data = await res.json();
+  return data;
+}
+
 /**
  * @param {string} barcode
- * @returns {Promise<object|null>}
+ * @returns {Promise<object|null>} null = nicht in der Datenbank
  */
 export async function fetchProductByBarcode(barcode) {
-  const code = String(barcode || "").replace(/\D/g, "");
-  if (code.length < 8) {
+  const raw = String(barcode || "").replace(/\D/g, "");
+  if (raw.length < 8) {
     throw new Error("Barcode zu kurz (mind. 8 Ziffern).");
   }
 
-  const fields = [
-    "product_name",
-    "product_name_de",
-    "product_name_en",
-    "brands",
-    "image_front_url",
-    "image_front_small_url",
-    "image_front_thumb_url",
-    "image_url",
-    "image_small_url",
-    "image_thumb_url",
-    "selected_images",
-    "quantity",
-    "serving_size",
-    "nutriments",
-    "nutriscore_grade",
-    "nutrition_grades",
-    "nova_group",
-    "nova_groups",
-    "ecoscore_grade",
-    "environmental_score_grade",
-    "allergens_tags",
-    "allergens",
-    "allergens_from_ingredients",
-    "code",
-  ].join(",");
-
-  // v2 + v0 (Fallback), world + de — manches AT-Produkt nur in einer Spiegelung
-  const urls = [
-    `${API}/${encodeURIComponent(code)}.json?fields=${fields}`,
-    `https://world.openfoodfacts.org/api/v0/product/${encodeURIComponent(code)}.json`,
-    `https://de.openfoodfacts.org/api/v0/product/${encodeURIComponent(code)}.json`,
-  ];
-
+  const variants = barcodeVariants(raw);
   const signal = AbortSignal.timeout
-    ? AbortSignal.timeout(12000)
+    ? AbortSignal.timeout(14000)
     : undefined;
 
-  let data = null;
+  // v0 first = vollständige Felder (Name, Bild, Nährwerte). v2 fields oft lückenhaft.
+  // Alle Varianten + Spiegel — bei status:0 WEITER suchen (früher: break → „Unbekannt“)
+  const urls = [];
+  for (const code of variants) {
+    urls.push(
+      `https://world.openfoodfacts.org/api/v0/product/${encodeURIComponent(code)}.json`,
+      `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(code)}.json`,
+      `https://de.openfoodfacts.org/api/v0/product/${encodeURIComponent(code)}.json`,
+    );
+  }
+
+  let product = null;
+  let matchedCode = raw;
   let lastErr = null;
+  let sawNotFound = false;
+
   for (const url of urls) {
     try {
-      const res = await fetch(url, {
-        headers: { Accept: "application/json" },
-        signal,
-      });
-      // 404 = unbekanntes Produkt, nicht Netzfehler
-      if (res.status === 404) {
-        data = { status: 0 };
+      const data = await fetchOffJson(url, signal);
+      if (data?.status === 1 && data.product) {
+        product = data.product;
+        matchedCode =
+          String(data.code || data.product.code || raw).replace(/\D/g, "") ||
+          raw;
         break;
       }
-      if (!res.ok) {
-        lastErr = new Error(`Produkt-Suche fehlgeschlagen (${res.status}).`);
-        continue;
+      if (data?.status === 0) {
+        sawNotFound = true;
+        continue; // nächste URL / Variante
       }
-      data = await res.json();
-      if (data.status === 1 && data.product) break;
-      if (data.status === 0) break;
     } catch (e) {
       if (e?.name === "TimeoutError" || e?.name === "AbortError") {
-        throw new Error("Zeitüberschreitung — Netz prüfen oder manuell anlegen.");
+        throw new Error(
+          "Zeitüberschreitung — Netz prüfen oder manuell anlegen.",
+        );
       }
       lastErr = e;
+      // HTML/Rate-limit: andere URL versuchen
+      continue;
     }
   }
 
-  if (!data) {
-    throw lastErr || new Error("Produkt-Suche fehlgeschlagen.");
-  }
-  if (data.status !== 1 || !data.product) {
+  if (!product) {
+    if (sawNotFound && !lastErr) return null;
+    if (lastErr && !sawNotFound) throw lastErr;
     return null;
   }
 
-  const p = data.product;
+  const p = product;
   const n = p.nutriments || {};
   const name =
-    p.product_name_de ||
-    p.product_name ||
-    p.product_name_en ||
-    "Unbekanntes Produkt";
+    pickProductName(p) ||
+    // Kein Fake-„Unbekanntes Produkt“ als Name — leer lässt UI editieren
+    "";
+  const brand = String(p.brands || "")
+    .split(",")[0]
+    .trim();
 
   const novaRaw = num(p.nova_group) ?? num(p.nova_groups);
   const ecoRaw =
     p.environmental_score_grade || p.ecoscore_grade || null;
   const nutriRaw = p.nutriscore_grade || p.nutrition_grades || null;
+  const image = pickProductImage(p);
 
-  // Wenn v2-fields kaum Bild liefert: v0 nochmal für selected_images
-  let image = pickProductImage(p);
-  if (!image) {
-    try {
-      const res = await fetch(
-        `https://world.openfoodfacts.org/api/v0/product/${encodeURIComponent(code)}.json`,
-        {
-          headers: { Accept: "application/json" },
-          signal: AbortSignal.timeout
-            ? AbortSignal.timeout(8000)
-            : undefined,
-        },
-      );
-      if (res.ok) {
-        const full = await res.json();
-        if (full?.product) image = pickProductImage(full.product);
-      }
-    } catch {
-      /* optional */
-    }
-  }
+  const per100 = {
+    kcal: kcalPer100(n),
+    protein: num(n.proteins_100g),
+    carbs: num(n.carbohydrates_100g),
+    fat: num(n.fat_100g),
+    sugar: num(n.sugars_100g),
+    salt: num(n.salt_100g),
+  };
+
+  // OFF-Eintrag ohne Namen und ohne kcal = praktisch unbrauchbar
+  const incomplete = !name || per100.kcal == null;
 
   return {
-    barcode: code,
-    name: String(name).trim(),
-    brand: String(p.brands || "")
-      .split(",")[0]
-      .trim(),
+    barcode: matchedCode || raw,
+    name: name || brand || "",
+    brand,
     image,
     quantity: String(p.quantity || "").trim(),
     servingSize: String(p.serving_size || "").trim(),
-    per100: {
-      kcal: kcalPer100(n),
-      protein: num(n.proteins_100g),
-      carbs: num(n.carbohydrates_100g),
-      fat: num(n.fat_100g),
-      sugar: num(n.sugars_100g),
-      salt: num(n.salt_100g),
-    },
+    per100,
     nutriscore: nutriRaw ? String(nutriRaw).toUpperCase().slice(0, 1) : null,
     nova:
       novaRaw != null && novaRaw >= 1 && novaRaw <= 4
@@ -263,6 +287,9 @@ export async function fetchProductByBarcode(barcode) {
     greenscore: ecoRaw ? String(ecoRaw).toUpperCase().slice(0, 1) : null,
     allergens: parseAllergens(p),
     source: "openfoodfacts",
+    incomplete,
+    // true nur wenn wirklich nichts Verwertbares da ist → UI zum Ausfüllen
+    notFound: !name && per100.kcal == null,
     cachedAt: Date.now(),
   };
 }
