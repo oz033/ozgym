@@ -231,9 +231,6 @@ export default function DashboardTab({ data, update, goTo, onStart }) {
         <div className="ig-home-hero">
           <span className="ig-home-eyebrow mono">{weekday} · Start</span>
           <h1 className="ig-home-title">{hiTitle}</h1>
-          <p className="ig-home-sub">
-            {APP_NAME} speichert alles auf dem Gerät. In 30 Sekunden startklar.
-          </p>
         </div>
 
         <div className="ig-card ig-home-steps" aria-label="Erste Schritte">
