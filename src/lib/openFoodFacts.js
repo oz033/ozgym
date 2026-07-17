@@ -102,25 +102,48 @@ export async function fetchProductByBarcode(barcode) {
     "code",
   ].join(",");
 
-  const url = `${API}/${encodeURIComponent(code)}.json?fields=${fields}`;
-  // Kein custom User-Agent im Browser (verboten / bricht CORS-Preflight)
-  let res;
-  try {
-    res = await fetch(url, {
-      headers: { Accept: "application/json" },
-      // Abbruch nach 12s — sonst „passiert nichts“ bei schlechtem Netz
-      signal: AbortSignal.timeout ? AbortSignal.timeout(12000) : undefined,
-    });
-  } catch (e) {
-    if (e?.name === "TimeoutError" || e?.name === "AbortError") {
-      throw new Error("Zeitüberschreitung — Netz prüfen oder manuell anlegen.");
+  // v2 + v0 (Fallback), world + de — manches AT-Produkt nur in einer Spiegelung
+  const urls = [
+    `${API}/${encodeURIComponent(code)}.json?fields=${fields}`,
+    `https://world.openfoodfacts.org/api/v0/product/${encodeURIComponent(code)}.json`,
+    `https://de.openfoodfacts.org/api/v0/product/${encodeURIComponent(code)}.json`,
+  ];
+
+  const signal = AbortSignal.timeout
+    ? AbortSignal.timeout(12000)
+    : undefined;
+
+  let data = null;
+  let lastErr = null;
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, {
+        headers: { Accept: "application/json" },
+        signal,
+      });
+      // 404 = unbekanntes Produkt, nicht Netzfehler
+      if (res.status === 404) {
+        data = { status: 0 };
+        break;
+      }
+      if (!res.ok) {
+        lastErr = new Error(`Produkt-Suche fehlgeschlagen (${res.status}).`);
+        continue;
+      }
+      data = await res.json();
+      if (data.status === 1 && data.product) break;
+      if (data.status === 0) break;
+    } catch (e) {
+      if (e?.name === "TimeoutError" || e?.name === "AbortError") {
+        throw new Error("Zeitüberschreitung — Netz prüfen oder manuell anlegen.");
+      }
+      lastErr = e;
     }
-    throw e;
   }
-  if (!res.ok) {
-    throw new Error(`Produkt-Suche fehlgeschlagen (${res.status}).`);
+
+  if (!data) {
+    throw lastErr || new Error("Produkt-Suche fehlgeschlagen.");
   }
-  const data = await res.json();
   if (data.status !== 1 || !data.product) {
     return null;
   }
