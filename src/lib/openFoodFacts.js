@@ -4,7 +4,6 @@
  */
 
 const API = "https://world.openfoodfacts.org/api/v2/product";
-const USER_AGENT = "OZGYM/0.1 (local gym PWA; food barcode scan)";
 
 /** Häufige Allergene (OFF-Tags → DE) */
 export const ALLERGEN_DEFS = [
@@ -104,12 +103,20 @@ export async function fetchProductByBarcode(barcode) {
   ].join(",");
 
   const url = `${API}/${encodeURIComponent(code)}.json?fields=${fields}`;
-  const res = await fetch(url, {
-    headers: {
-      Accept: "application/json",
-      "User-Agent": USER_AGENT,
-    },
-  });
+  // Kein custom User-Agent im Browser (verboten / bricht CORS-Preflight)
+  let res;
+  try {
+    res = await fetch(url, {
+      headers: { Accept: "application/json" },
+      // Abbruch nach 12s — sonst „passiert nichts“ bei schlechtem Netz
+      signal: AbortSignal.timeout ? AbortSignal.timeout(12000) : undefined,
+    });
+  } catch (e) {
+    if (e?.name === "TimeoutError" || e?.name === "AbortError") {
+      throw new Error("Zeitüberschreitung — Netz prüfen oder manuell anlegen.");
+    }
+    throw e;
+  }
   if (!res.ok) {
     throw new Error(`Produkt-Suche fehlgeschlagen (${res.status}).`);
   }

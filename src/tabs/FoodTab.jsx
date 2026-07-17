@@ -147,37 +147,18 @@ export default function FoodTab({
 
   const lookup = useCallback(
     async (code) => {
+      const clean = String(code || "").replace(/\D/g, "");
+      if (clean.length < 8) {
+        showToast("Barcode ungültig", "error");
+        return;
+      }
+      // Scanner sofort schließen, Lookup sichtbar machen
       setScanning(false);
       setLoading(true);
       setProduct(null);
-      const clean = String(code).replace(/\D/g, "");
 
-      // 1) Eigenprodukte
-      const custom = findCustomByBarcode(data.foodCustomProducts, clean);
-      if (custom) {
-        presentProduct({ ...custom, fromCache: false });
-        setLoading(false);
-        return;
-      }
-
-      // 2) Online versuchen
-      try {
-        const p = await fetchProductByBarcode(clean);
-        if (p) {
-          cacheProduct(p);
-          presentProduct(p);
-          setLoading(false);
-          return;
-        }
-      } catch {
-        // offline / netz → Cache
-        const cached = getProductCache(data.foodProductCache, clean);
-        if (cached) {
-          presentProduct(cached, true);
-          setLoading(false);
-          return;
-        }
-        showToast("Offline und nicht im Cache — manuell anlegen", "error");
+      const openManualStub = (msg) => {
+        if (msg) showToast(msg, "info");
         setProduct({
           barcode: clean,
           name: "",
@@ -198,37 +179,61 @@ export default function FoodTab({
         });
         setGrams(100);
         setLoading(false);
-        return;
-      }
+      };
 
-      // 3) Online: nicht gefunden → Cache oder manuell
-      const cached = getProductCache(data.foodProductCache, clean);
-      if (cached) {
-        presentProduct(cached, true);
+      try {
+        // 1) Eigenprodukte
+        const custom = findCustomByBarcode(data.foodCustomProducts, clean);
+        if (custom) {
+          presentProduct({ ...custom, fromCache: false });
+          setLoading(false);
+          return;
+        }
+
+        // 2) Offline-Cache zuerst (schneller, ohne Netz)
+        const cachedHit = getProductCache(data.foodProductCache, clean);
+        if (cachedHit && !navigator.onLine) {
+          presentProduct(cachedHit, true);
+          setLoading(false);
+          return;
+        }
+
+        // 3) Online Open Food Facts
+        try {
+          const p = await fetchProductByBarcode(clean);
+          if (p) {
+            cacheProduct(p);
+            presentProduct(p);
+            setLoading(false);
+            return;
+          }
+        } catch (err) {
+          const cached = getProductCache(data.foodProductCache, clean);
+          if (cached) {
+            presentProduct(cached, true);
+            setLoading(false);
+            return;
+          }
+          openManualStub(
+            err?.message ||
+              "Netzfehler — manuell anlegen oder später erneut scannen",
+          );
+          return;
+        }
+
+        // 4) Online: nicht in OFF → Cache oder manuell
+        const cached = getProductCache(data.foodProductCache, clean);
+        if (cached) {
+          presentProduct(cached, true);
+          setLoading(false);
+          return;
+        }
+        openManualStub("Unbekannt — Name/kcal eingeben");
+      } catch (e) {
+        console.error("[food] lookup", e);
+        showToast("Suche fehlgeschlagen", "error");
         setLoading(false);
-        return;
       }
-      showToast("Unbekannt — Name/kcal eingeben oder speichern", "info");
-      setProduct({
-        barcode: clean,
-        name: "",
-        brand: "",
-        image: null,
-        per100: {
-          kcal: null,
-          protein: null,
-          carbs: null,
-          fat: null,
-          sugar: null,
-          salt: null,
-        },
-        nutriscore: null,
-        allergens: [],
-        source: "manual",
-        notFound: true,
-      });
-      setGrams(100);
-      setLoading(false);
     },
     [data.foodCustomProducts, data.foodProductCache, cacheProduct, presentProduct],
   );

@@ -1,7 +1,8 @@
-/* Kamera-Barcode-Scan + manuelle Eingabe (EAN/UPC) */
+/* Kamera-Barcode-Scan + manuelle Eingabe (EAN/UPC) — mobil-robust */
 
 import React, { useEffect, useRef, useState, useCallback } from "react";
-import { X, Keyboard, Flashlight, FlashlightOff } from "lucide-react";
+import { createPortal } from "react-dom";
+import { X, Keyboard, Flashlight, FlashlightOff, Camera } from "lucide-react";
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 import { showToast } from "./ui.jsx";
 
@@ -15,6 +16,13 @@ const FORMATS = [
   Html5QrcodeSupportedFormats.CODE_128,
 ];
 
+/** Nur Ziffern; EAN/UPC mind. 8, max. 18 */
+function normalizeBarcode(raw) {
+  const code = String(raw ?? "").replace(/\D/g, "");
+  if (code.length < 8 || code.length > 18) return "";
+  return code;
+}
+
 /**
  * @param {{ onDetect: (code: string) => void, onClose: () => void }} props
  */
@@ -22,18 +30,30 @@ export default function BarcodeScanner({ onDetect, onClose }) {
   const [mode, setMode] = useState("camera"); // camera | manual
   const [manual, setManual] = useState("");
   const [error, setError] = useState("");
+  const [status, setStatus] = useState("Kamera startet…");
   const [torchOn, setTorchOn] = useState(false);
   const [torchSupported, setTorchSupported] = useState(false);
   const scannerRef = useRef(null);
   const handledRef = useRef(false);
   const startingRef = useRef(false);
+  // Stabile Callbacks — verhindert Kamera-Neustart bei Parent-Rerenders
+  const onDetectRef = useRef(onDetect);
+  const onCloseRef = useRef(onClose);
+  onDetectRef.current = onDetect;
+  onCloseRef.current = onClose;
 
   const stopScanner = useCallback(async () => {
     const s = scannerRef.current;
     scannerRef.current = null;
     if (!s) return;
     try {
-      if (s.isScanning) await s.stop();
+      if (s.isScanning) {
+        // Timeout: stop() hängt auf manchen iOS/Android-Builds
+        await Promise.race([
+          s.stop(),
+          new Promise((r) => setTimeout(r, 1200)),
+        ]);
+      }
     } catch {
       /* ignore */
     }
@@ -44,6 +64,35 @@ export default function BarcodeScanner({ onDetect, onClose }) {
     }
   }, []);
 
+  const finishWithCode = useCallback(
+    (code) => {
+      if (handledRef.current) return;
+      const clean = normalizeBarcode(code);
+      if (!clean) return;
+      handledRef.current = true;
+      setStatus("Erkannt — suche Produkt…");
+      try {
+        if (typeof navigator !== "undefined" && navigator.vibrate) {
+          navigator.vibrate(40);
+        }
+      } catch {
+        /* ignore */
+      }
+      showToast("Barcode erkannt", "success");
+      // Zuerst Parent benachrichtigen (Lookup), Kamera im Hintergrund stoppen.
+      // Früher: stop().finally(onDetect) → stop hängt → gar nichts passiert.
+      try {
+        onDetectRef.current?.(clean);
+      } catch (e) {
+        console.error("[scan] onDetect", e);
+        showToast("Scan-Verarbeitung fehlgeschlagen", "error");
+        handledRef.current = false;
+      }
+      stopScanner();
+    },
+    [stopScanner],
+  );
+
   useEffect(() => {
     if (mode !== "camera") {
       stopScanner();
@@ -52,53 +101,86 @@ export default function BarcodeScanner({ onDetect, onClose }) {
 
     let cancelled = false;
     handledRef.current = false;
+    setStatus("Kamera startet…");
 
     const start = async () => {
       if (startingRef.current) return;
       startingRef.current = true;
       setError("");
+
       try {
+        // Region muss im DOM + mit Layout-Größe existieren
+        const el = document.getElementById(SCANNER_ID);
+        if (!el) {
+          throw new Error("Scanner-Element fehlt");
+        }
+
         await stopScanner();
         if (cancelled) return;
+
+        // Alte Library-Reste im Container leeren
+        el.innerHTML = "";
 
         const scanner = new Html5Qrcode(SCANNER_ID, {
           formatsToSupport: FORMATS,
           verbose: false,
+          // Native BarcodeDetector (Chrome/Android, Safari 17.4+) — viel zuverlässiger für EAN
+          experimentalFeatures: {
+            useBarCodeDetectorIfSupported: true,
+          },
+          useBarCodeDetectorIfSupported: true,
         });
         scannerRef.current = scanner;
 
         await scanner.start(
-          { facingMode: "environment" },
+          { facingMode: { ideal: "environment" } },
           {
-            fps: 10,
+            fps: 15,
+            // Breite Leiste: 1D-EAN braucht mehr Breite als QR
             qrbox: (vw, vh) => {
-              const w = Math.min(vw, 320);
-              const h = Math.min(Math.floor(w * 0.45), Math.floor(vh * 0.35));
-              return { width: w, height: Math.max(80, h) };
+              const w = Math.floor(Math.min(vw * 0.92, 360));
+              const h = Math.floor(Math.min(Math.max(w * 0.38, 100), vh * 0.32));
+              return { width: w, height: h };
             },
             aspectRatio: 1.333,
             disableFlip: false,
           },
           (decoded) => {
-            if (handledRef.current || cancelled) return;
-            const code = String(decoded || "").replace(/\D/g, "");
-            if (code.length < 8) return;
-            handledRef.current = true;
-            try {
-              if (typeof navigator !== "undefined" && navigator.vibrate) {
-                navigator.vibrate(30);
-              }
-            } catch {
-              /* ignore */
-            }
-            stopScanner().finally(() => onDetect(code));
+            if (cancelled) return;
+            finishWithCode(decoded);
           },
           () => {
-            /* frame miss — ignore */
+            /* frame miss */
           },
         );
 
-        // Torch capability (Android Chrome)
+        if (cancelled) {
+          await stopScanner();
+          return;
+        }
+
+        setStatus("Code in den Rahmen halten");
+
+        // iOS-Fix: Video-Constraints nochmal anwenden (sonst oft kein Decode)
+        try {
+          await new Promise((r) => setTimeout(r, 350));
+          if (cancelled || !scannerRef.current) return;
+          const caps = scanner.getRunningTrackCapabilities?.();
+          if (caps) {
+            const advanced = {};
+            if (caps.focusMode?.includes?.("continuous")) {
+              advanced.focusMode = "continuous";
+            }
+            await scanner.applyVideoConstraints({
+              advanced: Object.keys(advanced).length ? [advanced] : undefined,
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+            });
+          }
+        } catch {
+          /* optional */
+        }
+
         try {
           const track = scanner.getRunningTrackCameraCapabilities?.();
           const torch = track?.torchFeature?.();
@@ -108,28 +190,36 @@ export default function BarcodeScanner({ onDetect, onClose }) {
         }
       } catch (e) {
         if (cancelled) return;
+        console.warn("[scan] start failed", e);
         const msg =
-          e?.message?.includes("Permission") || e?.name === "NotAllowedError"
+          e?.message?.includes("Permission") ||
+          e?.name === "NotAllowedError" ||
+          e?.name === "NotAllowedError"
             ? "Kamera-Zugriff verweigert. Bitte erlauben oder manuell eingeben."
-            : e?.message?.includes("NotFound") || e?.name === "NotFoundError"
+            : e?.name === "NotFoundError" || e?.message?.includes("NotFound")
               ? "Keine Kamera gefunden. Barcode manuell eingeben."
-              : "Kamera konnte nicht gestartet werden. Manuell eingeben.";
+              : e?.name === "NotReadableError"
+                ? "Kamera belegt (andere App?). Manuell eingeben."
+                : "Kamera konnte nicht gestartet werden. Manuell eingeben.";
         setError(msg);
+        setStatus("");
         setMode("manual");
       } finally {
         startingRef.current = false;
       }
     };
 
-    // DOM-Knoten für html5-qrcode muss gemountet sein
-    const t = requestAnimationFrame(() => start());
+    // Kurzer Delay: Portal + Layout auf dem Handy erst stabil
+    const t = setTimeout(() => {
+      if (!cancelled) start();
+    }, 120);
 
     return () => {
       cancelled = true;
-      cancelAnimationFrame(t);
+      clearTimeout(t);
       stopScanner();
     };
-  }, [mode, onDetect, stopScanner]);
+  }, [mode, finishWithCode, stopScanner]);
 
   const toggleTorch = async () => {
     const s = scannerRef.current;
@@ -151,23 +241,28 @@ export default function BarcodeScanner({ onDetect, onClose }) {
 
   const submitManual = (e) => {
     e?.preventDefault?.();
-    const code = manual.replace(/\D/g, "");
-    if (code.length < 8) {
-      showToast("Mindestens 8 Ziffern", "error");
+    const code = normalizeBarcode(manual);
+    if (!code) {
+      showToast("Barcode: 8–18 Ziffern", "error");
       return;
     }
-    onDetect(code);
+    finishWithCode(code);
   };
 
-  return (
-    <div className="ig-scan" role="dialog" aria-modal="true" aria-label="Barcode scannen">
+  const node = (
+    <div
+      className="ig-scan"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Barcode scannen"
+    >
       <header className="ig-scan-head">
         <h2 className="ig-scan-title">Barcode scannen</h2>
         <button
           type="button"
           className="ig-icon-btn ghost"
           onClick={() => {
-            stopScanner().finally(onClose);
+            stopScanner().finally(() => onCloseRef.current?.());
           }}
           aria-label="Schließen"
         >
@@ -176,13 +271,17 @@ export default function BarcodeScanner({ onDetect, onClose }) {
       </header>
 
       <p className="ig-scan-hint dim">
-        Strichcode auf die Verpackung richten — funktioniert offline, wenn du
-        das Produkt schon einmal geladen hast.
+        Strichcode waagrecht in den Rahmen — EAN von Billa, Hofer, Spar u. a.
       </p>
 
       {mode === "camera" ? (
         <div className="ig-scan-camera-wrap">
           <div id={SCANNER_ID} className="ig-scan-region" />
+          {status ? (
+            <p className="ig-scan-status" role="status">
+              <Camera size={14} aria-hidden="true" /> {status}
+            </p>
+          ) : null}
           <div className="ig-scan-toolbar">
             {torchSupported ? (
               <button
@@ -191,7 +290,11 @@ export default function BarcodeScanner({ onDetect, onClose }) {
                 onClick={toggleTorch}
                 aria-pressed={torchOn}
               >
-                {torchOn ? <FlashlightOff size={14} /> : <Flashlight size={14} />}
+                {torchOn ? (
+                  <FlashlightOff size={14} />
+                ) : (
+                  <Flashlight size={14} />
+                )}
                 {torchOn ? "Licht aus" : "Licht an"}
               </button>
             ) : null}
@@ -238,4 +341,7 @@ export default function BarcodeScanner({ onDetect, onClose }) {
       )}
     </div>
   );
+
+  if (typeof document === "undefined") return node;
+  return createPortal(node, document.body);
 }

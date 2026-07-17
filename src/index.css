@@ -6262,23 +6262,28 @@ button.ig-home-mini:active {
   text-decoration: none;
 }
 
-/* Fullscreen scanner */
+/* Fullscreen scanner — über Dock/Sheets, Portal auf body */
 .ig-scan {
   position: fixed;
   inset: 0;
-  z-index: 80;
+  z-index: 400;
   display: flex;
   flex-direction: column;
   gap: 10px;
   padding: max(12px, env(safe-area-inset-top)) 14px max(14px, env(safe-area-inset-bottom));
   background: #0a0c0b;
   color: #e8eaed;
+  max-width: 430px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
 }
 .ig-scan-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  flex-shrink: 0;
 }
 .ig-scan-title {
   font-family: var(--font-display);
@@ -6290,6 +6295,7 @@ button.ig-home-mini:active {
   margin: 0;
   font-size: 13px;
   line-height: 1.4;
+  flex-shrink: 0;
 }
 .ig-scan-camera-wrap {
   flex: 1;
@@ -6299,21 +6305,44 @@ button.ig-home-mini:active {
   gap: 12px;
 }
 .ig-scan-region {
-  flex: 1;
-  min-height: 220px;
+  flex: 1 1 auto;
+  min-height: 240px;
+  height: min(58vh, 420px);
   border-radius: 16px;
   overflow: hidden;
   background: #111;
   border: 1px solid rgba(255, 255, 255, 0.08);
+  position: relative;
+}
+/* html5-qrcode injected markup */
+.ig-scan-region,
+.ig-scan-region > div {
+  width: 100% !important;
+  max-width: 100%;
 }
 .ig-scan-region video {
   object-fit: cover !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+.ig-scan-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #b8f24a;
+  flex-shrink: 0;
 }
 .ig-scan-toolbar {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   justify-content: center;
+  flex-shrink: 0;
+  padding-bottom: 4px;
 }
 .ig-scan-manual {
   display: flex;
