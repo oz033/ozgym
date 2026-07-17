@@ -5738,3 +5738,68 @@ button.ig-home-mini:active {
 .ig-profile-dna {
   gap: var(--space-4);
 }
+
+/* Weight tracker (Verlauf) */
+.ig-weight-tracker {
+  gap: 10px;
+}
+.ig-weight-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  align-items: end;
+}
+.ig-weight-form .ig-weight-save {
+  grid-column: 1 / -1;
+  height: 46px;
+}
+.ig-weight-log {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 220px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.ig-weight-log-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  padding: 2px 4px 2px 2px;
+}
+.ig-weight-log-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: none;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  padding: 10px 10px;
+  cursor: pointer;
+  border-radius: 10px;
+  -webkit-tap-highlight-color: transparent;
+}
+.ig-weight-log-main:active {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.ig-weight-log-date {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+.ig-weight-log-kg {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}

@@ -617,7 +617,12 @@ export default function App() {
                   />
                 )}
                 {tab === "progress" && (
-                  <ProgressTab data={data} onStart={startWorkout} onEditPlan={editPlan} />
+                  <ProgressTab
+                    data={data}
+                    update={update}
+                    onStart={startWorkout}
+                    onEditPlan={editPlan}
+                  />
                 )}
                 {tab === "profile" && <ProfileTab data={data} update={update} goTo={goTo} />}
               </Suspense>
