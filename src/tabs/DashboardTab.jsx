@@ -38,6 +38,7 @@ import {
 } from "../lib/utils.js";
 import { weeklyAdherence, catchUpDay } from "../lib/planGenerator.js";
 import { sharePayload } from "../lib/iosShell.js";
+import { resolveAppName } from "../lib/constants.js";
 
 const WEEKDAYS_DE = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
 const WEEK_STRIP = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
@@ -197,9 +198,15 @@ export default function DashboardTab({ data, update: _update, goTo, onStart }) {
   );
 
   const weeklyGoal = data.settings?.weeklyGoal || 3;
+  const appName = resolveAppName(data.settings);
+  const displayName = String(data.profile?.displayName || "").trim();
   const hour = new Date().getHours();
-  const greeting =
+  const timeHello =
     hour < 11 ? "Guten Morgen" : hour < 18 ? "Guten Tag" : "Guten Abend";
+  const greeting = displayName
+    ? `${timeHello}, ${displayName}`
+    : timeHello;
+  const hiTitle = displayName ? `Hi, ${displayName}!` : timeHello;
   const trainedToday = !!stats.dayVolumes[today];
   const duration = plan
     ? estimateDuration(plan.exercises, data.settings?.restSeconds)
@@ -218,12 +225,12 @@ export default function DashboardTab({ data, update: _update, goTo, onStart }) {
   /* —— First launch: structured empty, not a blank void —— */
   if (stats.totalWorkouts === 0) {
     return (
-      <div className="ig-tabpane ig-home ig-home-onboarding">
+      <div className="ig-tabpane ig-home ig-home-onboarding ig-home-immersive">
         <div className="ig-home-hero">
           <span className="ig-home-eyebrow mono">{weekday} · Start</span>
-          <h1 className="ig-home-title">{greeting}</h1>
+          <h1 className="ig-home-title">{hiTitle}</h1>
           <p className="ig-home-sub">
-            OZGYM speichert alles auf dem Gerät. In 30 Sekunden startklar.
+            {appName} speichert alles auf dem Gerät. In 30 Sekunden startklar.
           </p>
         </div>
 
@@ -292,15 +299,20 @@ export default function DashboardTab({ data, update: _update, goTo, onStart }) {
   }
 
   /* —— Status copy —— */
-  let eyebrow = `${weekday} · Heute`;
-  let title = plan?.name || greeting;
+  let eyebrow = displayName ? `Welcome back` : `${weekday} · Heute`;
+  let title = trainedToday
+    ? displayName
+      ? `Stark, ${displayName}.`
+      : "Stark gemacht."
+    : restDay
+      ? "Regeneration."
+      : plan?.name || hiTitle;
   let sub = plan
     ? `${plan.exercises.length} Übungen · ≈ ${duration} Min · ${stats.thisWeekDays}/${weeklyGoal} diese Woche`
     : "Kein Plan für heute — im Plan-Tab zuweisen.";
 
   if (trainedToday) {
     eyebrow = `${weekday} · Erledigt`;
-    title = "Stark gemacht.";
     sub =
       secondsToday > 0
         ? `${Math.max(1, Math.round(secondsToday / 60))} Min trainiert` +
@@ -309,10 +321,11 @@ export default function DashboardTab({ data, update: _update, goTo, onStart }) {
         : "Training für heute im Kasten.";
   } else if (restDay) {
     eyebrow = `${weekday} · Ruhetag`;
-    title = "Regeneration.";
     sub = next
       ? `Nächstes Training: ${next.date.toLocaleDateString("de-DE", { weekday: "long" })} · ${next.plan.name}`
       : "Kein nächster Plan gesetzt.";
+  } else if (plan) {
+    eyebrow = displayName ? `${timeHello}, ${displayName}` : `${weekday} · Heute`;
   }
 
   const shareToday = async () => {
@@ -321,9 +334,9 @@ export default function DashboardTab({ data, update: _update, goTo, onStart }) {
     const vol = Math.round(stats.dayVolumes[today] || 0);
     const text =
       min > 0
-        ? `OZ · Heute ${min} Min · ${vol} kg bewegt · Serie ${streak.streak}`
-        : `OZ · Training erledigt · Serie ${streak.streak}`;
-    const result = await sharePayload({ title: "OZ", text });
+        ? `${appName} · Heute ${min} Min · ${vol} kg bewegt · Serie ${streak.streak}`
+        : `${appName} · Training erledigt · Serie ${streak.streak}`;
+    const result = await sharePayload({ title: appName, text });
     if (result === "shared") {
       buzz("success", data.settings?.haptics !== false);
     } else if (result === "unsupported") {
@@ -351,7 +364,10 @@ export default function DashboardTab({ data, update: _update, goTo, onStart }) {
 
   return (
     <div
-      className={"ig-tabpane ig-home ig-home-dna" + (titleCompact ? " is-compact" : "")}
+      className={
+        "ig-tabpane ig-home ig-home-dna ig-home-immersive" +
+        (titleCompact ? " is-compact" : "")
+      }
       aria-label="Heute"
     >
       {/* FitPal welcome row — avatar + greeting + calendar */}
@@ -366,18 +382,30 @@ export default function DashboardTab({ data, update: _update, goTo, onStart }) {
             <p className="ig-home-welcome-sub">{sub}</p>
           </div>
         </div>
-        <button
-          type="button"
-          className="ig-home-bell"
-          onClick={() => setShowCal((s) => !s)}
-          aria-label="Trainingskalender"
-          aria-expanded={showCal}
-        >
-          <Bell size={18} aria-hidden="true" />
-          {streak.streak > 0 ? (
-            <span className="ig-home-bell-dot" aria-hidden="true" />
-          ) : null}
-        </button>
+        <div className="ig-home-welcome-actions">
+          <button
+            type="button"
+            className="ig-home-bell"
+            onClick={() => goTo("profile")}
+            aria-label="Profil & Einstellungen"
+          >
+            <span className="ig-home-bell-letter mono" aria-hidden="true">
+              {(displayName || appName).slice(0, 1).toUpperCase()}
+            </span>
+          </button>
+          <button
+            type="button"
+            className="ig-home-bell"
+            onClick={() => setShowCal((s) => !s)}
+            aria-label="Trainingskalender"
+            aria-expanded={showCal}
+          >
+            <Bell size={18} aria-hidden="true" />
+            {streak.streak > 0 ? (
+              <span className="ig-home-bell-dot" aria-hidden="true" />
+            ) : null}
+          </button>
+        </div>
       </header>
 
       {/* FitPal pill chips — quick surfaces */}

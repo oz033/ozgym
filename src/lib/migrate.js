@@ -38,10 +38,14 @@ export const DEFAULT_SETTINGS = {
   theme: "dark",
   waterGoal: 0, // 0 = aus, sonst ml/Tag
   kcalGoal: 0, // 0 = aus, sonst kcal/Tag
+  /** Anzeigename der App (Header, Profil, Share) — default OZGYM */
+  appName: "OZGYM",
   themeCfg: { ...DEFAULT_THEME_CFG },
 };
 
 export const DEFAULT_PROFILE = {
+  /** Anzeigename für „Hi, …“ auf Home */
+  displayName: "",
   heightCm: "",
   weightKg: "",
   weightLog: [],
@@ -52,8 +56,8 @@ export const DEFAULT_PROFILE = {
   daysPerWeek: 3,
   equipment: [],
   duration: 45,
-  // Onboarding-Wizard deaktiviert — App startet direkt mit Clever-Fit-Plänen.
-  onboarded: true,
+  /** false = First-run Wizard (Name, Körper, App-Name) */
+  onboarded: false,
 };
 
 // Altes Split-System -> dynamische Pläne (Clever Fit OK/UK + optional custom names)
@@ -172,14 +176,46 @@ export function hydrate(parsed) {
     wellness: migrated.wellness || {},
     carryOver: Array.isArray(migrated.carryOver) ? migrated.carryOver : [],
     sessions: Array.isArray(migrated.sessions) ? migrated.sessions : [],
-    profile: {
-      ...DEFAULT_PROFILE,
-      ...(migrated.profile || {}),
-      // Always skip the onboarding wizard (Clever Fit presets are enough).
-      onboarded: true,
+    profile: resolveProfileOnboard(migrated),
+    settings: {
+      ...settings,
+      appName: sanitizeAppName(settings.appName),
     },
-    settings,
   };
+}
+
+/** Keep a usable app title (max 24 chars, no empty). */
+export function sanitizeAppName(raw) {
+  const t = String(raw ?? "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .slice(0, 24);
+  return t || "OZGYM";
+}
+
+/**
+ * Existing installs: skip wizard if already marked or clearly used.
+ * Fresh / empty: onboarded false → wizard.
+ */
+function resolveProfileOnboard(migrated) {
+  const base = { ...DEFAULT_PROFILE, ...(migrated.profile || {}) };
+  const displayName = String(base.displayName || "").trim().slice(0, 32);
+  base.displayName = displayName;
+
+  if (base.onboarded === true) return base;
+  if (base.onboarded === false) return base;
+
+  // Legacy without field: skip wizard if the install already has history
+  const used =
+    (Array.isArray(migrated.logs) && migrated.logs.length > 0) ||
+    (Array.isArray(migrated.sessions) && migrated.sessions.length > 0) ||
+    !!displayName ||
+    base.gender === "m" ||
+    base.gender === "f" ||
+    Number(base.heightCm) > 0 ||
+    Number(base.weightKg) > 0;
+  base.onboarded = used;
+  return base;
 }
 
 /** Persist only customs + favorite flags (catalog is rebuilt on load). */

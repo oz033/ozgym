@@ -7,6 +7,18 @@ export const APP_NAME = "OZGYM";
 export const STORAGE_KEY = "ozgym:state:v1";
 export const STORAGE_KEY_LEGACY = ["ironlog:state:v3", "ironlog:state:v2", "ironlog:state"];
 
+/** Resolved display title from settings (falls back to OZGYM). */
+export function resolveAppName(settingsOrName) {
+  if (typeof settingsOrName === "string") {
+    const t = settingsOrName.trim().slice(0, 24);
+    return t || APP_NAME;
+  }
+  const t = String(settingsOrName?.appName ?? "")
+    .trim()
+    .slice(0, 24);
+  return t || APP_NAME;
+}
+
 export const EXERCISE_META = {
   Shoulderpress: {
     group: "Oberkörper",

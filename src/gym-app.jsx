@@ -15,8 +15,9 @@ import {
   Moon,
 } from "lucide-react";
 import { OzGymMark, SplashScreen } from "./components/brand.jsx";
+import Onboarding from "./components/Onboarding.jsx";
 
-import { STORAGE_KEY, STORAGE_KEY_LEGACY, blankPlan } from "./lib/constants.js";
+import { STORAGE_KEY, STORAGE_KEY_LEGACY, blankPlan, resolveAppName } from "./lib/constants.js";
 import {
   playSound,
   buzz,
@@ -379,10 +380,39 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loaded]);
 
+  const appName = resolveAppName(data.settings);
+  const needsOnboarding = loaded && data.profile?.onboarded !== true;
+
+  // Document title follows custom app name
+  useEffect(() => {
+    if (!loaded) return;
+    document.title = appName;
+  }, [loaded, appName]);
+
   if (!loaded) {
     return (
       <div className="ig-app" {...themeAttrs} style={accentStyle}>
-        <SplashScreen />
+        <SplashScreen label={appName === "OZGYM" ? "OZ" : appName.slice(0, 8)} />
+      </div>
+    );
+  }
+
+  if (needsOnboarding) {
+    return (
+      <div className="ig-app" {...themeAttrs} style={accentStyle}>
+        <div className="ig-phone">
+          <Onboarding
+            onComplete={({ profile, settings }) => {
+              update((prev) => ({
+                ...prev,
+                profile: { ...prev.profile, ...profile, onboarded: true },
+                settings: { ...prev.settings, ...settings },
+              }));
+              playSound("pr", data.settings?.sound !== false);
+              buzz(30, data.settings?.haptics !== false);
+            }}
+          />
+        </div>
       </div>
     );
   }
@@ -495,60 +525,70 @@ export default function App() {
     setTab("plan");
   };
 
+  // Home has its own welcome chrome — hide global header (FitPal rhythm)
+  const hideHeader = tab === "home";
+
   return (
-    <div className="ig-app" {...themeAttrs} style={accentStyle}>
+    <div
+      className="ig-app"
+      {...themeAttrs}
+      style={accentStyle}
+      data-home-chrome={hideHeader ? "immersive" : "bar"}
+    >
       <div className="ig-phone">
-        <header className="ig-header">
-          <div className="ig-brand">
-            <span className="ig-brand-mark">
-              {mascotSrc ? (
-                <img
-                  className="ig-brand-mascot"
-                  src={mascotSrc}
-                  alt=""
-                  width={32}
-                  height={32}
-                  draggable={false}
-                  aria-hidden="true"
-                />
-              ) : (
-                <OzGymMark size={30} variant="glass" title="OZ" />
-              )}
-            </span>
-            <span className="ig-brand-name">OZ</span>
-          </div>
-          <div className="ig-header-actions">
-            <button
-              className="ig-mute-btn"
-              type="button"
-              onClick={toggleTheme}
-              aria-label={theme === "dark" ? "Light Mode" : "Dark Mode"}
-            >
-              {/* key erzwingt Remount → Swap-Animation beim Wechsel */}
-              <span className="ig-icon-swap" key={theme}>
-                {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+        {!hideHeader && (
+          <header className="ig-header">
+            <div className="ig-brand">
+              <span className="ig-brand-mark">
+                {mascotSrc ? (
+                  <img
+                    className="ig-brand-mascot"
+                    src={mascotSrc}
+                    alt=""
+                    width={32}
+                    height={32}
+                    draggable={false}
+                    aria-hidden="true"
+                  />
+                ) : (
+                  <OzGymMark size={30} variant="glass" title={appName} />
+                )}
               </span>
-            </button>
-            <button
-              className="ig-mute-btn"
-              type="button"
-              onClick={() =>
-                update((prev) => ({
-                  ...prev,
-                  settings: {
-                    ...prev.settings,
-                    sound: prev.settings?.sound === false,
-                  },
-                }))
-              }
-              aria-label={soundOn ? "Sound stummschalten" : "Sound einschalten"}
-            >
-              <span className="ig-icon-swap" key={soundOn ? "on" : "off"}>
-                {soundOn ? <Volume2 size={18} /> : <VolumeX size={18} />}
-              </span>
-            </button>
-          </div>
-        </header>
+              <span className="ig-brand-name">{appName}</span>
+            </div>
+            <div className="ig-header-actions">
+              <button
+                className="ig-mute-btn"
+                type="button"
+                onClick={toggleTheme}
+                aria-label={theme === "dark" ? "Light Mode" : "Dark Mode"}
+              >
+                {/* key erzwingt Remount → Swap-Animation beim Wechsel */}
+                <span className="ig-icon-swap" key={theme}>
+                  {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+                </span>
+              </button>
+              <button
+                className="ig-mute-btn"
+                type="button"
+                onClick={() =>
+                  update((prev) => ({
+                    ...prev,
+                    settings: {
+                      ...prev.settings,
+                      sound: prev.settings?.sound === false,
+                    },
+                  }))
+                }
+                aria-label={soundOn ? "Sound stummschalten" : "Sound einschalten"}
+              >
+                <span className="ig-icon-swap" key={soundOn ? "on" : "off"}>
+                  {soundOn ? <Volume2 size={18} /> : <VolumeX size={18} />}
+                </span>
+              </button>
+            </div>
+          </header>
+        )}
 
         <main className="ig-main" ref={mainRef}>
           <AnimatePresence mode="wait" initial={false}>

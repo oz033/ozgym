@@ -450,9 +450,12 @@ html, body, #root {
 }
 .ig-brand-name {
   white-space: nowrap;
-  overflow: visible;
-  letter-spacing: 0.14em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 11rem;
+  letter-spacing: 0.04em;
   font-weight: 700;
+  font-size: 14px;
 }
 /* Header mascot replaces logo tile when Theme Studio GIF is set */
 .ig-brand-mark .ig-brand-mascot {
@@ -5455,4 +5458,149 @@ button.ig-home-mini:active {
 }
 .ig-wo-milestone {
   box-shadow: 0 0 16px rgba(var(--accent-rgb), 0.15);
+}
+
+/* ============================================================
+   Onboarding v2 (first-run) + home immersive chrome
+   ============================================================ */
+.ig-onb {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 430px;
+  margin: 0 auto;
+  padding:
+    calc(var(--safe-top, env(safe-area-inset-top, 0px)) + 12px)
+    20px
+    calc(var(--safe-bottom, env(safe-area-inset-bottom, 0px)) + 16px);
+  box-sizing: border-box;
+  background: var(--bg);
+  color: var(--text);
+}
+.ig-onb .ig-onb-progress {
+  height: 4px;
+  background: var(--surface-2);
+  border-radius: 99px;
+  overflow: hidden;
+  flex-shrink: 0;
+  margin-bottom: 8px;
+}
+.ig-onb .ig-onb-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 99px;
+  transition: width 0.35s var(--ease-out);
+  box-shadow: 0 0 12px rgba(var(--accent-rgb), 0.4);
+}
+.ig-onb-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 12px 0 20px;
+}
+.ig-onb-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: ig-fade-up 0.35s var(--ease-out);
+}
+.ig-onb-welcome {
+  align-items: center;
+  text-align: center;
+  padding-top: 28px;
+}
+.ig-onb-welcome .ig-onb-logo {
+  width: auto;
+  height: auto;
+  background: none;
+  box-shadow: none;
+  margin-bottom: 12px;
+}
+.ig-onb-kicker {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.ig-onb .ig-onb-title {
+  font-size: clamp(26px, 7vw, 32px);
+  letter-spacing: -0.6px;
+  margin: 0;
+  line-height: 1.1;
+}
+.ig-onb .ig-onb-sub {
+  margin: 0 0 8px;
+}
+.ig-onb-field { width: 100%; }
+.ig-onb-gender-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.ig-onb-preview {
+  margin-top: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-soft);
+}
+.ig-onb-preview-mark {
+  display: flex;
+  flex-shrink: 0;
+}
+.ig-onb-preview-name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: 0.04em;
+}
+.ig-onb .ig-onb-footer {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-shrink: 0;
+  padding-top: 8px;
+}
+.ig-onb-next {
+  flex: 1;
+  max-width: 100%;
+  min-width: 0;
+}
+.ig-onb .ig-btn-secondary {
+  flex-shrink: 0;
+}
+
+/* Home without global header — safe-top on pane */
+.ig-app[data-home-chrome="immersive"] .ig-main {
+  padding-top: 0;
+}
+.ig-home-immersive {
+  padding-top: calc(var(--safe-top, env(safe-area-inset-top, 0px)) + 10px);
+}
+.ig-home-welcome-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.ig-home-bell-letter {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--accent);
+  line-height: 1;
+}
+
+/* Profile DNA spacing */
+.ig-profile-dna {
+  gap: var(--space-4);
 }

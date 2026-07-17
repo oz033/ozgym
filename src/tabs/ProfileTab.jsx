@@ -14,17 +14,28 @@ import { OzGymMark } from "../components/brand.jsx";
 import { ToggleRow, showToast, showConfirm } from "../components/ui.jsx";
 import { todayISO, round1, playSound, buzz, calcStats } from "../lib/utils.js";
 import { hydrate } from "../lib/migrate.js";
-import { BADGE_DEFS, GOALS, LEVELS } from "../lib/constants.js";
+import { BADGE_DEFS, GOALS, LEVELS, resolveAppName, APP_NAME } from "../lib/constants.js";
+import { sanitizeAppName } from "../lib/migrate.js";
 
 export default function ProfileTab({ data, update, goTo }) {
   const profile = data?.profile || {};
   const settings = data?.settings || {};
   const logs = Array.isArray(data?.logs) ? data.logs : [];
+  const appName = resolveAppName(settings);
 
   const [height, setHeight] = useState(profile.heightCm || "");
   const [weight, setWeight] = useState(profile.weightKg || "");
+  const [displayName, setDisplayName] = useState(profile.displayName || "");
+  const [appNameEdit, setAppNameEdit] = useState(settings.appName || APP_NAME);
   const [showStudio, setShowStudio] = useState(false);
   const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    setDisplayName(profile.displayName || "");
+  }, [profile.displayName]);
+  useEffect(() => {
+    setAppNameEdit(settings.appName || APP_NAME);
+  }, [settings.appName]);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -58,6 +69,27 @@ export default function ProfileTab({ data, update, goTo }) {
       ...prev,
       settings: { ...(prev?.settings || {}), ...fields },
     }));
+
+  // Debounce name / app title
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const next = displayName.trim().slice(0, 32);
+      if (next === (profile.displayName || "")) return;
+      patchProfile({ displayName: next });
+    }, 400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [displayName]);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const next = sanitizeAppName(appNameEdit);
+      if (next === sanitizeAppName(settings.appName)) return;
+      patchSettings({ appName: next });
+    }, 400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appNameEdit]);
 
   const gender = profile.gender;
   const h = Number(height) / 100;
@@ -134,7 +166,7 @@ export default function ProfileTab({ data, update, goTo }) {
           buzz(40, settings.haptics !== false);
         }
       } catch {
-        showToast("Diese Datei ist kein gültiges OZGYM-Backup.");
+        showToast(`Diese Datei ist kein gültiges ${appName}-Backup.`);
       }
     };
     reader.readAsText(file);
@@ -144,19 +176,19 @@ export default function ProfileTab({ data, update, goTo }) {
     gender === "f" ? GOALS.f : gender === "m" ? GOALS.m : [...GOALS.m, ...GOALS.f];
 
   return (
-    <div className="ig-tabpane">
-      {/* Identität: Glas-Logo + OZGYM (kein Trainingsziel-Text) */}
+    <div className="ig-tabpane ig-profile-dna">
+      {/* Identität: Glas-Logo + App-Name */}
       <div className="ig-identity-card">
         <div className="ig-identity-head">
           <span className="ig-identity-avatar ig-brand-mark">
-            <OzGymMark size={44} variant="glass" title="OZGYM" />
+            <OzGymMark size={44} variant="glass" title={appName} />
           </span>
           <div className="ig-identity-text">
             <span className="ig-identity-tag">
               {gender === "f" ? "Frauen-Modus" : gender === "m" ? "Männer-Modus" : "Profil"}
             </span>
-            <h2>OZGYM</h2>
-            <span className="ig-identity-sub">by OZ</span>
+            <h2>{displayName.trim() || appName}</h2>
+            <span className="ig-identity-sub">{appName}</span>
           </div>
         </div>
         <div className="ig-identity-level">
@@ -174,20 +206,53 @@ export default function ProfileTab({ data, update, goTo }) {
         </button>
       </div>
 
+      {/* Name + App-Titel */}
+      <div className="ig-card">
+        <div className="ig-field-label">Name & App</div>
+        <label className="ig-num-field">
+          <span>Dein Name</span>
+          <input
+            type="text"
+            className="ig-input"
+            maxLength={32}
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            placeholder="z. B. Alex"
+            autoComplete="given-name"
+          />
+        </label>
+        <label className="ig-num-field" style={{ marginTop: 12 }}>
+          <span>App-Name</span>
+          <input
+            type="text"
+            className="ig-input"
+            maxLength={24}
+            value={appNameEdit}
+            onChange={(e) => setAppNameEdit(e.target.value)}
+            placeholder={APP_NAME}
+          />
+        </label>
+        <p className="ig-plan-text" style={{ marginTop: 8 }}>
+          App-Name erscheint im Header und beim Teilen. Standard: {APP_NAME}.
+        </p>
+      </div>
+
       {/* Persönliches: Modus + Alter */}
       <div className="ig-card">
         <div className="ig-field-label">Persönliches</div>
         <div className="ig-set-inputs two">
           <div className="ig-num-field">
-            <span>Modus</span>
+            <span>Geschlecht</span>
             <div className="ig-mode-toggle">
               <button
+                type="button"
                 className={"ig-chip" + (gender === "f" ? " active" : "")}
                 onClick={() => patchProfile({ gender: "f" })}
               >
                 ♀ Frau
               </button>
               <button
+                type="button"
                 className={"ig-chip" + (gender === "m" ? " active" : "")}
                 onClick={() => patchProfile({ gender: "m" })}
               >
@@ -442,7 +507,7 @@ export default function ProfileTab({ data, update, goTo }) {
       <div className="ig-card">
         <div className="ig-field-label">Daten</div>
         <p className="ig-plan-text">
-          OZGYM speichert alles nur auf diesem Gerät. Exportiere regelmäßig ein Backup,
+          {appName} speichert alles nur auf diesem Gerät. Exportiere regelmäßig ein Backup,
           um beim Gerätewechsel nichts zu verlieren.
         </p>
         <div className="ig-plan-add-row ig-profile-backup-row">
@@ -457,6 +522,27 @@ export default function ProfileTab({ data, update, goTo }) {
             <Upload size={15} /> Importieren
           </button>
         </div>
+        <button
+          type="button"
+          className="ig-btn-primary wide ghosted"
+          style={{ marginTop: 8 }}
+          onClick={async () => {
+            const ok = await showConfirm({
+              title: "Einrichtung wiederholen?",
+              message:
+                "Name, Körper und App-Name erneut abfragen. Trainingsdaten bleiben erhalten.",
+              confirmLabel: "Neu starten",
+            });
+            if (ok) {
+              update((prev) => ({
+                ...prev,
+                profile: { ...prev.profile, onboarded: false },
+              }));
+            }
+          }}
+        >
+          Einrichtung wiederholen
+        </button>
         <input
           ref={fileInputRef}
           type="file"
