@@ -1,6 +1,14 @@
-# React + Vite
+# OZGYM
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Fitness tracker (Vite + React). Web: Vercel. **iPhone-App:** Capacitor + ML Kit Barcode.
+
+- Web: `npm run dev` / `npm run build`
+- **iOS native:** siehe [docs/IOS_APP.md](docs/IOS_APP.md)  
+  (`npm run ios:sync` → Mac: `pod install` → Xcode)
+
+## Stack note
+
+Originally Vite + React.
 
 Currently, two official plugins are available:
 

@@ -25,6 +25,10 @@ import {
 } from "../lib/camera.js";
 import { isIos } from "../lib/iosShell.js";
 import {
+  canUseNativeBarcode,
+  scanBarcodeNative,
+} from "../lib/nativePlatform.js";
+import {
   fetchProductByBarcode,
   scalePer100,
   parseGramsHint,
@@ -133,45 +137,6 @@ export default function FoodTab({
     });
     setScanCamError("");
   }, []);
-
-  /**
-   * iPhone Safari: kein Live-Stream — Foto über Systemkamera (einziger
-   * zuverlässige Web-Weg für EAN). Android: Stream im Klick holen.
-   */
-  const openScanner = useCallback(async () => {
-    setScanCamError("");
-    setScanStream((prev) => {
-      stopMediaStream(prev);
-      return null;
-    });
-
-    // iOS: Live-EAN im Safari-Web ist praktisch unbrauchbar
-    if (isIos()) {
-      setScanning(true);
-      return;
-    }
-
-    try {
-      const stream = await requestBarcodeCamera();
-      setScanStream(stream);
-      setScanning(true);
-    } catch (e) {
-      console.warn("[food] camera", e);
-      setScanCamError(cameraErrorMessage(e));
-      setScanStream(null);
-      setScanning(true);
-      showToast(cameraErrorMessage(e), "info");
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!autoOpenScan) return;
-    onAutoScanHandled?.();
-    // Auto-open: kein User-Gesture → Scanner ohne Stream (Foto/Manuell)
-    setScanCamError("");
-    setScanStream(null);
-    setScanning(true);
-  }, [autoOpenScan, onAutoScanHandled]);
 
   // Stream aufräumen beim Unmount
   useEffect(() => {
@@ -318,6 +283,68 @@ export default function FoodTab({
       closeScanner,
     ],
   );
+
+  /**
+   * 1) Capacitor-iOS: nativer ML-Kit-Scan (fullscreen, sofort)
+   * 2) Browser/PWA: Web-Scanner (iOS → Foto-first, sonst Live)
+   */
+  const openScanner = useCallback(async () => {
+    setScanCamError("");
+    setScanStream((prev) => {
+      stopMediaStream(prev);
+      return null;
+    });
+
+    try {
+      if (await canUseNativeBarcode()) {
+        setLoading(true);
+        try {
+          const code = await scanBarcodeNative();
+          if (code) {
+            await lookup(code);
+            return;
+          }
+          setLoading(false);
+          return;
+        } catch (e) {
+          console.warn("[food] native scan", e);
+          setLoading(false);
+          showToast(
+            e?.message || "Nativer Scan fehlgeschlagen — Web-Scanner…",
+            "info",
+          );
+        }
+      }
+    } catch {
+      /* web */
+    }
+
+    if (isIos()) {
+      setScanning(true);
+      return;
+    }
+
+    try {
+      const stream = await requestBarcodeCamera();
+      setScanStream(stream);
+      setScanning(true);
+    } catch (e) {
+      console.warn("[food] camera", e);
+      setScanCamError(cameraErrorMessage(e));
+      setScanStream(null);
+      setScanning(true);
+      showToast(cameraErrorMessage(e), "info");
+    }
+  }, [lookup]);
+
+  useEffect(() => {
+    if (!autoOpenScan) return;
+    onAutoScanHandled?.();
+    // In der nativen App: kein auto web-scanner; User tippt Scan
+    setScanCamError("");
+    setScanStream(null);
+    setScanning(true);
+  }, [autoOpenScan, onAutoScanHandled]);
 
   const openSnapshot = (snap) => {
     setProduct({

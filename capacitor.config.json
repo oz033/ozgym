@@ -1,0 +1,25 @@
+{
+  "appId": "app.ozgym.tracker",
+  "appName": "OZGYM",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https",
+    "iosScheme": "https"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": true
+    },
+    "BarcodeScanning": {
+      "displayOrientation": "portrait"
+    }
+  },
+  "ios": {
+    "contentInset": "automatic",
+    "preferredContentMode": "mobile",
+    "backgroundColor": "#0a0c0b",
+    "scheme": "OZGYM",
+    "packageManager": "Cocoapods"
+  }
+}
+
