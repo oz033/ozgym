@@ -232,6 +232,13 @@ export default function ProfileTab({ data, update, goTo }) {
                 ♂ Mann
               </button>
             </div>
+            <p className="ig-plan-text" style={{ margin: "6px 0 0" }}>
+              {gender === "f"
+                ? "Frauen-Modus: Pink/Lila-Akzent in der ganzen App."
+                : gender === "m"
+                  ? "Männer-Modus: Lime-Akzent."
+                  : "Modus steuert Farben und Plan-Vorschläge."}
+            </p>
           </div>
           <label className="ig-num-field">
             <span>Alter</span>
@@ -245,6 +252,72 @@ export default function ProfileTab({ data, update, goTo }) {
             />
           </label>
         </div>
+      </div>
+
+      {/* Körperdaten — oben, nicht versteckt unter Settings */}
+      <div className="ig-card">
+        <div className="ig-field-label">Körperdaten</div>
+        <div className="ig-set-inputs two">
+          <label className="ig-num-field">
+            <span>Gewicht (kg)</span>
+            <input
+              type="number"
+              inputMode="decimal"
+              step="0.1"
+              className="ig-input mono"
+              value={weight}
+              onChange={(e) => setWeight(e.target.value)}
+              placeholder="68"
+              aria-label="Körpergewicht in Kilogramm"
+            />
+          </label>
+          <label className="ig-num-field">
+            <span>Größe (cm)</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              className="ig-input mono"
+              value={height}
+              onChange={(e) => setHeight(e.target.value)}
+              placeholder="168"
+              aria-label="Körpergröße in Zentimetern"
+            />
+          </label>
+        </div>
+
+        {bmi == null ? (
+          <p className="ig-empty">
+            Trag Gewicht (und optional Größe) ein — für BMI und kcal-Schätzung.
+          </p>
+        ) : (
+          <div className="ig-bmi-result">
+            <span className="ig-num" style={{ color }}>{round1(bmi)}</span>
+            <span className="ig-bmi-cat" style={{ color }}>{category}</span>
+            <div className="ig-bmi-bar">
+              {ranges.map((r) => (
+                <div
+                  key={r.name}
+                  className="ig-bmi-seg"
+                  style={{ background: r.color, opacity: r.name === category ? 1 : 0.35 }}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        <ul className="ig-range-list compact">
+          {ranges.map((r) => (
+            <li key={r.name} className="ig-range-row">
+              <span className="ig-range-dot" style={{ background: r.color }} />
+              <span>{r.name}</span>
+              <span className="mono ig-range-val">{r.label}</span>
+            </li>
+          ))}
+        </ul>
+
+        <p className="ig-plan-text">
+          Gewichtsverlauf über Zeit: Tab Verlauf.
+        </p>
       </div>
 
       {/* Darstellung */}
@@ -412,68 +485,6 @@ export default function ProfileTab({ data, update, goTo }) {
         >
           Cool-down nach dem Training
         </ToggleRow>
-      </div>
-
-      {/* Körper: Eingabe + BMI + WHO-Referenz */}
-      <div className="ig-card">
-        <div className="ig-field-label">Körperdaten</div>
-        <div className="ig-set-inputs two">
-          <label className="ig-num-field">
-            <span>Größe (cm)</span>
-            <input
-              type="number"
-              inputMode="numeric"
-              className="ig-input mono"
-              value={height}
-              onChange={(e) => setHeight(e.target.value)}
-              placeholder="178"
-            />
-          </label>
-          <label className="ig-num-field">
-            <span>Gewicht (kg)</span>
-            <input
-              type="number"
-              inputMode="decimal"
-              step="0.1"
-              className="ig-input mono"
-              value={weight}
-              onChange={(e) => setWeight(e.target.value)}
-              placeholder="75"
-            />
-          </label>
-        </div>
-
-        {bmi == null ? (
-          <p className="ig-empty">Trag Größe und Gewicht ein, um deinen BMI zu berechnen.</p>
-        ) : (
-          <div className="ig-bmi-result">
-            <span className="ig-num" style={{ color }}>{round1(bmi)}</span>
-            <span className="ig-bmi-cat" style={{ color }}>{category}</span>
-            <div className="ig-bmi-bar">
-              {ranges.map((r) => (
-                <div
-                  key={r.name}
-                  className="ig-bmi-seg"
-                  style={{ background: r.color, opacity: r.name === category ? 1 : 0.35 }}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-
-        <ul className="ig-range-list compact">
-          {ranges.map((r) => (
-            <li key={r.name} className="ig-range-row">
-              <span className="ig-range-dot" style={{ background: r.color }} />
-              <span>{r.name}</span>
-              <span className="mono ig-range-val">{r.label}</span>
-            </li>
-          ))}
-        </ul>
-
-        <p className="ig-plan-text">
-          Deinen Gewichtsverlauf über Zeit findest du im Verlauf-Tab.
-        </p>
       </div>
 
       {/* Daten: ehrlich nur das, was eine reine Client-App leisten kann — lokales Backup statt vorgetäuschter Cloud-Sync */}

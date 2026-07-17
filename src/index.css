@@ -106,9 +106,8 @@ html, body, #root {
 }
 .ig-app input, .ig-app select, .ig-app textarea { user-select: text; -webkit-user-select: text; }
 
-/* ---------- Default accent: lime (fitness DNA) — Theme Studio can override ---------- */
+/* ---------- Mode accents: m/n = lime · f = pink/lilac ---------- */
 .ig-app[data-mode="m"],
-.ig-app[data-mode="f"],
 .ig-app[data-mode="n"],
 .ig-app:not([data-mode]) {
   --accent: #b8f24a;
@@ -116,18 +115,32 @@ html, body, #root {
   --accent-rgb: 184, 242, 74;
   --on-accent: #0a1006;
 }
+/* Female mode — soft pink / lilac */
+.ig-app[data-mode="f"] {
+  --accent: #e879c0;
+  --accent-2: #c026a0;
+  --accent-rgb: 232, 121, 192;
+  --on-accent: #1a0814;
+}
 
-/* Onboarding inherits same lime */
-.ig-onboarding[data-mode="f"],
 .ig-onboarding[data-mode="m"],
-.ig-onboarding[data-mode="n"] {
+.ig-onboarding[data-mode="n"],
+.ig-onb[data-mode="m"],
+.ig-onb[data-mode="n"] {
   --accent: #b8f24a;
   --accent-2: #7bc41f;
   --accent-rgb: 184, 242, 74;
   --on-accent: #0a1006;
 }
+.ig-onboarding[data-mode="f"],
+.ig-onb[data-mode="f"] {
+  --accent: #e879c0;
+  --accent-2: #c026a0;
+  --accent-rgb: 232, 121, 192;
+  --on-accent: #1a0814;
+}
 
-/* ---------- Dark Theme — OLED graphite with soft lime ambient ---------- */
+/* ---------- Dark Theme — OLED graphite with soft accent ambient ---------- */
 .ig-app[data-theme="dark"] {
   --bg: #0a0c0b;
   --surface: #121512;
@@ -156,17 +169,25 @@ html, body, #root {
       transparent 50%
     );
 }
-.ig-app[data-mode="f"][data-theme="dark"],
 .ig-app[data-mode="m"][data-theme="dark"],
 .ig-app[data-mode="n"][data-theme="dark"] {
   --bg: #0a0c0b;
   --surface: #121512;
   --surface-2: #1a1f1b;
 }
+/* Female dark: cool purple-black paper */
+.ig-app[data-mode="f"][data-theme="dark"] {
+  --bg: #0c0a0e;
+  --surface: #15121a;
+  --surface-2: #1e1a24;
+  --surface-3: #28222f;
+  --surface-glass: rgba(21, 18, 26, 0.84);
+  --text: #f5eef5;
+  --text-dim: #a898a8;
+}
 
-/* Light mode: deep forest accent on paper */
+/* Light mode accents per gender */
 .ig-app[data-theme="light"][data-mode="m"],
-.ig-app[data-theme="light"][data-mode="f"],
 .ig-app[data-theme="light"][data-mode="n"],
 .ig-app[data-theme="light"]:not([data-mode]) {
   --accent: #5a9e12;
@@ -174,8 +195,14 @@ html, body, #root {
   --accent-rgb: 90, 158, 18;
   --on-accent: #ffffff;
 }
+.ig-app[data-theme="light"][data-mode="f"] {
+  --accent: #c0267a;
+  --accent-2: #9d174d;
+  --accent-rgb: 192, 38, 122;
+  --on-accent: #ffffff;
+}
 
-/* ---------- Light Theme — soft paper, green accent ---------- */
+/* ---------- Light Theme — soft paper ---------- */
 .ig-app[data-theme="light"] {
   --bg: #eef1ea;
   --surface: #ffffff;
@@ -197,8 +224,13 @@ html, body, #root {
     );
 }
 .ig-app[data-mode="f"][data-theme="light"] {
-  --bg: #eef1ea;
-  --surface-2: #e2e7dc;
+  --bg: #f7eef4;
+  --surface: #ffffff;
+  --surface-2: #f0e2ec;
+  --surface-3: #e8d4e0;
+  --text: #1a1016;
+  --text-dim: #6b5560;
+  --border: rgba(26, 16, 22, 0.08);
 }
 
 /* Legacy-Aliase (alte Variablennamen bleiben gueltig) */

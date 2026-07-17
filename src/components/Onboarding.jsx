@@ -20,12 +20,18 @@ export default function Onboarding({ onComplete }) {
 
   const nameOk = displayName.trim().length >= 1;
   const genderOk = gender === "m" || gender === "f";
+  const weightNum = Number(weightKg);
+  const weightOk = Number.isFinite(weightNum) && weightNum >= 30 && weightNum <= 300;
+  const heightNum = Number(heightCm);
+  const heightOk =
+    heightCm === "" ||
+    (Number.isFinite(heightNum) && heightNum >= 100 && heightNum <= 250);
   const canNext = useMemo(() => {
     if (id === "welcome") return true;
     if (id === "you") return nameOk && genderOk;
-    if (id === "body") return true;
+    if (id === "body") return weightOk && heightOk;
     return false;
-  }, [id, nameOk, genderOk]);
+  }, [id, nameOk, genderOk, weightOk, heightOk]);
 
   const finish = () => {
     const w = Number(weightKg);
@@ -56,8 +62,17 @@ export default function Onboarding({ onComplete }) {
 
   const back = () => setStep((s) => Math.max(0, s - 1));
 
+  // Live mode tint while picking gender (pink for f before save)
+  const liveMode = gender === "f" ? "f" : gender === "m" ? "m" : "n";
+
   return (
-    <div className="ig-onb" role="dialog" aria-modal="true" aria-label="Einrichtung">
+    <div
+      className="ig-onb"
+      data-mode={liveMode}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Einrichtung"
+    >
       <div className="ig-onb-progress" aria-hidden="true">
         <div className="ig-onb-progress-fill" style={{ width: `${progress}%` }} />
       </div>
@@ -137,37 +152,43 @@ export default function Onboarding({ onComplete }) {
             <p className="ig-onb-kicker mono">Schritt 2 · Körper</p>
             <h1 className="ig-onb-title">Größe & Gewicht</h1>
             <p className="ig-onb-sub">
-              Optional — für BMI, kcal-Schätzung und Verlauf. Später im Profil änderbar.
+              Gewicht wird für kcal-Schätzung und den Verlauf gebraucht. Größe optional
+              (BMI). Später im Profil änderbar.
             </p>
-            <div className="ig-set-inputs two">
-              <label className="ig-num-field">
-                <span>Größe (cm)</span>
-                <input
-                  className="ig-input mono"
-                  type="number"
-                  inputMode="numeric"
-                  min={100}
-                  max={250}
-                  placeholder="178"
-                  value={heightCm}
-                  onChange={(e) => setHeightCm(e.target.value)}
-                />
-              </label>
-              <label className="ig-num-field">
-                <span>Gewicht (kg)</span>
-                <input
-                  className="ig-input mono"
-                  type="number"
-                  inputMode="decimal"
-                  step="0.1"
-                  min={30}
-                  max={300}
-                  placeholder="75"
-                  value={weightKg}
-                  onChange={(e) => setWeightKg(e.target.value)}
-                />
-              </label>
-            </div>
+            <label className="ig-num-field ig-onb-field">
+              <span>Gewicht (kg) *</span>
+              <input
+                className="ig-input mono"
+                type="number"
+                inputMode="decimal"
+                step="0.1"
+                min={30}
+                max={300}
+                placeholder="z. B. 68"
+                autoFocus
+                required
+                value={weightKg}
+                onChange={(e) => setWeightKg(e.target.value)}
+              />
+            </label>
+            <label className="ig-num-field ig-onb-field" style={{ marginTop: 12 }}>
+              <span>Größe (cm, optional)</span>
+              <input
+                className="ig-input mono"
+                type="number"
+                inputMode="numeric"
+                min={100}
+                max={250}
+                placeholder="z. B. 168"
+                value={heightCm}
+                onChange={(e) => setHeightCm(e.target.value)}
+              />
+            </label>
+            {!weightOk && weightKg !== "" && (
+              <p className="ig-onb-hint" style={{ color: "var(--danger)" }}>
+                Bitte ein Gewicht zwischen 30 und 300 kg eingeben.
+              </p>
+            )}
           </div>
         )}
       </div>

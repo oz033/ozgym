@@ -213,17 +213,52 @@ export default function ProgressTab({ data, onStart, onEditPlan }) {
         </div>
       </div>
 
-      {weightChart.length >= 2 && (
-        <div className="ig-card">
-          <div className="ig-home-summary-head" style={{ marginBottom: 8 }}>
-            <h2 className="ig-home-section-title">Körpergewicht</h2>
-            <Scale size={16} className="ig-dash-icon" aria-hidden="true" />
-          </div>
-          <div className="ig-chart-wrap">
-            <WeightChart data={weightChart} height={160} />
-          </div>
+      {/* Körpergewicht — immer sichtbar, Chart ab 2 Einträgen */}
+      <div className="ig-card">
+        <div className="ig-home-summary-head" style={{ marginBottom: 8 }}>
+          <h2 className="ig-home-section-title">Körpergewicht</h2>
+          <Scale size={16} className="ig-dash-icon" aria-hidden="true" />
         </div>
-      )}
+        {weightChart.length === 0 ? (
+          <p className="ig-empty">
+            Noch kein Gewicht — im Profil unter Körperdaten eintragen.
+          </p>
+        ) : (
+          <>
+            <div className="ig-home-summary-grid" style={{ marginBottom: weightChart.length >= 2 ? 12 : 0 }}>
+              <div className="ig-card ig-home-mini" style={{ margin: 0 }}>
+                <span className="ig-home-mini-kicker">Aktuell</span>
+                <span className="ig-home-mini-num mono">
+                  {weightChart[weightChart.length - 1]?.kg ?? "—"}
+                  <span className="ig-home-mini-unit"> kg</span>
+                </span>
+                <span className="ig-home-mini-meta mono">
+                  {weightChart[weightChart.length - 1]?.label || ""}
+                </span>
+              </div>
+              {weightChart.length >= 2 && (
+                <div className="ig-card ig-home-mini" style={{ margin: 0 }}>
+                  <span className="ig-home-mini-kicker">Δ seit Start</span>
+                  <span className="ig-home-mini-num mono">
+                    {(() => {
+                      const a = Number(weightChart[0].kg);
+                      const b = Number(weightChart[weightChart.length - 1].kg);
+                      const d = round1(b - a);
+                      return (d > 0 ? "+" : "") + d;
+                    })()}
+                    <span className="ig-home-mini-unit"> kg</span>
+                  </span>
+                </div>
+              )}
+            </div>
+            {weightChart.length >= 2 && (
+              <div className="ig-chart-wrap">
+                <WeightChart data={weightChart} height={160} />
+              </div>
+            )}
+          </>
+        )}
+      </div>
 
       {/* Übungs-Fortschritt je Plan */}
       {plans.length > 1 && (
