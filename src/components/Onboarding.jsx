@@ -1,13 +1,11 @@
-/* First-run: Name · Geschlecht · Körper · App-Name — FitPal-style lime CTAs */
+/* First-run: Name · Geschlecht · Körper */
 
 import React, { useMemo, useState } from "react";
 import { ChevronRight, ChevronLeft } from "lucide-react";
 import { OzGymMark } from "./brand.jsx";
-import { APP_NAME } from "../lib/constants.js";
-import { sanitizeAppName } from "../lib/migrate.js";
 import { todayISO } from "../lib/utils.js";
 
-const STEPS = ["welcome", "you", "body", "app"];
+const STEPS = ["welcome", "you", "body"];
 
 export default function Onboarding({ onComplete }) {
   const [step, setStep] = useState(0);
@@ -16,7 +14,6 @@ export default function Onboarding({ onComplete }) {
   const [age, setAge] = useState("");
   const [heightCm, setHeightCm] = useState("");
   const [weightKg, setWeightKg] = useState("");
-  const [appName, setAppName] = useState(APP_NAME);
 
   const id = STEPS[step];
   const progress = ((step + 1) / STEPS.length) * 100;
@@ -26,10 +23,9 @@ export default function Onboarding({ onComplete }) {
   const canNext = useMemo(() => {
     if (id === "welcome") return true;
     if (id === "you") return nameOk && genderOk;
-    if (id === "body") return true; // optional fields
-    if (id === "app") return sanitizeAppName(appName).length >= 1;
+    if (id === "body") return true;
     return false;
-  }, [id, nameOk, genderOk, appName]);
+  }, [id, nameOk, genderOk]);
 
   const finish = () => {
     const w = Number(weightKg);
@@ -46,9 +42,6 @@ export default function Onboarding({ onComplete }) {
         weightKg: weightKg === "" ? "" : String(weightKg),
         weightLog,
         onboarded: true,
-      },
-      settings: {
-        appName: sanitizeAppName(appName),
       },
     });
   };
@@ -75,10 +68,10 @@ export default function Onboarding({ onComplete }) {
             <span className="ig-onb-logo" aria-hidden="true">
               <OzGymMark size={72} variant="glass" title="" />
             </span>
-            <h1 className="ig-onb-title">Dein Gym-Tracker</h1>
+            <h1 className="ig-onb-title">OZGYM</h1>
             <p className="ig-onb-sub">
-              Kurz einrichten — Name, Körperdaten und wie die App heißen soll.
-              Alles bleibt nur auf diesem Gerät.
+              Kurz einrichten — dein Name und Körperdaten. Alles bleibt nur auf
+              diesem Gerät.
             </p>
           </div>
         )}
@@ -174,35 +167,6 @@ export default function Onboarding({ onComplete }) {
                   onChange={(e) => setWeightKg(e.target.value)}
                 />
               </label>
-            </div>
-          </div>
-        )}
-
-        {id === "app" && (
-          <div className="ig-onb-panel">
-            <p className="ig-onb-kicker mono">Schritt 3 · App</p>
-            <h1 className="ig-onb-title">App-Name</h1>
-            <p className="ig-onb-sub">
-              Erscheint im Header und im Profil. Standard ist {APP_NAME}.
-            </p>
-            <label className="ig-num-field ig-onb-field">
-              <span>Name der App</span>
-              <input
-                className="ig-input"
-                type="text"
-                maxLength={24}
-                placeholder={APP_NAME}
-                value={appName}
-                onChange={(e) => setAppName(e.target.value)}
-              />
-            </label>
-            <div className="ig-onb-preview" aria-hidden="true">
-              <span className="ig-onb-preview-mark">
-                <OzGymMark size={28} variant="glass" title="" />
-              </span>
-              <span className="ig-onb-preview-name">
-                {sanitizeAppName(appName)}
-              </span>
             </div>
           </div>
         )}

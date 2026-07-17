@@ -19,12 +19,10 @@ export const DEFAULT_THEME_CFG = {
   motion: "full", // full | reduced
   density: "cozy", // cozy | compact
   font: "grotesk", // grotesk | mono
-  /** Header mascot: "none" | catalog id | "custom" */
-  mascot: "camille",
-  /** data-URL or public path for custom upload */
+  /** Header icon is always the OZ mark — mascot picker removed */
+  mascot: "none",
   mascotSrc: null,
-  /** When true, picking a mascot also sets accent colors */
-  mascotTint: true,
+  mascotTint: false,
 };
 
 export const DEFAULT_SETTINGS = {
@@ -38,8 +36,6 @@ export const DEFAULT_SETTINGS = {
   theme: "dark",
   waterGoal: 0, // 0 = aus, sonst ml/Tag
   kcalGoal: 0, // 0 = aus, sonst kcal/Tag
-  /** Anzeigename der App (Header, Profil, Share) — default OZGYM */
-  appName: "OZGYM",
   themeCfg: { ...DEFAULT_THEME_CFG },
 };
 
@@ -179,18 +175,16 @@ export function hydrate(parsed) {
     profile: resolveProfileOnboard(migrated),
     settings: {
       ...settings,
-      appName: sanitizeAppName(settings.appName),
+      // Drop custom app title / header mascot — brand is fixed OZGYM + mark
+      appName: undefined,
+      themeCfg: {
+        ...settings.themeCfg,
+        mascot: "none",
+        mascotSrc: null,
+        mascotTint: false,
+      },
     },
   };
-}
-
-/** Keep a usable app title (max 24 chars, no empty). */
-export function sanitizeAppName(raw) {
-  const t = String(raw ?? "")
-    .trim()
-    .replace(/\s+/g, " ")
-    .slice(0, 24);
-  return t || "OZGYM";
 }
 
 /**

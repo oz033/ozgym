@@ -14,28 +14,22 @@ import { OzGymMark } from "../components/brand.jsx";
 import { ToggleRow, showToast, showConfirm } from "../components/ui.jsx";
 import { todayISO, round1, playSound, buzz, calcStats } from "../lib/utils.js";
 import { hydrate } from "../lib/migrate.js";
-import { BADGE_DEFS, GOALS, LEVELS, resolveAppName, APP_NAME } from "../lib/constants.js";
-import { sanitizeAppName } from "../lib/migrate.js";
+import { BADGE_DEFS, GOALS, LEVELS, APP_NAME } from "../lib/constants.js";
 
 export default function ProfileTab({ data, update, goTo }) {
   const profile = data?.profile || {};
   const settings = data?.settings || {};
   const logs = Array.isArray(data?.logs) ? data.logs : [];
-  const appName = resolveAppName(settings);
 
   const [height, setHeight] = useState(profile.heightCm || "");
   const [weight, setWeight] = useState(profile.weightKg || "");
   const [displayName, setDisplayName] = useState(profile.displayName || "");
-  const [appNameEdit, setAppNameEdit] = useState(settings.appName || APP_NAME);
   const [showStudio, setShowStudio] = useState(false);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
     setDisplayName(profile.displayName || "");
   }, [profile.displayName]);
-  useEffect(() => {
-    setAppNameEdit(settings.appName || APP_NAME);
-  }, [settings.appName]);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -70,7 +64,7 @@ export default function ProfileTab({ data, update, goTo }) {
       settings: { ...(prev?.settings || {}), ...fields },
     }));
 
-  // Debounce name / app title
+  // Debounce display name
   useEffect(() => {
     const t = setTimeout(() => {
       const next = displayName.trim().slice(0, 32);
@@ -80,16 +74,6 @@ export default function ProfileTab({ data, update, goTo }) {
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [displayName]);
-
-  useEffect(() => {
-    const t = setTimeout(() => {
-      const next = sanitizeAppName(appNameEdit);
-      if (next === sanitizeAppName(settings.appName)) return;
-      patchSettings({ appName: next });
-    }, 400);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [appNameEdit]);
 
   const gender = profile.gender;
   const h = Number(height) / 100;
@@ -166,7 +150,7 @@ export default function ProfileTab({ data, update, goTo }) {
           buzz(40, settings.haptics !== false);
         }
       } catch {
-        showToast(`Diese Datei ist kein gültiges ${appName}-Backup.`);
+        showToast(`Diese Datei ist kein gültiges ${APP_NAME}-Backup.`);
       }
     };
     reader.readAsText(file);
@@ -177,18 +161,18 @@ export default function ProfileTab({ data, update, goTo }) {
 
   return (
     <div className="ig-tabpane ig-profile-dna">
-      {/* Identität: Glas-Logo + App-Name */}
+      {/* Identität: Glas-Logo + OZGYM */}
       <div className="ig-identity-card">
         <div className="ig-identity-head">
           <span className="ig-identity-avatar ig-brand-mark">
-            <OzGymMark size={44} variant="glass" title={appName} />
+            <OzGymMark size={44} variant="glass" title={APP_NAME} />
           </span>
           <div className="ig-identity-text">
             <span className="ig-identity-tag">
               {gender === "f" ? "Frauen-Modus" : gender === "m" ? "Männer-Modus" : "Profil"}
             </span>
-            <h2>{displayName.trim() || appName}</h2>
-            <span className="ig-identity-sub">{appName}</span>
+            <h2>{displayName.trim() || APP_NAME}</h2>
+            <span className="ig-identity-sub">{APP_NAME}</span>
           </div>
         </div>
         <div className="ig-identity-level">
@@ -206,11 +190,11 @@ export default function ProfileTab({ data, update, goTo }) {
         </button>
       </div>
 
-      {/* Name + App-Titel */}
+      {/* Dein Name */}
       <div className="ig-card">
-        <div className="ig-field-label">Name & App</div>
+        <div className="ig-field-label">Dein Name</div>
         <label className="ig-num-field">
-          <span>Dein Name</span>
+          <span>Anzeigename</span>
           <input
             type="text"
             className="ig-input"
@@ -221,19 +205,8 @@ export default function ProfileTab({ data, update, goTo }) {
             autoComplete="given-name"
           />
         </label>
-        <label className="ig-num-field" style={{ marginTop: 12 }}>
-          <span>App-Name</span>
-          <input
-            type="text"
-            className="ig-input"
-            maxLength={24}
-            value={appNameEdit}
-            onChange={(e) => setAppNameEdit(e.target.value)}
-            placeholder={APP_NAME}
-          />
-        </label>
         <p className="ig-plan-text" style={{ marginTop: 8 }}>
-          App-Name erscheint im Header und beim Teilen. Standard: {APP_NAME}.
+          Erscheint als Begrüßung auf dem Home-Screen.
         </p>
       </div>
 
@@ -507,7 +480,7 @@ export default function ProfileTab({ data, update, goTo }) {
       <div className="ig-card">
         <div className="ig-field-label">Daten</div>
         <p className="ig-plan-text">
-          {appName} speichert alles nur auf diesem Gerät. Exportiere regelmäßig ein Backup,
+          {APP_NAME} speichert alles nur auf diesem Gerät. Exportiere regelmäßig ein Backup,
           um beim Gerätewechsel nichts zu verlieren.
         </p>
         <div className="ig-plan-add-row ig-profile-backup-row">
@@ -530,7 +503,7 @@ export default function ProfileTab({ data, update, goTo }) {
             const ok = await showConfirm({
               title: "Einrichtung wiederholen?",
               message:
-                "Name, Körper und App-Name erneut abfragen. Trainingsdaten bleiben erhalten.",
+                "Name und Körperdaten erneut abfragen. Trainingsdaten bleiben erhalten.",
               confirmLabel: "Neu starten",
             });
             if (ok) {

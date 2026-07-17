@@ -17,7 +17,7 @@ import {
 import { OzGymMark, SplashScreen } from "./components/brand.jsx";
 import Onboarding from "./components/Onboarding.jsx";
 
-import { STORAGE_KEY, STORAGE_KEY_LEGACY, blankPlan, resolveAppName } from "./lib/constants.js";
+import { STORAGE_KEY, STORAGE_KEY_LEGACY, blankPlan, APP_NAME } from "./lib/constants.js";
 import {
   playSound,
   buzz,
@@ -41,7 +41,6 @@ import {
 } from "./components/ui.jsx";
 import { OfflineBanner, InstallCoach } from "./components/IosChrome.jsx";
 import { isStandalone } from "./lib/iosShell.js";
-import { resolveMascotSrc } from "./lib/mascots.js";
 // Home ist der erste Screen nach dem Laden — sofort verfügbar statt nachgeladen.
 import DashboardTab from "./tabs/DashboardTab.jsx";
 // Alles andere (inkl. recharts in ProgressTab) erst bei Bedarf laden, damit der
@@ -279,7 +278,6 @@ export default function App() {
     "data-motion": cfg.motion || "full",
   };
   const reduced = cfg.motion === "reduced";
-  const mascotSrc = useMemo(() => resolveMascotSrc(cfg), [cfg.mascot, cfg.mascotSrc]);
 
   // Heutiger Plan: full → trim by Dauer; optional Carry-Over anhängen
   const { queue, deferredQueue, carryHydrated } = useMemo(() => {
@@ -380,19 +378,17 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loaded]);
 
-  const appName = resolveAppName(data.settings);
   const needsOnboarding = loaded && data.profile?.onboarded !== true;
 
-  // Document title follows custom app name
   useEffect(() => {
     if (!loaded) return;
-    document.title = appName;
-  }, [loaded, appName]);
+    document.title = APP_NAME;
+  }, [loaded]);
 
   if (!loaded) {
     return (
       <div className="ig-app" {...themeAttrs} style={accentStyle}>
-        <SplashScreen label={appName === "OZGYM" ? "OZ" : appName.slice(0, 8)} />
+        <SplashScreen label="OZ" />
       </div>
     );
   }
@@ -402,11 +398,10 @@ export default function App() {
       <div className="ig-app" {...themeAttrs} style={accentStyle}>
         <div className="ig-phone">
           <Onboarding
-            onComplete={({ profile, settings }) => {
+            onComplete={({ profile }) => {
               update((prev) => ({
                 ...prev,
                 profile: { ...prev.profile, ...profile, onboarded: true },
-                settings: { ...prev.settings, ...settings },
               }));
               playSound("pr", data.settings?.sound !== false);
               buzz(30, data.settings?.haptics !== false);
@@ -540,21 +535,9 @@ export default function App() {
           <header className="ig-header">
             <div className="ig-brand">
               <span className="ig-brand-mark">
-                {mascotSrc ? (
-                  <img
-                    className="ig-brand-mascot"
-                    src={mascotSrc}
-                    alt=""
-                    width={32}
-                    height={32}
-                    draggable={false}
-                    aria-hidden="true"
-                  />
-                ) : (
-                  <OzGymMark size={30} variant="glass" title={appName} />
-                )}
+                <OzGymMark size={30} variant="glass" title={APP_NAME} />
               </span>
-              <span className="ig-brand-name">{appName}</span>
+              <span className="ig-brand-name">{APP_NAME}</span>
             </div>
             <div className="ig-header-actions">
               <button

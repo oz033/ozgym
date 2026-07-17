@@ -38,7 +38,7 @@ import {
 } from "../lib/utils.js";
 import { weeklyAdherence, catchUpDay } from "../lib/planGenerator.js";
 import { sharePayload } from "../lib/iosShell.js";
-import { resolveAppName } from "../lib/constants.js";
+import { APP_NAME } from "../lib/constants.js";
 
 const WEEKDAYS_DE = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
 const WEEK_STRIP = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
@@ -198,7 +198,6 @@ export default function DashboardTab({ data, update: _update, goTo, onStart }) {
   );
 
   const weeklyGoal = data.settings?.weeklyGoal || 3;
-  const appName = resolveAppName(data.settings);
   const displayName = String(data.profile?.displayName || "").trim();
   const hour = new Date().getHours();
   const timeHello =
@@ -230,7 +229,7 @@ export default function DashboardTab({ data, update: _update, goTo, onStart }) {
           <span className="ig-home-eyebrow mono">{weekday} · Start</span>
           <h1 className="ig-home-title">{hiTitle}</h1>
           <p className="ig-home-sub">
-            {appName} speichert alles auf dem Gerät. In 30 Sekunden startklar.
+            {APP_NAME} speichert alles auf dem Gerät. In 30 Sekunden startklar.
           </p>
         </div>
 
@@ -334,9 +333,9 @@ export default function DashboardTab({ data, update: _update, goTo, onStart }) {
     const vol = Math.round(stats.dayVolumes[today] || 0);
     const text =
       min > 0
-        ? `${appName} · Heute ${min} Min · ${vol} kg bewegt · Serie ${streak.streak}`
-        : `${appName} · Training erledigt · Serie ${streak.streak}`;
-    const result = await sharePayload({ title: appName, text });
+        ? `${APP_NAME} · Heute ${min} Min · ${vol} kg bewegt · Serie ${streak.streak}`
+        : `${APP_NAME} · Training erledigt · Serie ${streak.streak}`;
+    const result = await sharePayload({ title: APP_NAME, text });
     if (result === "shared") {
       buzz("success", data.settings?.haptics !== false);
     } else if (result === "unsupported") {
@@ -390,7 +389,7 @@ export default function DashboardTab({ data, update: _update, goTo, onStart }) {
             aria-label="Profil & Einstellungen"
           >
             <span className="ig-home-bell-letter mono" aria-hidden="true">
-              {(displayName || appName).slice(0, 1).toUpperCase()}
+              {(displayName || "O").slice(0, 1).toUpperCase()}
             </span>
           </button>
           <button

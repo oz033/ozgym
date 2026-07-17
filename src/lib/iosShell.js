@@ -29,7 +29,7 @@ export async function sharePayload({ title, text, url }) {
   if (typeof navigator === "undefined" || !navigator.share) return "unsupported";
   try {
     await navigator.share({
-      title: title || "OZGYM", // callers should pass resolveAppName(settings)
+      title: title || "OZGYM",
       text: text || "",
       ...(url ? { url } : {}),
     });

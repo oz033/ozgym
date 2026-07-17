@@ -101,10 +101,11 @@ No italic headers. Emphasis via weight or accent underline.
 3. **Cards are hairline surfaces**, not floating marketing tiles — reduce stacked “generic card soup.”
 4. **Home hierarchy (3 seconds):** What today? → Start → How’s the week?
 5. **Home chrome:** No global app bar on Home (`data-home-chrome="immersive"`) — welcome row owns identity.
-6. **Profil:** displayName + editable `settings.appName` · body · mode · Theme Studio · backup.
-7. **Training days/week:** Pläne tab only.
-8. **Exercise media:** GIF in workout; no Gym-visual credit under clip.
-9. **First-run Onboarding** (`profile.onboarded === false`): Name · gender · height/weight · app name. Existing installs skip via hydrate.
+6. **Brand locked:** App title always **OZGYM**; header icon always **OzGymMark** (no custom app name / no header GIF).
+7. **Profil:** displayName · body · mode · Theme Studio (colors only) · backup.
+8. **Training days/week:** Pläne tab only.
+9. **Exercise media:** GIF in workout; no Gym-visual credit under clip.
+10. **First-run Onboarding** (`profile.onboarded === false`): Name · gender · height/weight. Existing installs skip via hydrate.
 
 ## Identity fields
 
@@ -113,7 +114,7 @@ No italic headers. Emphasis via weight or accent underline.
 | Display name | `profile.displayName` | Home “Hi, …” |
 | Gender | `profile.gender` `m`/`f` | Mode accents + plan goals |
 | Height / weight / age | `profile.*` | BMI, kcal estimate |
-| App title | `settings.appName` | Header, document.title, share (default OZGYM) |
+| App title / mark | fixed | Always OZGYM + glass O+Z mark |
 
 ## Motion
 

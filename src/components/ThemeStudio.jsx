@@ -1,16 +1,10 @@
-/* Theme Studio: der Nutzer baut sein eigenes Theme — live in der ganzen App */
+/* Theme Studio: Farben, Ecken, Motion — ohne Icon/Mascot-Upload */
 
-import React, { useEffect, useRef, useState } from "react";
-import { ChevronLeft, RotateCcw, Check, Sun, Moon, ImagePlus } from "lucide-react";
+import React, { useEffect, useRef } from "react";
+import { ChevronLeft, RotateCcw, Check, Sun, Moon } from "lucide-react";
 import { DEFAULT_THEME_CFG } from "../lib/migrate.js";
 import { EclipseMark } from "./brand.jsx";
 import { trapFocus } from "../lib/dialogFocus.js";
-import {
-  MASCOT_CATALOG,
-  getMascot,
-  sampleAccentFromImage,
-  resolveMascotSrc,
-} from "../lib/mascots.js";
 
 /* B&W first — color accents optional only */
 const ACCENT_PRESETS = [
@@ -22,8 +16,6 @@ const ACCENT_PRESETS = [
   { id: "#2f5bff", label: "Kobalt", color: "#2f5bff" },
   { id: "#f5a524", label: "Orange", color: "#f5a524" },
 ];
-
-const MAX_CUSTOM_GIF_BYTES = 1.5 * 1024 * 1024; // ~1.5 MB
 
 function Segment({ value, options, onChange, label }) {
   return (
@@ -51,9 +43,6 @@ export default function ThemeStudio({ data, update, onClose }) {
   const cfg = { ...DEFAULT_THEME_CFG, ...(data.settings?.themeCfg || {}) };
   const theme = data.settings?.theme || "dark";
   const sheetRef = useRef(null);
-  const fileRef = useRef(null);
-  const [mascotBusy, setMascotBusy] = useState(false);
-  const [mascotError, setMascotError] = useState("");
 
   useEffect(() => {
     return trapFocus(sheetRef.current, { onEscape: onClose });
@@ -64,7 +53,13 @@ export default function ThemeStudio({ data, update, onClose }) {
       ...prev,
       settings: {
         ...prev.settings,
-        themeCfg: { ...DEFAULT_THEME_CFG, ...(prev.settings?.themeCfg || {}), ...fields },
+        themeCfg: {
+          ...DEFAULT_THEME_CFG,
+          ...(prev.settings?.themeCfg || {}),
+          ...fields,
+          mascot: "none",
+          mascotSrc: null,
+        },
       },
     }));
 
@@ -77,73 +72,8 @@ export default function ThemeStudio({ data, update, onClose }) {
       settings: { ...prev.settings, themeCfg: { ...DEFAULT_THEME_CFG } },
     }));
 
-  const applyMascotColors = async (src, fallbackAccent, fallback2) => {
-    if (cfg.mascotTint === false) return {};
-    let accent = fallbackAccent;
-    let accent2 = fallback2;
-    if (src) {
-      const sampled = await sampleAccentFromImage(src);
-      if (sampled?.accent) {
-        accent = sampled.accent;
-        accent2 = sampled.accent2 || accent2;
-      }
-    }
-    if (!accent) return {};
-    return { accent };
-  };
-
-  const pickMascot = async (id) => {
-    setMascotError("");
-    if (id === "none") {
-      patch({ mascot: "none", mascotSrc: null });
-      return;
-    }
-    const m = getMascot(id);
-    if (!m?.src) return;
-    setMascotBusy(true);
-    try {
-      const colorPatch = await applyMascotColors(m.src, m.accent, m.accent2);
-      patch({ mascot: id, mascotSrc: null, ...colorPatch });
-    } finally {
-      setMascotBusy(false);
-    }
-  };
-
-  const onCustomGif = async (e) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    setMascotError("");
-    if (!file.type.startsWith("image/")) {
-      setMascotError("Bitte ein Bild oder GIF wählen.");
-      return;
-    }
-    if (file.size > MAX_CUSTOM_GIF_BYTES) {
-      setMascotError("Max. 1,5 MB — kürzeres GIF nutzen.");
-      return;
-    }
-    setMascotBusy(true);
-    try {
-      const dataUrl = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result || ""));
-        reader.onerror = () => reject(new Error("read failed"));
-        reader.readAsDataURL(file);
-      });
-      if (!dataUrl) throw new Error("empty");
-      const colorPatch = await applyMascotColors(dataUrl, "#c084fc", "#7c3aed");
-      patch({ mascot: "custom", mascotSrc: dataUrl, ...colorPatch });
-    } catch {
-      setMascotError("Upload fehlgeschlagen.");
-    } finally {
-      setMascotBusy(false);
-    }
-  };
-
   const isCustomHex =
     cfg.accent && cfg.accent !== "mono" && !ACCENT_PRESETS.some((p) => p.id === cfg.accent);
-  const activeMascot = cfg.mascot || "none";
-  const previewMascotSrc = resolveMascotSrc(cfg);
 
   return (
     <div
@@ -181,17 +111,7 @@ export default function ThemeStudio({ data, update, onClose }) {
           <div className="ig-ts-preview-row">
             <EclipseMark size={22} />
             <span className="ig-ts-preview-title">Vorschau</span>
-            {previewMascotSrc ? (
-              <img
-                className="ig-ts-mascot-preview"
-                src={previewMascotSrc}
-                alt=""
-                width={28}
-                height={28}
-              />
-            ) : (
-              <span className="ig-badge dim mono">01</span>
-            )}
+            <span className="ig-badge dim mono">01</span>
           </div>
           <div className="ig-level-track">
             <div className="ig-level-fill" style={{ width: "64%" }} />
@@ -231,95 +151,6 @@ export default function ThemeStudio({ data, update, onClose }) {
               <Moon size={16} aria-hidden="true" /> Dunkel
             </button>
           </div>
-        </div>
-
-        {/* Header GIF / Mascot + auto accent tint */}
-        <div className="ig-card">
-          <div className="ig-field-label">Header-GIF</div>
-          <p className="ig-plan-text" style={{ marginTop: 0 }}>
-            Ersetzt das Logo neben „OZ“. Mit „Farben anpassen“ folgt der Akzent
-            den GIF-Farben.
-          </p>
-          <div className="ig-ts-mascot-grid" role="listbox" aria-label="Header-GIF">
-            {MASCOT_CATALOG.map((m) => {
-              const active =
-                activeMascot === m.id ||
-                (m.id === "none" && (!activeMascot || activeMascot === "none"));
-              return (
-                <button
-                  key={m.id}
-                  type="button"
-                  role="option"
-                  aria-selected={active}
-                  className={"ig-ts-mascot" + (active ? " active" : "")}
-                  onClick={() => pickMascot(m.id)}
-                  disabled={mascotBusy}
-                >
-                  {m.src ? (
-                    <img src={m.src} alt="" className="ig-ts-mascot-img" />
-                  ) : (
-                    <span className="ig-ts-mascot-off">Aus</span>
-                  )}
-                  <span className="ig-ts-mascot-label">{m.label}</span>
-                  {m.accent && (
-                    <span
-                      className="ig-ts-mascot-swatch"
-                      style={{ background: m.accent }}
-                      aria-hidden="true"
-                    />
-                  )}
-                </button>
-              );
-            })}
-            <button
-              type="button"
-              role="option"
-              aria-selected={activeMascot === "custom"}
-              className={
-                "ig-ts-mascot" + (activeMascot === "custom" ? " active" : "")
-              }
-              onClick={() => fileRef.current?.click()}
-              disabled={mascotBusy}
-            >
-              {activeMascot === "custom" && cfg.mascotSrc ? (
-                <img src={cfg.mascotSrc} alt="" className="ig-ts-mascot-img" />
-              ) : (
-                <span className="ig-ts-mascot-off">
-                  <ImagePlus size={18} aria-hidden="true" />
-                </span>
-              )}
-              <span className="ig-ts-mascot-label">Eigenes</span>
-            </button>
-          </div>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/gif,image/png,image/webp,image/jpeg"
-            className="sr-only"
-            onChange={onCustomGif}
-          />
-          <div className="ig-num-field" style={{ marginTop: 10 }}>
-            <span>Farben anpassen</span>
-            <Segment
-              label="Farben aus GIF"
-              value={cfg.mascotTint !== false ? "on" : "off"}
-              onChange={(v) => patch({ mascotTint: v === "on" })}
-              options={[
-                { id: "on", label: "An" },
-                { id: "off", label: "Aus" },
-              ]}
-            />
-          </div>
-          {mascotBusy && (
-            <p className="ig-plan-text" role="status">
-              Farben werden gelesen…
-            </p>
-          )}
-          {mascotError && (
-            <p className="ig-plan-text" role="alert" style={{ color: "var(--danger)" }}>
-              {mascotError}
-            </p>
-          )}
         </div>
 
         <div className="ig-card">
