@@ -10,7 +10,9 @@ import ErrorBoundary from "./components/ErrorBoundary.jsx";
 // Update-Fluss: neue Version erkannt → Toast mit "Neu laden". Nutzer
 // entscheidet den Zeitpunkt (nie mitten im Workout unterbrochen).
 // Delay: ToastHost mountet erst nach dem Splash — Event darf nicht verpuffen.
+// Dev: Service Worker abmelden, damit HMR nicht von alter PWA-Cache blockiert wird.
 const updateSW = registerSW({
+  immediate: true,
   onNeedRefresh() {
     setTimeout(() => {
       showToast("Neue Version verfügbar.", "info", {
@@ -19,6 +21,16 @@ const updateSW = registerSW({
         onAction: () => updateSW(true),
       });
     }, 1800);
+  },
+  onRegisteredSW(_url, reg) {
+    if (import.meta.env.DEV && reg) {
+      reg.unregister().catch(() => {});
+      if (typeof caches !== "undefined") {
+        caches.keys().then((keys) => {
+          keys.forEach((k) => caches.delete(k));
+        }).catch(() => {});
+      }
+    }
   },
 });
 

@@ -12,9 +12,20 @@ import {
 import ThemeStudio from "../components/ThemeStudio.jsx";
 import { OzGymMark } from "../components/brand.jsx";
 import { ToggleRow, showToast, showConfirm } from "../components/ui.jsx";
-import { todayISO, round1, playSound, buzz, calcStats } from "../lib/utils.js";
+import {
+  todayISO,
+  round1,
+  playSound,
+  buzz,
+  calcStats,
+  formatDisplayName,
+} from "../lib/utils.js";
 import { hydrate } from "../lib/migrate.js";
 import { BADGE_DEFS, GOALS, LEVELS, APP_NAME } from "../lib/constants.js";
+import {
+  ALLERGEN_DEFS,
+  NUTRISCORE_GRADES,
+} from "../lib/openFoodFacts.js";
 
 export default function ProfileTab({ data, update, goTo }) {
   const profile = data?.profile || {};
@@ -25,7 +36,7 @@ export default function ProfileTab({ data, update, goTo }) {
   const [weight, setWeight] = useState(profile.weightKg || "");
   const [showStudio, setShowStudio] = useState(false);
   const fileInputRef = useRef(null);
-  const displayName = String(profile.displayName || "").trim();
+  const displayName = formatDisplayName(profile.displayName);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -412,6 +423,182 @@ export default function ProfileTab({ data, update, goTo }) {
             ))}
           </div>
         </div>
+
+        <div className="ig-rest-setting" style={{ marginTop: 14 }}>
+          <div className="ig-session-duration-head">
+            <span className="ig-field-label" style={{ margin: 0 }}>
+              Tagesziel kcal
+            </span>
+            <span className="ig-session-duration-est mono">
+              {settings.kcalGoal > 0 ? `${settings.kcalGoal} kcal` : "aus"}
+            </span>
+          </div>
+          <p className="ig-plan-text" style={{ margin: 0 }}>
+            Zeigt Fortschritt im Tab Essen. 0 = kein Ziel.
+          </p>
+          <label className="ig-num-field" style={{ marginTop: 8 }}>
+            <span>kcal / Tag</span>
+            <input
+              className="ig-input mono"
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={12000}
+              placeholder="z. B. 2200"
+              value={settings.kcalGoal || ""}
+              onChange={(e) => {
+                const v = e.target.value === "" ? 0 : Number(e.target.value);
+                patchSettings({
+                  kcalGoal: Number.isFinite(v) ? Math.max(0, Math.round(v)) : 0,
+                });
+              }}
+              aria-label="Kalorienziel pro Tag"
+            />
+          </label>
+        </div>
+
+        <div className="ig-rest-setting" style={{ marginTop: 14 }}>
+          <div className="ig-session-duration-head">
+            <span className="ig-field-label" style={{ margin: 0 }}>
+              Wasser-Ziel
+            </span>
+            <span className="ig-session-duration-est mono">
+              {settings.waterGoal > 0 ? `${settings.waterGoal} ml` : "aus"}
+            </span>
+          </div>
+          <p className="ig-plan-text" style={{ margin: 0 }}>
+            Tagesziel für den Wasser-Tracker im Tab Essen. 0 = aus.
+          </p>
+          <div
+            className="ig-mode-toggle ig-session-duration-chips"
+            role="group"
+            aria-label="Wasser-Ziel Schnellwahl"
+            style={{ marginTop: 8 }}
+          >
+            {[0, 2000, 2500, 3000, 3500].map((ml) => (
+              <button
+                key={ml}
+                type="button"
+                className={
+                  "ig-chip sm" +
+                  ((Number(settings.waterGoal) || 0) === ml ? " active" : "")
+                }
+                onClick={() => patchSettings({ waterGoal: ml })}
+              >
+                {ml === 0 ? "Aus" : `${ml / 1000} L`}
+              </button>
+            ))}
+          </div>
+          <label className="ig-num-field" style={{ marginTop: 8 }}>
+            <span>ml / Tag (eigene)</span>
+            <input
+              className="ig-input mono"
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={10000}
+              placeholder="z. B. 2500"
+              value={settings.waterGoal || ""}
+              onChange={(e) => {
+                const v = e.target.value === "" ? 0 : Number(e.target.value);
+                patchSettings({
+                  waterGoal: Number.isFinite(v)
+                    ? Math.max(0, Math.round(v))
+                    : 0,
+                });
+              }}
+              aria-label="Wasserziel ml pro Tag"
+            />
+          </label>
+        </div>
+
+        <div className="ig-rest-setting" style={{ marginTop: 14 }}>
+          <div className="ig-session-duration-head">
+            <span className="ig-field-label" style={{ margin: 0 }}>
+              Nutri-Score Limit
+            </span>
+            <span className="ig-session-duration-est mono">
+              {settings.foodNutriMax
+                ? `max. ${settings.foodNutriMax}`
+                : "aus"}
+            </span>
+          </div>
+          <p className="ig-plan-text" style={{ margin: 0 }}>
+            Beim Scannen werden schlechtere Scores markiert (nicht blockiert).
+          </p>
+          <div
+            className="ig-mode-toggle ig-session-duration-chips"
+            role="group"
+            aria-label="Nutri-Score höchstens"
+            style={{ marginTop: 8 }}
+          >
+            <button
+              type="button"
+              className={
+                "ig-chip sm" + (!settings.foodNutriMax ? " active" : "")
+              }
+              onClick={() => patchSettings({ foodNutriMax: null })}
+            >
+              Aus
+            </button>
+            {NUTRISCORE_GRADES.map((g) => (
+              <button
+                key={g}
+                type="button"
+                className={
+                  "ig-chip sm" +
+                  (settings.foodNutriMax === g ? " active" : "")
+                }
+                onClick={() => patchSettings({ foodNutriMax: g })}
+              >
+                {g}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="ig-rest-setting" style={{ marginTop: 14 }}>
+          <div className="ig-session-duration-head">
+            <span className="ig-field-label" style={{ margin: 0 }}>
+              Allergene meiden
+            </span>
+            <span className="ig-session-duration-est mono">
+              {(settings.foodAvoidAllergens || []).length > 0
+                ? `${(settings.foodAvoidAllergens || []).length} aktiv`
+                : "keine"}
+            </span>
+          </div>
+          <p className="ig-plan-text" style={{ margin: 0 }}>
+            Produkte mit diesen Allergenen werden beim Scan hervorgehoben.
+          </p>
+          <div
+            className="ig-mode-toggle ig-session-duration-chips"
+            role="group"
+            aria-label="Allergene meiden"
+            style={{ marginTop: 8, flexWrap: "wrap" }}
+          >
+            {ALLERGEN_DEFS.map((a) => {
+              const on = (settings.foodAvoidAllergens || []).includes(a.id);
+              return (
+                <button
+                  key={a.id}
+                  type="button"
+                  className={"ig-chip sm" + (on ? " active" : "")}
+                  onClick={() => {
+                    const cur = settings.foodAvoidAllergens || [];
+                    const next = on
+                      ? cur.filter((x) => x !== a.id)
+                      : [...cur, a.id];
+                    patchSettings({ foodAvoidAllergens: next });
+                  }}
+                >
+                  {a.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         <ToggleRow
           checked={settings.sound !== false}
           onChange={(v) => {

@@ -36,30 +36,54 @@ export default function LogTab({
   const readiness = useMemo(() => workoutReadiness(data), [data]);
   const profileReady = !!data.profile?.goal;
   const restDefault = data.settings?.restSeconds ?? 90;
-  const sessionMinutes =
+  const sessionMinutes = Number(
     data.settings?.sessionMinutes != null
       ? data.settings.sessionMinutes
-      : data.profile?.duration ?? 45;
+      : data.profile?.duration ?? 45,
+  );
   const includeCarry = data.settings?.includeCarryOver === true;
   const estMin = estimateDuration(queue, restDefault);
   const planExerciseCount = plan?.exercises?.length || 0;
   const deferred = deferredQueue || [];
   const carry = carryHydrated || [];
 
+  // Volle Plan-Dauer (ohne Dauer-Kappung) — für Hinweis „Plan kürzer als Ziel“
+  const fullPlanEst = useMemo(() => {
+    if (!plan?.exercises?.length) return 0;
+    const byId = {};
+    (data.library || []).forEach((e) => {
+      byId[e.id] = e;
+    });
+    const items = plan.exercises
+      .map((item) => {
+        const entry = byId[item.exerciseId];
+        if (!entry) return null;
+        return {
+          sets: item.sets || 3,
+          rest: item.rest ?? restDefault,
+        };
+      })
+      .filter(Boolean);
+    return estimateDuration(items, restDefault);
+  }, [plan, data.library, restDefault]);
+
   const setSessionMinutes = (min) => {
+    const next = Number(min);
     update((prev) => ({
       ...prev,
       settings: {
         ...prev.settings,
-        sessionMinutes: min,
+        sessionMinutes: next,
         // "Alles" → Carry-Anhängen nicht nötig
-        includeCarryOver: min === 0 ? false : prev.settings?.includeCarryOver,
+        includeCarryOver: next === 0 ? false : prev.settings?.includeCarryOver,
       },
       profile: {
         ...prev.profile,
-        duration: min > 0 ? min : prev.profile?.duration || 45,
+        duration: next > 0 ? next : prev.profile?.duration || 45,
       },
     }));
+    playSound("tap", data.settings?.sound !== false);
+    buzz(12, data.settings?.haptics !== false);
   };
 
   /** Dauer-Lücken in carryOver merken (merge unique) */
@@ -324,16 +348,17 @@ export default function LogTab({
         </div>
       )}
 
-      {/* Session-Dauer: steuert, wie viele Übungen ins heutige Workout passen */}
+      {/* Session-Dauer: kürzt Übungen/Sätze, bis die Session ins Zeitfenster passt */}
       <div className="ig-card ig-session-duration">
         <div className="ig-session-duration-head">
           <span className="ig-field-label" style={{ margin: 0 }}>
             Workout-Dauer
           </span>
           <span className="ig-session-duration-est mono">
-            ≈ {estMin} Min
+            {sessionMinutes > 0 ? `Ziel ${sessionMinutes}` : "Alles"}
+            {" · "}≈ {estMin} Min
             {planExerciseCount > 0 &&
-              ` · ${queue.length}/${planExerciseCount} Übungen`}
+              ` · ${queue.length}/${planExerciseCount} Üb.`}
             {includeCarry && carry.length > 0 ? " · +Nachholen" : ""}
           </span>
         </div>
@@ -346,11 +371,27 @@ export default function LogTab({
                 "ig-chip sm" + (sessionMinutes === opt.min ? " active" : "")
               }
               onClick={() => setSessionMinutes(opt.min)}
+              aria-pressed={sessionMinutes === opt.min}
             >
               {opt.label}
             </button>
           ))}
         </div>
+        {sessionMinutes > 0 &&
+          fullPlanEst > 0 &&
+          sessionMinutes >= fullPlanEst &&
+          deferred.length === 0 && (
+            <p className="ig-session-duration-hint">
+              Plan dauert nur ≈ {fullPlanEst} Min — alle {planExerciseCount}{" "}
+              Übungen passen rein. Für weniger Übungen z.&nbsp;B. 30 Min wählen.
+            </p>
+          )}
+        {sessionMinutes > 0 && deferred.length > 0 && (
+          <p className="ig-session-duration-hint">
+            Auf ≈ {estMin} Min gekürzt — {deferred.length}{" "}
+            {deferred.length === 1 ? "Übung" : "Übungen"} später oder „Alles“.
+          </p>
+        )}
       </div>
 
       {/* Durch Dauer ausgelassen — merken oder alles trainieren */}

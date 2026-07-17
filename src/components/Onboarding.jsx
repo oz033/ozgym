@@ -3,7 +3,7 @@
 import React, { useMemo, useState } from "react";
 import { ChevronRight, ChevronLeft } from "lucide-react";
 import { OzGymMark } from "./brand.jsx";
-import { todayISO } from "../lib/utils.js";
+import { todayISO, formatDisplayName } from "../lib/utils.js";
 
 const STEPS = ["welcome", "you", "body"];
 
@@ -44,7 +44,7 @@ export default function Onboarding({ onComplete }) {
     }
     onComplete({
       profile: {
-        displayName: displayName.trim().slice(0, 32),
+        displayName: formatDisplayName(displayName),
         gender,
         age: age === "" ? "" : String(age),
         heightCm: heightCm === "" ? "" : String(heightCm),
@@ -152,8 +152,8 @@ export default function Onboarding({ onComplete }) {
             <p className="ig-onb-kicker mono">Schritt 2 · Körper</p>
             <h1 className="ig-onb-title">Größe & Gewicht</h1>
             <p className="ig-onb-sub">
-              Alles optional — kannst du überspringen. Später im Profil oder unter
-              Verlauf nachtragen.
+              Alles optional. Leer lassen und mit „Loslegen“ weiter — später im
+              Profil oder unter Verlauf nachtragbar.
             </p>
             <label className="ig-num-field ig-onb-field">
               <span>Gewicht (kg, optional)</span>
@@ -188,14 +188,6 @@ export default function Onboarding({ onComplete }) {
                 Wenn du etwas einträgst: 30–300 kg.
               </p>
             )}
-            <button
-              type="button"
-              className="ig-btn-primary wide ghosted"
-              style={{ marginTop: 14 }}
-              onClick={finish}
-            >
-              Überspringen
-            </button>
           </div>
         )}
       </div>

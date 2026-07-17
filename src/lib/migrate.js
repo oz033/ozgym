@@ -14,7 +14,7 @@ export const DEFAULT_THEME_CFG = {
   accent: null, // null | "mono" | Hex
   gradient: true,
   glow: true,
-  glass: false,
+  glass: true, // Design-Default: an
   radius: "round", // round | sharp
   motion: "full", // full | reduced
   density: "cozy", // cozy | compact
@@ -36,6 +36,10 @@ export const DEFAULT_SETTINGS = {
   theme: "dark",
   waterGoal: 0, // 0 = aus, sonst ml/Tag
   kcalGoal: 0, // 0 = aus, sonst kcal/Tag
+  /** Nutri-Score max. akzeptiert: null | A–E (schlechter = Warnung) */
+  foodNutriMax: null,
+  /** Allergene meiden (ids aus ALLERGEN_DEFS) */
+  foodAvoidAllergens: [],
   themeCfg: { ...DEFAULT_THEME_CFG },
 };
 
@@ -54,6 +58,14 @@ export const DEFAULT_PROFILE = {
   duration: 45,
   /** false = First-run Wizard (Name, Körper, App-Name) */
   onboarded: false,
+  /**
+   * First-run Home-Tutorial. Standard-Pläne (Clever Fit) zählen nicht —
+   * Häkchen erst nach Besuch der Planliste bzw. eigener Auswahl/Erstellung.
+   */
+  tutorial: {
+    openedPlans: false,
+    chosePlan: false,
+  },
 };
 
 // Altes Split-System -> dynamische Pläne (Clever Fit OK/UK + optional custom names)
@@ -142,15 +154,33 @@ export function freshState() {
     carryOver: [],
     /** Abgeschlossene Einheiten: { date, seconds, sets, volume, prs } */
     sessions: [],
+    /** Lebensmittel-Log (Barcode / manuell): FoodEntry[] */
+    foodLog: [],
+    /** Gespeicherte Lieblingsprodukte für Schnell-Add */
+    foodFavorites: [],
+    /** Offline-Cache gescannter Produkte: { [barcode]: product } */
+    foodProductCache: {},
+    /** Selbst angelegte Produkte */
+    foodCustomProducts: [],
   };
 }
 
 // Kompletter Ladepfad: parse -> Defaults -> Migrationen
 export function hydrate(parsed) {
+  const prevCfg = parsed.settings?.themeCfg || {};
+  // Glas-Effekt ist Design-Default AN. Alte Installs hatten glass:false als
+  // Default gespeichert — solange der Nutzer nicht explizit umgeschaltet hat
+  // (glassUserSet), erzwingen wir "an".
+  const glassOn =
+    prevCfg.glassUserSet === true ? !!prevCfg.glass : true;
   const settings = {
     ...DEFAULT_SETTINGS,
     ...(parsed.settings || {}),
-    themeCfg: { ...DEFAULT_THEME_CFG, ...(parsed.settings?.themeCfg || {}) },
+    themeCfg: {
+      ...DEFAULT_THEME_CFG,
+      ...prevCfg,
+      glass: glassOn,
+    },
   };
   const migrated = migrateToPlans(parsed, settings);
   let plans = ensureCleverFitPlans(migrated.plans, settings.restSeconds);
@@ -172,9 +202,24 @@ export function hydrate(parsed) {
     wellness: migrated.wellness || {},
     carryOver: Array.isArray(migrated.carryOver) ? migrated.carryOver : [],
     sessions: Array.isArray(migrated.sessions) ? migrated.sessions : [],
+    foodLog: Array.isArray(migrated.foodLog) ? migrated.foodLog : [],
+    foodFavorites: Array.isArray(migrated.foodFavorites)
+      ? migrated.foodFavorites
+      : [],
+    foodProductCache:
+      migrated.foodProductCache && typeof migrated.foodProductCache === "object"
+        ? migrated.foodProductCache
+        : {},
+    foodCustomProducts: Array.isArray(migrated.foodCustomProducts)
+      ? migrated.foodCustomProducts
+      : [],
     profile: resolveProfileOnboard(migrated),
     settings: {
       ...settings,
+      foodAvoidAllergens: Array.isArray(settings.foodAvoidAllergens)
+        ? settings.foodAvoidAllergens
+        : [],
+      foodNutriMax: settings.foodNutriMax || null,
       // Drop custom app title / header mascot — brand is fixed OZGYM + mark
       appName: undefined,
       themeCfg: {
@@ -193,8 +238,16 @@ export function hydrate(parsed) {
  */
 function resolveProfileOnboard(migrated) {
   const base = { ...DEFAULT_PROFILE, ...(migrated.profile || {}) };
-  const displayName = String(base.displayName || "").trim().slice(0, 32);
+  // Erster Buchstabe immer groß (Anzeige + Persistenz)
+  const raw = String(base.displayName || "").trim().slice(0, 32);
+  const displayName = raw
+    ? raw.charAt(0).toLocaleUpperCase("de-DE") + raw.slice(1)
+    : "";
   base.displayName = displayName;
+  base.tutorial = {
+    ...DEFAULT_PROFILE.tutorial,
+    ...(migrated.profile?.tutorial || {}),
+  };
 
   if (base.onboarded === true) return base;
   if (base.onboarded === false) return base;

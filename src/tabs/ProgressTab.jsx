@@ -11,6 +11,8 @@ import {
   ChevronRight,
   Plus,
   Trash2,
+  Apple,
+  Droplets,
 } from "lucide-react";
 import { CountUp, Sparkline, EmptyState, showToast } from "../components/ui.jsx";
 import WeightChart from "../components/WeightChart.jsx";
@@ -26,6 +28,13 @@ import {
   weeklyFrequency,
 } from "../lib/utils.js";
 import { BADGE_DEFS, MUSCLE_NAME } from "../lib/constants.js";
+import {
+  weekFoodSummary,
+  foodEntriesForDay,
+  dayFoodTotals,
+  getWaterMl,
+} from "../lib/foodLog.js";
+import MacroStrip from "../components/MacroStrip.jsx";
 
 /** Körpergewicht: Eintrag mit Datum speichern, Liste, Chart — immer nutzbar. */
 function WeightTracker({ profile, update }) {
@@ -231,7 +240,87 @@ function WeightTracker({ profile, update }) {
   );
 }
 
-export default function ProgressTab({ data, update, onStart, onEditPlan }) {
+/** Essen diese Woche — kcal/Makros + Balken pro Tag */
+function FoodWeekBlock({ data, goTo }) {
+  const today = todayISO();
+  const week = useMemo(
+    () => weekFoodSummary(data.foodLog, today),
+    [data.foodLog, today],
+  );
+  const todayFood = useMemo(
+    () => dayFoodTotals(foodEntriesForDay(data.foodLog, today)),
+    [data.foodLog, today],
+  );
+  const waterToday = getWaterMl(data.wellness, today);
+  const waterGoal = Number(data.settings?.waterGoal) || 0;
+  const maxKcal = Math.max(1, ...week.byDay.map((d) => d.kcal), 1);
+
+  return (
+    <section className="ig-card ig-food-week" aria-label="Essen diese Woche">
+      <div className="ig-food-week-head">
+        <span className="ig-field-label">
+          <Apple size={12} aria-hidden="true" /> Essen · diese Woche
+        </span>
+        {typeof goTo === "function" ? (
+          <button
+            type="button"
+            className="ig-home-see-all"
+            onClick={() => goTo("food")}
+          >
+            Essen
+            <ChevronRight size={14} aria-hidden="true" />
+          </button>
+        ) : null}
+      </div>
+
+      <MacroStrip
+        variant="day"
+        kcal={week.kcal}
+        protein={week.protein}
+        carbs={week.carbs}
+        fat={week.fat}
+      />
+
+      <div className="ig-food-week-meta dim mono">
+        {week.daysLogged} Tage · {week.entryCount} Einträge
+        {week.daysLogged > 0 ? ` · Ø ${week.avgKcal} kcal/Tag` : ""}
+        {` · Heute ${todayFood.kcal} kcal`}
+      </div>
+
+      {week.byDay.length > 0 ? (
+        <div className="ig-food-week-bars" aria-hidden="true">
+          {week.byDay.map((d) => (
+            <div key={d.date} className="ig-food-week-col">
+              <div className="ig-food-week-bar-track">
+                <div
+                  className="ig-food-week-bar-fill"
+                  style={{
+                    height: `${Math.max(4, (d.kcal / maxKcal) * 100)}%`,
+                  }}
+                />
+              </div>
+              <span className={d.date === today ? "is-today" : ""}>
+                {d.label}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {(waterToday > 0 || waterGoal > 0) && (
+        <div className="ig-food-week-water">
+          <Droplets size={14} aria-hidden="true" />
+          <span className="mono">
+            Wasser heute: {waterToday}
+            {waterGoal > 0 ? ` / ${waterGoal}` : ""} ml
+          </span>
+        </div>
+      )}
+    </section>
+  );
+}
+
+export default function ProgressTab({ data, update, goTo, onStart, onEditPlan }) {
   const plans = data.plans || [];
   const [planId, setPlanId] = useState(
     () => getTodayPlan(data)?.id || plans[0]?.id || null,
@@ -289,6 +378,8 @@ export default function ProgressTab({ data, update, onStart, onEditPlan }) {
     <WeightTracker profile={data.profile || {}} update={update} />
   );
 
+  const foodWeek = <FoodWeekBlock data={data} goTo={goTo} />;
+
   if (stats.totalWorkouts === 0) {
     return (
       <div className="ig-tabpane ig-progress-dna">
@@ -296,11 +387,12 @@ export default function ProgressTab({ data, update, onStart, onEditPlan }) {
           <h1 className="ig-screen-title">Verlauf</h1>
         </div>
         {weightBlock}
+        {foodWeek}
         <EmptyState
           icon={<TrendingUp size={40} />}
           kicker="Training"
           title="Noch keine Workouts"
-          description="Gewicht kannst du schon tracken. Trainingsdaten erscheinen nach dem ersten Workout."
+          description="Gewicht und Essen laufen schon. Trainings-Statistiken erscheinen nach deinem ersten Workout."
           primaryLabel="Workout starten"
           onPrimary={onStart}
         />
@@ -313,6 +405,8 @@ export default function ProgressTab({ data, update, onStart, onEditPlan }) {
       <div className="ig-home-summary-head">
         <h1 className="ig-screen-title">Verlauf</h1>
       </div>
+
+      {foodWeek}
 
       <div className="ig-home-summary-grid ig-progress-summary">
         <div className="ig-card ig-home-mini">

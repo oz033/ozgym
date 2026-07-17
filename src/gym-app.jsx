@@ -9,6 +9,7 @@ import {
   ClipboardList,
   ChartColumn,
   UserRound,
+  ScanBarcode,
   Volume2,
   VolumeX,
   Sun,
@@ -50,6 +51,7 @@ const routeImports = {
   workout: () => import("./tabs/LogTab.jsx"),
   workoutMode: () => import("./tabs/WorkoutMode.jsx"),
   plan: () => import("./tabs/PlansTab.jsx"),
+  food: () => import("./tabs/FoodTab.jsx"),
   progress: () => import("./tabs/ProgressTab.jsx"),
   profile: () => import("./tabs/ProfileTab.jsx"),
 };
@@ -57,6 +59,7 @@ const routeImports = {
 const LogTab = lazy(routeImports.workout);
 const WorkoutMode = lazy(routeImports.workoutMode);
 const PlansTab = lazy(routeImports.plan);
+const FoodTab = lazy(routeImports.food);
 const ProgressTab = lazy(routeImports.progress);
 const ProfileTab = lazy(routeImports.profile);
 
@@ -97,6 +100,7 @@ export default function App() {
   // Wenn ein leerer Plan direkt bearbeitet werden soll (statt nur die Liste
   // zu zeigen), merkt sich das die App hier und reicht es an PlansTab durch.
   const [autoEditPlanId, setAutoEditPlanId] = useState(null);
+  const [foodAutoScan, setFoodAutoScan] = useState(false);
   const saveTimer = useRef(null);
   const dataRef = useRef(data);
   dataRef.current = data;
@@ -310,10 +314,11 @@ export default function App() {
       })
       .filter(Boolean);
 
-    const sessionMin =
+    const sessionMin = Number(
       data.settings?.sessionMinutes != null
         ? data.settings.sessionMinutes
-        : data.profile?.duration ?? 45;
+        : data.profile?.duration ?? 45,
+    );
     const trimmed = trimExercisesToDuration(full, sessionMin, rest);
     const deferred = deferredFromTrim(full, trimmed);
     const carryHydrated = (data.carryOver || [])
@@ -346,6 +351,7 @@ export default function App() {
     quickRef.current = null;
     window.history.replaceState(null, "", window.location.pathname);
     if (q === "plan") setTab("plan");
+    else if (q === "food") setTab("food");
     else if (q === "progress") setTab("progress");
     else if (q === "start") startWorkoutRef.current?.();
   }, [loaded]);
@@ -591,6 +597,10 @@ export default function App() {
                     update={update}
                     goTo={goTo}
                     onStart={startWorkout}
+                    onScanFood={() => {
+                      setFoodAutoScan(true);
+                      goTo("food");
+                    }}
                   />
                 )}
                 {tab === "workout" && (
@@ -616,10 +626,20 @@ export default function App() {
                     onAutoOpenHandled={() => setAutoEditPlanId(null)}
                   />
                 )}
+                {tab === "food" && (
+                  <FoodTab
+                    data={data}
+                    update={update}
+                    goTo={goTo}
+                    autoOpenScan={foodAutoScan}
+                    onAutoScanHandled={() => setFoodAutoScan(false)}
+                  />
+                )}
                 {tab === "progress" && (
                   <ProgressTab
                     data={data}
                     update={update}
+                    goTo={goTo}
                     onStart={startWorkout}
                     onEditPlan={editPlan}
                   />
@@ -683,6 +703,12 @@ export default function App() {
                 onClick={() => goTo("plan")}
                 icon={<ClipboardList size={20} strokeWidth={1.75} />}
                 label="Pläne"
+              />
+              <TabBtn
+                active={tab === "food"}
+                onClick={() => goTo("food")}
+                icon={<ScanBarcode size={20} strokeWidth={1.75} />}
+                label="Essen"
               />
               <TabBtn
                 active={tab === "progress"}

@@ -25,6 +25,13 @@ export const mondayOf = (iso) => {
 export const round1 = (n) => Math.round(n * 10) / 10;
 export const e1rm = (weight, reps) => (reps >= 1 ? weight * (1 + reps / 30) : 0);
 
+/** Anzeigename: erster Buchstabe immer groß („oz“ → „Oz“). */
+export function formatDisplayName(name) {
+  const s = String(name || "").trim().slice(0, 32);
+  if (!s) return "";
+  return s.charAt(0).toLocaleUpperCase("de-DE") + s.slice(1);
+}
+
 export const REDUCED_MOTION =
   typeof window !== "undefined" &&
   window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
@@ -410,39 +417,78 @@ export function nextTrainingDay(data) {
 
 // Geschätzte Workout-Dauer in Minuten: ~45 s Arbeit pro Satz + Pausenzeit
 export function estimateDuration(exercises, defaultRest = 90) {
-  const seconds = (exercises || []).reduce(
-    (sum, e) => sum + (e.sets || 3) * (45 + (e.rest ?? defaultRest)),
-    0,
-  );
+  const seconds = totalExerciseSeconds(exercises, defaultRest);
+  if (seconds <= 0) return 0;
   return Math.max(5, Math.round(seconds / 60 / 5) * 5);
 }
 
-/** Sekunden-Budget pro Übung (Arbeit + Pause) */
+/** Roh-Sekunden für eine Übung (Arbeit + Pause) */
 export function exerciseSeconds(e, defaultRest = 90) {
   return (e?.sets || 3) * (45 + (e?.rest ?? defaultRest));
 }
 
+/** Summe Sekunden über die Queue */
+export function totalExerciseSeconds(exercises, defaultRest = 90) {
+  return (exercises || []).reduce(
+    (sum, e) => sum + exerciseSeconds(e, defaultRest),
+    0,
+  );
+}
+
 /**
  * Schneidet die Queue so zu, dass die geschätzte Dauer ≈ targetMin bleibt.
- * Mindestens 1 Übung. targetMin ≤ 0 → unverändert (ganzer Plan).
+ * 1) Übungen von hinten weglassen
+ * 2) falls nötig Sätze der letzten Übungen reduzieren
+ * Mindestens 1 Übung mit 1 Satz. targetMin ≤ 0 → unverändert (ganzer Plan).
  */
 export function trimExercisesToDuration(exercises, targetMin, defaultRest = 90) {
   const list = Array.isArray(exercises) ? exercises : [];
   if (!list.length) return [];
   const budget = Number(targetMin);
-  if (!budget || budget <= 0) return list;
+  if (!budget || budget <= 0) {
+    return list.map((e) => ({ ...e }));
+  }
 
   const budgetSec = budget * 60;
-  const out = [];
-  let used = 0;
-  for (const e of list) {
-    const cost = exerciseSeconds(e, defaultRest);
-    // Erste Übung immer; danach nur wenn Budget (mit 8 % Puffer) reicht
-    if (out.length > 0 && used + cost > budgetSec * 1.08) break;
-    out.push(e);
-    used += cost;
+  // Klone — Sätze dürfen reduziert werden, Original-Plan bleibt unangetastet
+  let out = list.map((e) => ({
+    ...e,
+    sets: Math.max(1, Number(e.sets) || 3),
+  }));
+
+  // Plan kürzer/gleich Budget → alles behalten
+  if (totalExerciseSeconds(out, defaultRest) <= budgetSec) {
+    return out;
   }
-  return out.length ? out : list.slice(0, 1);
+
+  // 1) Von hinten Übungen streichen, bis Budget (kleiner Puffer) hält
+  while (
+    out.length > 1 &&
+    totalExerciseSeconds(out, defaultRest) > budgetSec * 1.02
+  ) {
+    out = out.slice(0, -1);
+  }
+
+  // 2) Immer noch drüber → Sätze von hinten reduzieren
+  let guard = 40;
+  while (
+    guard-- > 0 &&
+    out.length > 0 &&
+    totalExerciseSeconds(out, defaultRest) > budgetSec * 1.02
+  ) {
+    const last = out[out.length - 1];
+    if ((last.sets || 1) > 1) {
+      out = out.map((e, i) =>
+        i === out.length - 1 ? { ...e, sets: e.sets - 1 } : e,
+      );
+    } else if (out.length > 1) {
+      out = out.slice(0, -1);
+    } else {
+      break;
+    }
+  }
+
+  return out.length ? out : [{ ...list[0], sets: 1 }];
 }
 
 /** Übungen, die durch die Dauer-Kappung rausgefallen sind */

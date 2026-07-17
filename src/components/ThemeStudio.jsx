@@ -1,9 +1,8 @@
 /* Theme Studio: Farben, Ecken, Motion — ohne Icon/Mascot-Upload */
 
 import React, { useEffect, useRef } from "react";
-import { ChevronLeft, RotateCcw, Check, Sun, Moon } from "lucide-react";
+import { ChevronLeft, RotateCcw, Sun, Moon } from "lucide-react";
 import { DEFAULT_THEME_CFG } from "../lib/migrate.js";
-import { EclipseMark } from "./brand.jsx";
 import { trapFocus } from "../lib/dialogFocus.js";
 
 /* B&W first — color accents optional only */
@@ -78,7 +77,7 @@ export default function ThemeStudio({ data, update, onClose }) {
   return (
     <div
       ref={sheetRef}
-      className="ig-sheet"
+      className="ig-sheet ig-ts-sheet"
       role="dialog"
       aria-modal="true"
       aria-labelledby="ig-ts-title"
@@ -105,61 +104,33 @@ export default function ThemeStudio({ data, update, onClose }) {
         </button>
       </div>
 
-      <div className="ig-sheet-body">
-        {/* Live-Vorschau — rein visuell, keine toten Buttons */}
-        <div className="ig-card ig-ts-preview" aria-hidden="true">
-          <div className="ig-ts-preview-row">
-            <EclipseMark size={22} />
-            <span className="ig-ts-preview-title">Vorschau</span>
-            <span className="ig-badge dim mono">01</span>
-          </div>
-          <div className="ig-level-track">
-            <div className="ig-level-fill" style={{ width: "64%" }} />
-          </div>
-          <div className="ig-ts-preview-row">
-            <span className="ig-btn-primary ig-ts-fake-btn" style={{ flex: 1 }}>
-              <Check size={15} /> Primär
-            </span>
-            <span className="ig-btn-primary ghosted ig-ts-fake-btn" style={{ flex: 1 }}>
-              Sekundär
-            </span>
-          </div>
-          <div className="ig-plan-badges">
-            <span className="ig-chip sm active">Aktiv</span>
-            <span className="ig-chip sm">Chip</span>
-            <span className="ig-badge">3 × 10</span>
-          </div>
-        </div>
-
-        <div className="ig-card">
-          <div className="ig-field-label">Erscheinung</div>
-          <div className="ig-theme-row" role="group" aria-label="Erscheinung">
+      <div className="ig-sheet-body ig-ts-body">
+        {/* Hell / Dunkel + Akzent in einer Karte */}
+        <div className="ig-card ig-ts-card">
+          <div className="ig-theme-row ig-ts-theme-row" role="group" aria-label="Erscheinung">
             <button
               type="button"
-              className={"ig-theme-btn" + (theme === "light" ? " active" : "")}
+              className={"ig-theme-btn ig-ts-theme-btn" + (theme === "light" ? " active" : "")}
               onClick={() => setTheme("light")}
               aria-pressed={theme === "light"}
             >
-              <Sun size={16} aria-hidden="true" /> Hell
+              <Sun size={15} aria-hidden="true" /> Hell
             </button>
             <button
               type="button"
-              className={"ig-theme-btn" + (theme === "dark" ? " active" : "")}
+              className={"ig-theme-btn ig-ts-theme-btn" + (theme === "dark" ? " active" : "")}
               onClick={() => setTheme("dark")}
               aria-pressed={theme === "dark"}
             >
-              <Moon size={16} aria-hidden="true" /> Dunkel
+              <Moon size={15} aria-hidden="true" /> Dunkel
             </button>
           </div>
-        </div>
-
-        <div className="ig-card">
-          <div className="ig-field-label">Akzentfarbe</div>
           <div className="ig-ts-swatches">
             <button
+              type="button"
               className={"ig-ts-swatch mode" + (cfg.accent === null ? " active" : "")}
               onClick={() => patch({ accent: null })}
-              title="Automatisch (Geschlecht / Standard)"
+              title="Standard-Akzent"
             >
               A
             </button>
@@ -194,100 +165,97 @@ export default function ThemeStudio({ data, update, onClose }) {
               />
             </label>
           </div>
-          <p className="ig-plan-text">
-            „A“ = Standard-Akzent. „Mono“ = Schwarz/Weiß pur.
-          </p>
         </div>
 
-        <div className="ig-card">
-          <div className="ig-field-label">Oberfläche</div>
-          <div className="ig-num-field">
-            <span>Ecken</span>
-            <Segment
-              label="Ecken"
-              value={cfg.radius}
-              onChange={(v) => patch({ radius: v })}
-              options={[
-                { id: "round", label: "Rund" },
-                { id: "sharp", label: "Kantig" },
-              ]}
-            />
-          </div>
-          <div className="ig-num-field">
-            <span>Dichte</span>
-            <Segment
-              label="Dichte"
-              value={cfg.density}
-              onChange={(v) => patch({ density: v })}
-              options={[
-                { id: "cozy", label: "Großzügig" },
-                { id: "compact", label: "Kompakt" },
-              ]}
-            />
-          </div>
-          <div className="ig-num-field">
-            <span>Schrift</span>
-            <Segment
-              label="Schrift"
-              value={cfg.font}
-              onChange={(v) => patch({ font: v })}
-              options={[
-                { id: "grotesk", label: "Grotesk" },
-                { id: "mono", label: "Mono" },
-              ]}
-            />
-          </div>
-        </div>
-
-        <div className="ig-card">
-          <div className="ig-field-label">Effekte</div>
-          <div className="ig-num-field">
-            <span>Buttons & Balken</span>
-            <Segment
-              label="Button-Stil"
-              value={cfg.gradient ? "grad" : "flat"}
-              onChange={(v) => patch({ gradient: v === "grad" })}
-              options={[
-                { id: "grad", label: "Verlauf" },
-                { id: "flat", label: "Flach" },
-              ]}
-            />
-          </div>
-          <div className="ig-num-field">
-            <span>Glow</span>
-            <Segment
-              label="Glow"
-              value={cfg.glow ? "on" : "off"}
-              onChange={(v) => patch({ glow: v === "on" })}
-              options={[
-                { id: "on", label: "An" },
-                { id: "off", label: "Aus" },
-              ]}
-            />
-          </div>
-          <div className="ig-num-field">
-            <span>Glas-Effekt</span>
-            <Segment
-              label="Glas-Effekt"
-              value={cfg.glass ? "on" : "off"}
-              onChange={(v) => patch({ glass: v === "on" })}
-              options={[
-                { id: "on", label: "An" },
-                { id: "off", label: "Aus" },
-              ]}
-            />
-          </div>
-          <div className="ig-num-field">
-            <span>Animationen</span>
-            <Segment
-              label="Animationen"
-              value={cfg.motion}
-              onChange={(v) => patch({ motion: v })}
-              options={[
-                { id: "full", label: "Voll" },
-                { id: "reduced", label: "Dezent" },
-              ]}
-            />
+        {/* Alle Optionen in einer dichten Karte — alles auf einen Blick */}
+        <div className="ig-card ig-ts-card">
+          <div className="ig-ts-opts">
+            <div className="ig-ts-opt">
+              <span className="ig-ts-opt-lbl">Ecken</span>
+              <Segment
+                label="Ecken"
+                value={cfg.radius}
+                onChange={(v) => patch({ radius: v })}
+                options={[
+                  { id: "round", label: "Rund" },
+                  { id: "sharp", label: "Kantig" },
+                ]}
+              />
+            </div>
+            <div className="ig-ts-opt">
+              <span className="ig-ts-opt-lbl">Dichte</span>
+              <Segment
+                label="Dichte"
+                value={cfg.density}
+                onChange={(v) => patch({ density: v })}
+                options={[
+                  { id: "cozy", label: "Weit" },
+                  { id: "compact", label: "Eng" },
+                ]}
+              />
+            </div>
+            <div className="ig-ts-opt">
+              <span className="ig-ts-opt-lbl">Schrift</span>
+              <Segment
+                label="Schrift"
+                value={cfg.font}
+                onChange={(v) => patch({ font: v })}
+                options={[
+                  { id: "grotesk", label: "Grotesk" },
+                  { id: "mono", label: "Mono" },
+                ]}
+              />
+            </div>
+            <div className="ig-ts-opt">
+              <span className="ig-ts-opt-lbl">Animation</span>
+              <Segment
+                label="Animationen"
+                value={cfg.motion}
+                onChange={(v) => patch({ motion: v })}
+                options={[
+                  { id: "full", label: "Voll" },
+                  { id: "reduced", label: "Dezent" },
+                ]}
+              />
+            </div>
+            <div className="ig-ts-opt">
+              <span className="ig-ts-opt-lbl">Buttons</span>
+              <Segment
+                label="Button-Stil"
+                value={cfg.gradient ? "grad" : "flat"}
+                onChange={(v) => patch({ gradient: v === "grad" })}
+                options={[
+                  { id: "grad", label: "Verlauf" },
+                  { id: "flat", label: "Flach" },
+                ]}
+              />
+            </div>
+            <div className="ig-ts-opt">
+              <span className="ig-ts-opt-lbl">Glow</span>
+              <Segment
+                label="Glow"
+                value={cfg.glow ? "on" : "off"}
+                onChange={(v) => patch({ glow: v === "on" })}
+                options={[
+                  { id: "on", label: "An" },
+                  { id: "off", label: "Aus" },
+                ]}
+              />
+            </div>
+            <div className="ig-ts-opt">
+              <span className="ig-ts-opt-lbl">Glas</span>
+              <Segment
+                label="Glas-Effekt"
+                value={cfg.glass ? "on" : "off"}
+                onChange={(v) =>
+                  patch({ glass: v === "on", glassUserSet: true })
+                }
+                options={[
+                  { id: "on", label: "An" },
+                  { id: "off", label: "Aus" },
+                ]}
+              />
+            </div>
           </div>
         </div>
       </div>

@@ -233,6 +233,7 @@ export function EmptyState({
   onPrimary,
   secondaryLabel,
   onSecondary,
+  children,
   className = "",
 }) {
   return (
@@ -245,6 +246,7 @@ export function EmptyState({
       {kicker && <span className="ig-empty-state-kicker mono">{kicker}</span>}
       <h2 className="ig-empty-state-title">{title}</h2>
       {description && <p className="ig-empty-state-desc">{description}</p>}
+      {children}
       {primaryLabel && (
         <button type="button" className="ig-btn-primary wide xl" onClick={onPrimary}>
           {primaryLabel}

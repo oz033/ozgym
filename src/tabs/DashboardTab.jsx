@@ -13,6 +13,7 @@ import {
   Dumbbell,
   Bell,
   Pencil,
+  ScanBarcode,
 } from "lucide-react";
 import { CountUp, showToast } from "../components/ui.jsx";
 import { OzGymMark } from "../components/brand.jsx";
@@ -34,6 +35,7 @@ import {
   buzz,
   mondayOf,
   localISO,
+  formatDisplayName,
 } from "../lib/utils.js";
 import { weeklyAdherence, catchUpDay } from "../lib/planGenerator.js";
 import { sharePayload } from "../lib/iosShell.js";
@@ -147,7 +149,7 @@ function weekVolumeKg(dayVolumes, today) {
   return { vol: Math.round(vol), days };
 }
 
-export default function DashboardTab({ data, update, goTo, onStart }) {
+export default function DashboardTab({ data, update, goTo, onStart, onScanFood }) {
   const [showCal, setShowCal] = useState(false);
   const [titleCompact, setTitleCompact] = useState(false);
   const [editingName, setEditingName] = useState(false);
@@ -199,13 +201,10 @@ export default function DashboardTab({ data, update, goTo, onStart }) {
   );
 
   const weeklyGoal = data.settings?.weeklyGoal || 3;
-  const displayName = String(data.profile?.displayName || "").trim();
+  const displayName = formatDisplayName(data.profile?.displayName);
   const hour = new Date().getHours();
   const timeHello =
     hour < 11 ? "Guten Morgen" : hour < 18 ? "Guten Tag" : "Guten Abend";
-  const greeting = displayName
-    ? `${timeHello}, ${displayName}`
-    : timeHello;
   const hiTitle = displayName ? `Hi, ${displayName}!` : timeHello;
   const trainedToday = !!stats.dayVolumes[today];
   const duration = plan
@@ -224,8 +223,8 @@ export default function DashboardTab({ data, update, goTo, onStart }) {
 
   const lockedStats = stats.totalWorkouts === 0;
 
-  /* —— Status copy —— */
-  let eyebrow = displayName ? `Welcome back` : `${weekday} · Heute`;
+  /* —— Status copy —— Name nur in „Hi, …“, kein Guten-Tag-Kicker. */
+  let eyebrow = null;
   let title = trainedToday
     ? displayName
       ? `Stark, ${displayName}.`
@@ -250,8 +249,6 @@ export default function DashboardTab({ data, update, goTo, onStart }) {
     sub = next
       ? `Nächstes Training: ${next.date.toLocaleDateString("de-DE", { weekday: "long" })} · ${next.plan.name}`
       : "Kein nächster Plan gesetzt.";
-  } else if (plan) {
-    eyebrow = displayName ? `${timeHello}, ${displayName}` : `${weekday} · Heute`;
   }
 
   const shareToday = async () => {
@@ -311,7 +308,7 @@ export default function DashboardTab({ data, update, goTo, onStart }) {
   };
 
   const saveName = () => {
-    const next = nameDraft.trim().slice(0, 32);
+    const next = formatDisplayName(nameDraft);
     setEditingName(false);
     if (next === displayName) return;
     update((prev) => ({
@@ -323,6 +320,47 @@ export default function DashboardTab({ data, update, goTo, onStart }) {
 
   // Greeting line always shows name (editable); plan/status stays in title
   const nameLabel = displayName || "Name tippen";
+
+  /* First-run tutorial — Häkchen nur nach User-Aktion (nicht Default-Pläne) */
+  const tut = data.profile?.tutorial || {};
+  const openedPlans = !!tut.openedPlans;
+  const chosePlan = !!tut.chosePlan;
+  const readyToStart = chosePlan && !!plan;
+  const tutorialSteps = [
+    {
+      id: "plans",
+      title: "Planliste öffnen",
+      body: "Unten auf „Pläne“ tippen.",
+      done: openedPlans,
+      actionLabel: "Zu den Plänen",
+      action: () => goTo("plan"),
+    },
+    {
+      id: "fill",
+      title: "Plan wählen oder erstellen",
+      body: "Vorhandenen Plan tippen (aktivieren) oder „Neuer Plan“ / Vorlage.",
+      done: chosePlan,
+      actionLabel: "Plan wählen",
+      action: () => goTo("plan"),
+    },
+    {
+      id: "start",
+      title: "Erstes Workout starten",
+      body: readyToStart
+        ? `Bereit: „${plan.name}“ · ${plan.exercises?.length || 0} Übungen.`
+        : "Zuerst unter Pläne einen Plan wählen oder neu anlegen.",
+      done: false,
+      actionLabel: readyToStart ? "Workout starten" : "Plan wählen",
+      action: () => (readyToStart ? onStart() : goTo("plan")),
+    },
+  ];
+  const tutorialCurrent =
+    tutorialSteps.findIndex((s) => !s.done) === -1
+      ? tutorialSteps.length - 1
+      : tutorialSteps.findIndex((s) => !s.done);
+  const tutorialDoneCount = tutorialSteps.filter((s) => s.done).length;
+  const tutorialActive =
+    tutorialSteps[tutorialCurrent] || tutorialSteps[0];
 
   return (
     <div
@@ -339,7 +377,9 @@ export default function DashboardTab({ data, update, goTo, onStart }) {
             <OzGymMark size={44} variant="glass" title="" />
           </span>
           <div className="ig-home-welcome-text">
-            <span className="ig-home-welcome-kicker">{eyebrow}</span>
+            {eyebrow ? (
+              <span className="ig-home-welcome-kicker">{eyebrow}</span>
+            ) : null}
             {editingName ? (
               <form
                 className="ig-home-name-edit"
@@ -414,16 +454,110 @@ export default function DashboardTab({ data, update, goTo, onStart }) {
         </div>
       </header>
 
-      {/* Primary CTA — always clear; stats lock until first workout */}
-      {lockedStats ? (
+      {/* Schnell-Scan Essen — immer greifbar */}
+      {typeof onScanFood === "function" ? (
         <button
           type="button"
-          className="ig-btn-primary wide xl ig-home-cta ig-home-cta-glow"
-          onClick={() => (plan ? onStart() : goTo("plan"))}
+          className="ig-home-scan-food"
+          onClick={onScanFood}
         >
-          <Play size={20} aria-hidden="true" />
-          {plan ? "Erstes Workout starten" : "Plan anlegen"}
+          <ScanBarcode size={18} aria-hidden="true" />
+          <span>Essen scannen</span>
         </button>
+      ) : null}
+
+      {/* First-run: compact tutorial oben, Stats-Teaser darunter */}
+      {lockedStats ? (
+        <section
+          className="ig-home-tutorial is-compact"
+          aria-label="Kurzanleitung"
+        >
+          <header className="ig-home-tutorial-head">
+            <div className="ig-home-tutorial-head-row">
+              <span className="ig-home-tutorial-kicker mono">
+                Kurzanleitung · {tutorialCurrent + 1}/{tutorialSteps.length}
+              </span>
+              <span className="ig-home-tutorial-progress-lbl mono">
+                {tutorialDoneCount} erledigt
+              </span>
+            </div>
+            <h2 className="ig-home-tutorial-title">
+              So startest du dein erstes Workout
+            </h2>
+            <div
+              className="ig-home-tutorial-progress"
+              role="progressbar"
+              aria-valuenow={tutorialDoneCount}
+              aria-valuemin={0}
+              aria-valuemax={tutorialSteps.length}
+              aria-label={`${tutorialDoneCount} von ${tutorialSteps.length} Schritten erledigt`}
+            >
+              <div
+                className="ig-home-tutorial-progress-fill"
+                style={{
+                  width: `${(tutorialDoneCount / tutorialSteps.length) * 100}%`,
+                }}
+              />
+            </div>
+          </header>
+
+          <ol className="ig-home-tutorial-steps">
+            {tutorialSteps.map((step, i) => {
+              const isCurrent = i === tutorialCurrent;
+              const cls =
+                "ig-home-tutorial-step" +
+                (step.done ? " is-done" : "") +
+                (isCurrent ? " is-current" : "");
+              return (
+                <li key={step.id} className={cls}>
+                  <button
+                    type="button"
+                    className="ig-home-tutorial-step-btn"
+                    onClick={step.action}
+                    aria-current={isCurrent ? "step" : undefined}
+                  >
+                    <span className="ig-home-tutorial-num" aria-hidden="true">
+                      {step.done ? "✓" : i + 1}
+                    </span>
+                    <span className="ig-home-tutorial-step-body">
+                      <strong>
+                        {step.title}
+                        {isCurrent ? (
+                          <span className="ig-home-tutorial-now"> Jetzt</span>
+                        ) : null}
+                      </strong>
+                      {isCurrent || !step.done ? (
+                        <span className="ig-home-tutorial-step-text">
+                          {step.body}
+                        </span>
+                      ) : null}
+                    </span>
+                    {isCurrent ? (
+                      <ChevronRight
+                        size={16}
+                        className="ig-home-tutorial-chev"
+                        aria-hidden="true"
+                      />
+                    ) : null}
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
+
+          <button
+            type="button"
+            className="ig-btn-primary wide xl ig-home-cta ig-home-cta-glow"
+            onClick={tutorialActive.action}
+          >
+            {tutorialActive.id === "start" && readyToStart ? (
+              <Play size={20} aria-hidden="true" />
+            ) : (
+              <Dumbbell size={20} aria-hidden="true" />
+            )}
+            {tutorialActive.actionLabel}
+          </button>
+        </section>
       ) : (
         <>
           {!restDay && !trainedToday && plan && (
@@ -474,7 +608,7 @@ export default function DashboardTab({ data, update, goTo, onStart }) {
         </>
       )}
 
-      {/* Stats stack — blurred until first completed workout */}
+      {/* Stats — nach erstem Workout freigeschaltet; davor Teaser mit Overlay */}
       <div
         className={
           "ig-home-stats-stack" + (lockedStats ? " is-locked" : "")
@@ -483,17 +617,17 @@ export default function DashboardTab({ data, update, goTo, onStart }) {
         {lockedStats && (
           <div className="ig-home-lock-overlay" aria-hidden="true">
             <span className="ig-home-lock-msg">
-              Nach dem ersten Workout freigeschaltet
+              Wird nach deinem ersten Workout freigeschaltet
             </span>
           </div>
         )}
         <div
           className="ig-home-stats-inner"
-          inert={lockedStats ? "" : undefined}
+          inert={lockedStats ? true : undefined}
           aria-hidden={lockedStats || undefined}
         >
 
-      {/* Summary Activity — 2 mini cards (FitPal “Summary Activity”) */}
+      {/* Summary Activity — 2 mini cards */}
       <section className="ig-home-summary" aria-label="Übersicht">
         <div className="ig-home-summary-head">
           <h2 className="ig-home-section-title">Zusammenfassung</h2>
@@ -834,8 +968,12 @@ export default function DashboardTab({ data, update, goTo, onStart }) {
             <span>
               <span className="ig-field-label">Aktiver Plan</span>
               <span className="ig-home-secondary-line">
-                {activePlan.icon ? `${activePlan.icon} ` : ""}
-                {activePlan.name}
+                {activePlan.icon ? (
+                  <span className="ig-home-secondary-icon" aria-hidden="true">
+                    {activePlan.icon}
+                  </span>
+                ) : null}
+                <strong className="ig-home-secondary-name">{activePlan.name}</strong>
               </span>
             </span>
             <ChevronRight size={16} aria-hidden="true" />
@@ -843,8 +981,8 @@ export default function DashboardTab({ data, update, goTo, onStart }) {
         )}
       </div>
 
-        </div>{/* .ig-home-stats-inner */}
-      </div>{/* .ig-home-stats-stack */}
+        </div>
+      </div>
 
       {showCal && !lockedStats && (
         <StreakCalendar

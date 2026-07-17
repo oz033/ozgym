@@ -1,6 +1,7 @@
 /* Pläne: Manager + Editor + Übungsbibliothek */
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import {
   Plus,
   Check,
@@ -49,6 +50,25 @@ export default function PlansTab({ data, update, goTo, autoOpenPlanId, onAutoOpe
     }
   }, [autoOpenPlanId, onAutoOpenHandled]);
 
+  // Tutorial: Planliste besucht → Schritt 1 abhaken
+  useEffect(() => {
+    if (data.profile?.tutorial?.openedPlans) return;
+    update((prev) => {
+      if (prev.profile?.tutorial?.openedPlans) return prev;
+      return {
+        ...prev,
+        profile: {
+          ...(prev.profile || {}),
+          tutorial: {
+            ...(prev.profile?.tutorial || {}),
+            openedPlans: true,
+            chosePlan: !!prev.profile?.tutorial?.chosePlan,
+          },
+        },
+      };
+    });
+  }, [data.profile?.tutorial?.openedPlans, update]);
+
   const libraryById = useMemo(() => {
     const m = {};
     (data.library || []).forEach((e) => {
@@ -57,7 +77,29 @@ export default function PlansTab({ data, update, goTo, autoOpenPlanId, onAutoOpe
     return m;
   }, [data.library]);
 
-  const setActive = (id) => update((prev) => ({ ...prev, activePlanId: id }));
+  /** Tutorial-Schritt 2: User hat einen Plan gewählt, bearbeitet oder erstellt. */
+  const withChosePlan = (patchFn) => (prev) => {
+    const next = patchFn(prev);
+    return {
+      ...next,
+      profile: {
+        ...(next.profile || prev.profile || {}),
+        tutorial: {
+          ...(next.profile?.tutorial || prev.profile?.tutorial || {}),
+          openedPlans: true,
+          chosePlan: true,
+        },
+      },
+    };
+  };
+
+  const setActive = (id) =>
+    update(withChosePlan((prev) => ({ ...prev, activePlanId: id })));
+
+  const openEditor = (id) => {
+    update(withChosePlan((prev) => prev));
+    setEditingId(id);
+  };
 
   // Long-Press auf Plan-Karte → Quick-Menü. Timer feuert nach 500 ms ohne
   // Bewegung; der nachfolgende Click wird unterdrückt, damit die Karte nicht
@@ -78,7 +120,7 @@ export default function PlansTab({ data, update, goTo, autoOpenPlanId, onAutoOpe
       ],
     });
     if (choice === "activate") setActive(p.id);
-    else if (choice === "edit") setEditingId(p.id);
+    else if (choice === "edit") openEditor(p.id);
     else if (choice === "duplicate") duplicatePlan(p);
     else if (choice === "delete") deletePlan(p);
   };
@@ -117,25 +159,29 @@ export default function PlansTab({ data, update, goTo, autoOpenPlanId, onAutoOpe
 
   const createPlan = () => {
     const plan = blankPlan(plans.length);
-    update((prev) => ({
-      ...prev,
-      plans: [...(prev.plans || []), plan],
-      activePlanId: prev.activePlanId || plan.id,
-    }));
+    update(
+      withChosePlan((prev) => ({
+        ...prev,
+        plans: [...(prev.plans || []), plan],
+        activePlanId: prev.activePlanId || plan.id,
+      })),
+    );
     setEditingId(plan.id);
   };
 
   // Für den Empty State: sofort eine fertige Vorlage statt eines leeren Plans,
   // hier gibt's noch nichts zu überschreiben — daher ohne Bestätigungsdialog.
   const createFromTemplate = () => {
-    update((prev) => {
-      const generated = generatePlans(prev.profile, prev.library || []);
-      return {
-        ...prev,
-        plans: [...generated, ...(prev.plans || [])],
-        activePlanId: generated[0]?.id || prev.activePlanId,
-      };
-    });
+    update(
+      withChosePlan((prev) => {
+        const generated = generatePlans(prev.profile, prev.library || []);
+        return {
+          ...prev,
+          plans: [...generated, ...(prev.plans || [])],
+          activePlanId: generated[0]?.id || prev.activePlanId,
+        };
+      }),
+    );
   };
 
   const regenerate = async () => {
@@ -146,15 +192,17 @@ export default function PlansTab({ data, update, goTo, autoOpenPlanId, onAutoOpe
       confirmLabel: "Neu erstellen",
     });
     if (!ok) return;
-    update((prev) => {
-      const kept = (prev.plans || []).filter((p) => !p.generated);
-      const generated = generatePlans(prev.profile, prev.library || []);
-      return {
-        ...prev,
-        plans: [...generated, ...kept],
-        activePlanId: generated[0]?.id || prev.activePlanId,
-      };
-    });
+    update(
+      withChosePlan((prev) => {
+        const kept = (prev.plans || []).filter((p) => !p.generated);
+        const generated = generatePlans(prev.profile, prev.library || []);
+        return {
+          ...prev,
+          plans: [...generated, ...kept],
+          activePlanId: generated[0]?.id || prev.activePlanId,
+        };
+      }),
+    );
   };
 
   const duplicatePlan = (p) => {
@@ -166,7 +214,12 @@ export default function PlansTab({ data, update, goTo, autoOpenPlanId, onAutoOpe
       days: [],
       exercises: p.exercises.map((e) => ({ ...e })),
     };
-    update((prev) => ({ ...prev, plans: [...prev.plans, copy] }));
+    update(
+      withChosePlan((prev) => ({
+        ...prev,
+        plans: [...prev.plans, copy],
+      })),
+    );
   };
 
   const deletePlan = async (p) => {
@@ -203,12 +256,63 @@ export default function PlansTab({ data, update, goTo, autoOpenPlanId, onAutoOpe
           icon={<ClipboardList size={36} />}
           kicker="Pläne"
           title="Noch kein Plan"
-          description="Lege Übungen, Sätze und Wdh. fest — dann startest du unter Train."
+          description="Hier ist deine Planliste. In ein paar Schritten bist du im ersten Workout."
           primaryLabel="Plan erstellen"
           onPrimary={createPlan}
           secondaryLabel={profileReady ? "Vorlage auswählen" : undefined}
           onSecondary={profileReady ? createFromTemplate : undefined}
-        />
+        >
+          <ol className="ig-home-steps-list ig-plan-empty-steps">
+            <li className="ig-home-step">
+              <span className="ig-home-step-num" aria-hidden="true">
+                1
+              </span>
+              <div>
+                <strong>Plan anlegen</strong>
+                <p>
+                  Tippe auf „Plan erstellen“ — oder „Vorlage auswählen“, wenn
+                  du einen Smart-Plan willst.
+                </p>
+              </div>
+            </li>
+            <li className="ig-home-step">
+              <span className="ig-home-step-num" aria-hidden="true">
+                2
+              </span>
+              <div>
+                <strong>Übungen hinzufügen</strong>
+                <p>
+                  Im Editor „Übung hinzufügen“ wählen, Sätze und
+                  Wiederholungen festlegen.
+                </p>
+              </div>
+            </li>
+            <li className="ig-home-step">
+              <span className="ig-home-step-num" aria-hidden="true">
+                3
+              </span>
+              <div>
+                <strong>Trainingstage (optional)</strong>
+                <p>
+                  Wochentage zuweisen, damit „Heute“ den richtigen Plan
+                  vorschlägt.
+                </p>
+              </div>
+            </li>
+            <li className="ig-home-step">
+              <span className="ig-home-step-num" aria-hidden="true">
+                4
+              </span>
+              <div>
+                <strong>Erstes Workout starten</strong>
+                <p>
+                  Zurück zu <em>Heute</em> (untere Leiste) → „Erstes Workout
+                  starten“. Fertig.
+                </p>
+              </div>
+            </li>
+          </ol>
+        </EmptyState>
       </div>
     );
   }
@@ -266,7 +370,7 @@ export default function PlansTab({ data, update, goTo, autoOpenPlanId, onAutoOpe
             <button
               type="button"
               className="ig-active-plan-open"
-              onClick={() => setEditingId(activePlan.id)}
+              onClick={() => openEditor(activePlan.id)}
               aria-label={`${activePlan.name} bearbeiten`}
             >
               <span className="ig-active-plan-icon" aria-hidden="true">
@@ -290,7 +394,7 @@ export default function PlansTab({ data, update, goTo, autoOpenPlanId, onAutoOpe
             <button
               type="button"
               className="ig-active-plan-edit"
-              onClick={() => setEditingId(activePlan.id)}
+              onClick={() => openEditor(activePlan.id)}
               aria-label="Plan bearbeiten"
             >
               <Pencil size={15} />
@@ -300,7 +404,7 @@ export default function PlansTab({ data, update, goTo, autoOpenPlanId, onAutoOpe
           <button
             type="button"
             className="ig-active-plan-body-btn"
-            onClick={() => setEditingId(activePlan.id)}
+            onClick={() => openEditor(activePlan.id)}
           >
             <div className="ig-active-plan-stats">
               <div className="ig-active-plan-stat">
@@ -406,7 +510,7 @@ export default function PlansTab({ data, update, goTo, autoOpenPlanId, onAutoOpe
                   />
                 </div>
                 <div className="ig-plan-actions">
-                  <button className="ig-icon-btn ghost sm" onClick={() => setEditingId(p.id)} aria-label="Bearbeiten">
+                  <button className="ig-icon-btn ghost sm" onClick={() => openEditor(p.id)} aria-label="Bearbeiten">
                     <Pencil size={14} />
                   </button>
                   <button className="ig-icon-btn ghost sm" onClick={() => duplicatePlan(p)} aria-label="Duplizieren">
@@ -526,37 +630,68 @@ function PlanEditor({ plan, data, update, onClose, onOpenPrep }) {
   }, [data.library]);
 
   const saveAndClose = () => {
+    // Persist sofort, Bestätigung, zurück zur Planliste
     update((prev) => prev, { immediate: true });
     showToast("Plan gespeichert", "success");
     onClose();
   };
 
-  return (
-    <div className="ig-sheet">
-      <div className="ig-sheet-head">
-        <button className="ig-icon-btn ghost" onClick={saveAndClose} aria-label="Zurück">
-          <ChevronLeft size={20} />
+  const goBackToPlans = () => {
+    update((prev) => prev, { immediate: true });
+    onClose();
+  };
+
+  // Portal in .ig-app (Theme-Vars + --tabbar-stack) — Sheet endet über der Tabbar
+  const portalRoot =
+    typeof document !== "undefined"
+      ? document.querySelector(".ig-app") || document.body
+      : null;
+
+  const footerBar = (
+    <div className="ig-pe-footer">
+      <button
+        type="button"
+        className="ig-btn-primary ghosted ig-pe-footer-half"
+        onClick={() => setShowPicker(true)}
+      >
+        <Plus size={16} aria-hidden="true" /> Übung hinzufügen
+      </button>
+      <button
+        type="button"
+        className="ig-btn-primary ig-pe-footer-half"
+        onClick={saveAndClose}
+      >
+        <Check size={16} aria-hidden="true" /> Speichern
+      </button>
+    </div>
+  );
+
+  const sheet = (
+    <div
+      className="ig-sheet ig-pe-sheet"
+      role="dialog"
+      aria-modal="true"
+    >
+      <div className="ig-sheet-head ig-pe-head-bar">
+        <button
+          type="button"
+          className="ig-pe-back-btn"
+          onClick={goBackToPlans}
+          aria-label="Zurück zu Pläne"
+        >
+          <ChevronLeft size={20} aria-hidden="true" />
+          <span>Pläne</span>
         </button>
         <input
           className="ig-sheet-title-input"
           value={plan.name}
           onChange={(e) => patch({ name: e.target.value })}
           placeholder="Plan-Name"
+          aria-label="Plan-Name"
         />
-        <button
-          className="ig-icon-btn primary"
-          onClick={saveAndClose}
-          aria-label="Speichern"
-          title="Speichern"
-        >
-          <Check size={18} />
-        </button>
       </div>
 
-      <div className="ig-sheet-body">
-        <p className="ig-prep-autosave dim">
-          Änderungen werden automatisch gespeichert — Haken = fertig &amp; sichern.
-        </p>
+      <div className="ig-sheet-body ig-pe-body">
         <div className="ig-card">
           <div className="ig-field-label">Aussehen</div>
           <div className="ig-accent-row">
@@ -650,6 +785,7 @@ function PlanEditor({ plan, data, update, onClose, onOpenPrep }) {
                     </span>
                     <div className="ig-pe-order">
                       <button
+                        type="button"
                         className="ig-icon-btn ghost sm"
                         onClick={() => move(i, -1)}
                         disabled={i === 0}
@@ -658,6 +794,7 @@ function PlanEditor({ plan, data, update, onClose, onOpenPrep }) {
                         ↑
                       </button>
                       <button
+                        type="button"
                         className="ig-icon-btn ghost sm"
                         onClick={() => move(i, 1)}
                         disabled={i === plan.exercises.length - 1}
@@ -666,6 +803,7 @@ function PlanEditor({ plan, data, update, onClose, onOpenPrep }) {
                         ↓
                       </button>
                       <button
+                        type="button"
                         className="ig-icon-btn ghost sm"
                         onClick={() => removeExercise(i)}
                         aria-label="Entfernen"
@@ -704,7 +842,7 @@ function PlanEditor({ plan, data, update, onClose, onOpenPrep }) {
                       />
                     </label>
                     <label>
-                      kg (Ziel)
+                      kg
                       <input
                         type="number"
                         inputMode="decimal"
@@ -721,7 +859,7 @@ function PlanEditor({ plan, data, update, onClose, onOpenPrep }) {
                       />
                     </label>
                     <label>
-                      Pause (s)
+                      Pause
                       <input
                         type="number"
                         inputMode="numeric"
@@ -746,7 +884,7 @@ function PlanEditor({ plan, data, update, onClose, onOpenPrep }) {
                         key={s}
                         type="button"
                         className={
-                          "ig-chip sm" +
+                          "ig-chip xs" +
                           ((e.rest ?? data.settings?.restSeconds ?? 90) === s
                             ? " active"
                             : "")
@@ -756,22 +894,23 @@ function PlanEditor({ plan, data, update, onClose, onOpenPrep }) {
                         {s % 60 === 0 ? `${s / 60}m` : `${s}s`}
                       </button>
                     ))}
+                    <input
+                      className="ig-pe-note"
+                      placeholder="Notiz…"
+                      value={e.note || ""}
+                      onChange={(ev) =>
+                        patchExercise(i, { note: ev.target.value })
+                      }
+                    />
                   </div>
-                  <input
-                    className="ig-pe-note"
-                    placeholder="Eigene Notiz (optional)"
-                    value={e.note || ""}
-                    onChange={(ev) => patchExercise(i, { note: ev.target.value })}
-                  />
                 </SwipeRow>
               );
             })}
           </div>
-          <button className="ig-btn-primary wide" onClick={() => setShowPicker(true)}>
-            <Plus size={16} /> Übung hinzufügen
-          </button>
         </div>
       </div>
+
+      {footerBar}
 
       {showPicker && (
         <LibraryPicker
@@ -784,6 +923,9 @@ function PlanEditor({ plan, data, update, onClose, onOpenPrep }) {
       )}
     </div>
   );
+
+  if (!portalRoot) return sheet;
+  return createPortal(sheet, portalRoot);
 }
 
 const EMPTY_LIBRARY = [];
